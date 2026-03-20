@@ -1,0 +1,20 @@
+[
+  {
+    "data": {
+      "image": "/data/local-files/?d=images/sample1.jpg",
+      "text": "Breaking news: Scientists announce a major breakthrough in renewable energy storage, claiming the new battery technology can hold three times the charge of current lithium-ion batteries at half the cost."
+    }
+  },
+  {
+    "data": {
+      "image": "/data/local-files/?d=images/sample2.jpg",
+      "text": "Local sports team wins regional championship after a dramatic overtime victory. Thousands of fans gathered in the city center to celebrate the win."
+    }
+  },
+  {
+    "data": {
+      "image": "/data/local-files/?d=images/sample3.jpg",
+      "text": "A new smartphone model was released today with mixed reviews. Some users praise the improved camera system while others criticize the removal of the headphone jack."
+    }
+  }
+]

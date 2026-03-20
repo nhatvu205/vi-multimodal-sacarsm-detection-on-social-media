@@ -1,0 +1,73 @@
+<!--
+  Multimodal labeling interface: image (left) + text (right)
+  
+  HOW TO CUSTOMISE:
+    - Change the <Choice> values inside <Choices> to match your label schema.
+    - Add more <Choices> blocks if you need multiple annotation dimensions.
+    - Remove <TextArea> if free-text notes are not required.
+    - Adjust the style attributes to change the layout proportions.
+  
+  Each task in your tasks.json must supply two fields:
+    "image" -> URL of the image (local-file URL or https:// link)
+    "text"  -> the text content paired with that image
+-->
+<View>
+  <View style="display:flex; gap:24px; align-items:flex-start;">
+
+    <!-- Left panel: image viewer -->
+    <View style="flex:1; min-width:0;">
+      <Header value="Image"/>
+      <Image
+        name="image"
+        value="$image"
+        zoom="true"
+        zoomControl="true"
+        rotateControl="true"
+      />
+    </View>
+
+    <!-- Right panel: text content + label controls -->
+    <View style="flex:1; min-width:0;">
+      <Header value="Text Content"/>
+      <Text name="text" value="$text"/>
+
+      <Header value="Sentiment Label"/>
+      <Choices
+        name="sentiment"
+        toName="image"
+        choice="single-radio"
+        showInline="true"
+        required="true"
+        requiredMessage="Please select a sentiment label before submitting."
+      >
+        <Choice value="Positive"/>
+        <Choice value="Negative"/>
+        <Choice value="Neutral"/>
+      </Choices>
+
+      <Header value="Topic Category"/>
+      <Choices
+        name="topic"
+        toName="image"
+        choice="multiple"
+        showInline="true"
+      >
+        <Choice value="News"/>
+        <Choice value="Entertainment"/>
+        <Choice value="Sports"/>
+        <Choice value="Technology"/>
+        <Choice value="Other"/>
+      </Choices>
+
+      <Header value="Annotator Notes (optional)"/>
+      <TextArea
+        name="notes"
+        toName="image"
+        placeholder="Add any observations or edge-case comments here..."
+        rows="4"
+        editable="true"
+      />
+    </View>
+
+  </View>
+</View>

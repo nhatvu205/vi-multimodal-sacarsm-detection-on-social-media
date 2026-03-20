@@ -1,0 +1,28 @@
+# Environment / secrets
+.env
+
+# Annotation data — images are large binary files; track only the folder stub
+data/images/*
+!data/images/.gitkeep
+
+# Exported annotation files are generated locally; don't commit them
+data/exports/*
+!data/exports/.gitkeep
+
+# Docker named-volume data if you ever bind-mount to a local folder
+postgres_data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db

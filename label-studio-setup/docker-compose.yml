@@ -1,0 +1,73 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: labelstudio_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-labelstudio}
+      POSTGRES_USER: ${POSTGRES_USER:-labelstudio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-labelstudio}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-labelstudio}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  label-studio:
+    image: heartexlabs/label-studio:latest
+    container_name: labelstudio_app
+    restart: unless-stopped
+    ports:
+      - "${LS_PORT:-8080}:8080"
+    environment:
+      # Database
+      - DJANGO_DB=default
+      - POSTGRE_NAME=${POSTGRES_DB:-labelstudio}
+      - POSTGRE_USER=${POSTGRES_USER:-labelstudio}
+      - POSTGRE_PASSWORD=${POSTGRES_PASSWORD:-labelstudio}
+      - POSTGRE_PORT=5432
+      - POSTGRE_HOST=db
+      # Admin account created on first boot
+      - LABEL_STUDIO_USERNAME=${LS_USERNAME:-admin@example.com}
+      - LABEL_STUDIO_PASSWORD=${LS_PASSWORD:-Admin1234!}
+      # Allow Label Studio to serve files from the mounted local directory
+      - LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
+      - LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/label-studio/files
+    volumes:
+      # Internal Label Studio data (uploaded files, sqlite fallback, etc.)
+      - label_studio_data:/label-studio/data
+      # Host data folder mounted so images can be served locally
+      # Place all images inside ./data/images/ on the host
+      - ./data:/label-studio/files
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # One-off scripts runner — NOT a persistent service.
+  # Use:  docker compose run --rm scripts python scripts/<script>.py
+  #
+  # LS_URL is overridden here to use the internal Docker network hostname
+  # ("label-studio") instead of "localhost", which only works on the host.
+  scripts:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      - LS_URL=http://label-studio:8080
+    volumes:
+      - ./scripts:/app/scripts
+      - ./config:/app/config
+      - ./data:/app/data
+      - ./sample_data:/app/sample_data
+    depends_on:
+      - label-studio
+
+volumes:
+  postgres_data:
+  label_studio_data:
