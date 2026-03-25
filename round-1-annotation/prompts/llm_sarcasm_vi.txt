@@ -1,0 +1,49 @@
+Bạn là một chuyên gia phân tích ngôn ngữ và hình ảnh chuyên về phát hiện mỉa mai (sarcasm) trong nội dung mạng xã hội tiếng Việt. Nhiệm vụ của bạn là đánh giá xem bài đăng sau đây có chứa mỉa mai hay không.
+
+---
+
+## DỮ LIỆU ĐẦU VÀO
+
+- **Văn bản (text):** {text}
+- **Ảnh đính kèm:** {image_description}
+
+---
+
+## HƯỚNG DẪN PHÂN TÍCH
+
+Hãy xem xét các tín hiệu mỉa mai sau trong văn bản và hình ảnh:
+
+1. **Đảo nghĩa / Mâu thuẫn (polarity flip / contradiction):** Câu văn khen nhưng thực chất chê, hoặc nội dung văn bản mâu thuẫn với hình ảnh.
+2. **Khen giả tạo (mock praise):** Dùng từ ngữ tích cực nhưng ngữ cảnh cho thấy ý nghĩa tiêu cực.
+3. **Phóng đại (hyperbole):** Cường điệu quá mức để tạo hiệu ứng châm biếm.
+4. **Meme / Irony hình ảnh (meme irony):** Hình ảnh meme, biểu tượng cảm xúc, hoặc bố cục hình ảnh tạo ra ý nghĩa ngược chiều với văn bản.
+5. **Không tương thích văn bản-hình ảnh (text-image incongruity):** Nội dung văn bản và hình ảnh không khớp nhau về ý nghĩa hoặc cảm xúc.
+6. **Tiếng lóng / Không dấu / Mã tuổi teen (slang/no-diacritics/teen code):** Các cách viết tắt, không dấu, viết tắt mạng như "vcl", "ngl", "đm", "ok thôi", "đỉnh của đỉnh" dùng với nghĩa mỉa mai.
+
+---
+
+## LƯU Ý QUAN TRỌNG
+
+- **Chống thiên kiến:** Sự xuất hiện của từ ngữ thô tục, chửi bậy, hoặc ngôn ngữ tiêu cực KHÔNG đồng nghĩa với mỉa mai. Chỉ đánh giá mỉa mai khi có sự đảo ngược nghĩa hoặc mâu thuẫn ngữ cảnh rõ ràng.
+- **Xử lý mơ hồ:** Nếu ngữ cảnh không đủ để xác định, hãy trả về nhãn `uncertain`. Không suy đoán tùy tiện.
+- **Chỉ trả về JSON:** Không thêm bất kỳ giải thích nào bên ngoài JSON. Không dùng markdown code fence.
+
+---
+
+## ĐỊNH DẠNG ĐẦU RA BẮT BUỘC
+
+Chỉ trả về đúng một đối tượng JSON với các trường sau:
+
+{
+  "llm_pred_label": "<sarcastic|non_sarcastic|uncertain>",
+  "llm_prob_sarcastic": <số thực từ 0.0 đến 1.0>,
+  "llm_confidence": <số thực từ 0.0 đến 1.0 thể hiện mức độ chắc chắn>,
+  "llm_rationale_short": "<tối đa 2 câu giải thích ngắn gọn bằng tiếng Việt>"
+}
+
+Quy tắc:
+- `llm_pred_label`: nhãn dự đoán, chỉ được là "sarcastic", "non_sarcastic", hoặc "uncertain"
+- `llm_prob_sarcastic`: xác suất mỉa mai từ 0.0 đến 1.0
+- `llm_confidence`: mức độ tin cậy của dự đoán từ 0.0 đến 1.0
+- `llm_rationale_short`: lý do ngắn gọn, tối đa 2 câu, bằng tiếng Việt
+- Nếu không có ảnh hoặc ảnh không đọc được, chỉ dựa vào văn bản để phán đoán
