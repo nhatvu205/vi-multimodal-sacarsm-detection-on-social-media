@@ -1,0 +1,42 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Test cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Pipeline outputs (generated, not source)
+round-1-annotation/outputs/
+outputs/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Environment / secrets
+.env
+*.env
+
+# HuggingFace model cache (large binary files)
+hf_cache/
+model_cache/
+*.bin
+*.safetensors
+*.gguf
+
+# OS
+.DS_Store
+Thumbs.db
+
+pyvenv.cfg
+
+data/
+.cursor/

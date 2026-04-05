@@ -15,9 +15,17 @@ logger = get_logger(__name__)
 
 @dataclass
 class RouterConfig:
-    sarcastic_high: float = 0.85
-    nonsarcastic_low: float = 0.15
-    conf_threshold: float = 0.70
+    """
+    Routing thresholds for the Round-1 pipeline.
+
+    With the new prompt schema, confidence is expressed via the model's
+    Difficulty field ("Easy" = high confidence, "Hard" = lower confidence)
+    rather than a numeric probability score.
+
+    random_audit_rate : fraction of auto-accepted records re-routed to human
+                        queue for quality-control sampling.
+    seed              : RNG seed for reproducible audit sampling.
+    """
     random_audit_rate: float = 0.10
     seed: int = 42
 
@@ -29,27 +37,35 @@ def route_single(
     image_path: str,
     route_reason_override: Optional[str] = None,
 ) -> Round1OutputRecord:
-    """Compute routing decision for a single record based on LLM output alone."""
-    p_llm = llm_rec.llm_prob_sarcastic
+    """
+    Compute routing decision for a single record.
+
+    Routing rules (in order):
+      1. Missing image  -> needs_human_review / missing_image
+      2. JSON parse error -> needs_human_review / invalid_json
+      3. Label_LLM1 == "INVALID" -> needs_human_review / uncertain
+      4. Difficulty == "Easy" -> auto-accept sarcastic or non_sarcastic / high_conf
+      5. Difficulty == "Hard" or None -> needs_human_review / low_conf
+    """
+    label = llm_rec.label_llm1
+    difficulty = llm_rec.difficulty
 
     if route_reason_override == "missing_image":
         round1_label = "needs_human_review"
-        route_reason = "missing_image"
+        route_reason: str = "missing_image"
+
     elif route_reason_override == "invalid_json":
         round1_label = "needs_human_review"
         route_reason = "invalid_json"
-    elif llm_rec.llm_pred_label == "uncertain":
+
+    elif label == "INVALID":
         round1_label = "needs_human_review"
         route_reason = "uncertain"
-    elif llm_rec.llm_confidence < cfg.conf_threshold:
-        round1_label = "needs_human_review"
-        route_reason = "low_conf"
-    elif p_llm >= cfg.sarcastic_high:
-        round1_label = "sarcastic"
+
+    elif difficulty == "Easy":
+        round1_label = "sarcastic" if label == 1 else "non_sarcastic"
         route_reason = "high_conf"
-    elif p_llm <= cfg.nonsarcastic_low:
-        round1_label = "non_sarcastic"
-        route_reason = "high_conf"
+
     else:
         round1_label = "needs_human_review"
         route_reason = "low_conf"
@@ -58,12 +74,14 @@ def route_single(
         id=llm_rec.id,
         text=text,
         image_path=image_path,
-        llm_pred_label=llm_rec.llm_pred_label,
-        llm_prob_sarcastic=round(p_llm, 6),
-        llm_confidence=round(llm_rec.llm_confidence, 6),
+        label_llm1=label,
+        text_only=llm_rec.text_only,
+        imageset_only=llm_rec.imageset_only,
+        key_images=llm_rec.key_images,
+        difficulty=difficulty,
+        notes=llm_rec.notes,
         round1_label=round1_label,
         route_reason=route_reason,
-        llm_rationale_short=llm_rec.llm_rationale_short,
         timestamp_utc=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     )
 
@@ -121,12 +139,10 @@ def route_all(
             continue
 
         override = None
-        if llm_rec.llm_pred_label == "uncertain" and llm_rec.llm_confidence == 0.0:
-            rationale = llm_rec.llm_rationale_short.lower()
-            if "json" in rationale or "parse" in rationale:
-                override = "invalid_json"
-            elif "image" in rationale or "missing" in rationale or "unreadable" in rationale:
-                override = "missing_image"
+        if llm_rec.image_missing:
+            override = "missing_image"
+        elif llm_rec.parse_error:
+            override = "invalid_json"
 
         out = route_single(llm_rec, cfg, inp.text, inp.image_path, override)
         routed.append(out)

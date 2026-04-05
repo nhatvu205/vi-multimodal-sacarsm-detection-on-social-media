@@ -43,9 +43,6 @@ def load_config(path: str) -> dict:
 
 def build_router_config(cfg: dict) -> RouterConfig:
     return RouterConfig(
-        sarcastic_high=float(cfg.get("sarcastic_high", 0.85)),
-        nonsarcastic_low=float(cfg.get("nonsarcastic_low", 0.15)),
-        conf_threshold=float(cfg.get("conf_threshold", 0.70)),
         random_audit_rate=float(cfg.get("random_audit_rate", 0.10)),
         seed=int(cfg.get("seed", 42)),
     )
@@ -133,18 +130,6 @@ def run_llm_with_checkpoint(
 # Statistics
 # ---------------------------------------------------------------------------
 
-def _build_histogram(values: list[float], n_bins: int = 10) -> list[dict]:
-    if not values:
-        return []
-    step = 1.0 / n_bins
-    bins = [{"range": f"[{i*step:.1f},{(i+1)*step:.1f})", "count": 0} for i in range(n_bins)]
-    bins[-1]["range"] = bins[-1]["range"].replace(")", "]")
-    for v in values:
-        idx = min(int(v * n_bins), n_bins - 1)
-        bins[idx]["count"] += 1
-    return bins
-
-
 def build_stats(
     all_records: List[Round1OutputRecord],
     bad_count: int,
@@ -154,7 +139,7 @@ def build_stats(
     auto_accepted = [r for r in all_records if r.round1_label in ("sarcastic", "non_sarcastic")]
     human_queue = [r for r in all_records if r.round1_label == "needs_human_review"]
 
-    uncertain_count = sum(1 for r in all_records if r.llm_pred_label == "uncertain")
+    invalid_count = sum(1 for r in all_records if r.label_llm1 == "INVALID")
     audit_count = sum(1 for r in all_records if r.route_reason == "audit_sampled")
 
     class_dist: dict = {}
@@ -165,6 +150,17 @@ def build_stats(
     for r in all_records:
         route_dist[r.route_reason] = route_dist.get(r.route_reason, 0) + 1
 
+    difficulty_dist: dict = {"Easy": 0, "Hard": 0, "null": 0}
+    for r in all_records:
+        key = r.difficulty if r.difficulty in ("Easy", "Hard") else "null"
+        difficulty_dist[key] += 1
+
+    text_only_dist: dict = {0: 0, 1: 0, "null": 0}
+    imageset_only_dist: dict = {0: 0, 1: 0, "null": 0}
+    for r in all_records:
+        text_only_dist[r.text_only if r.text_only is not None else "null"] += 1
+        imageset_only_dist[r.imageset_only if r.imageset_only is not None else "null"] += 1
+
     return {
         "total_samples": total_samples,
         "processed_samples": processed,
@@ -173,13 +169,13 @@ def build_stats(
         "human_queue_count": len(human_queue),
         "auto_accept_rate": round(len(auto_accepted) / processed, 4) if processed else 0,
         "human_queue_rate": round(len(human_queue) / processed, 4) if processed else 0,
-        "uncertain_count": uncertain_count,
+        "invalid_count": invalid_count,
         "audit_sampled_count": audit_count,
         "class_distribution_auto_accepted": class_dist,
         "route_reason_distribution": route_dist,
-        "llm_prob_histogram_10_bins": _build_histogram(
-            [r.llm_prob_sarcastic for r in all_records], 10
-        ),
+        "difficulty_distribution": difficulty_dist,
+        "text_only_distribution": {str(k): v for k, v in text_only_dist.items()},
+        "imageset_only_distribution": {str(k): v for k, v in imageset_only_dist.items()},
     }
 
 
@@ -265,10 +261,10 @@ def run_pipeline(
 
     logger.info("=== Round-1 Pipeline Complete ===")
     logger.info(
-        "auto_accept_rate=%.2f | human_queue_rate=%.2f | uncertain=%d",
+        "auto_accept_rate=%.2f | human_queue_rate=%.2f | invalid=%d",
         stats["auto_accept_rate"],
         stats["human_queue_rate"],
-        stats["uncertain_count"],
+        stats["invalid_count"],
     )
 
 

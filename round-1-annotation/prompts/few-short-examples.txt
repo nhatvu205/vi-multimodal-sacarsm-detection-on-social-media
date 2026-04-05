@@ -1,0 +1,139 @@
+
+---
+
+=== VÍ DỤ THAM KHẢO ===
+
+--- VÍ DỤ 1: SARCASTIC (conflict text vs image) ---
+
+Input:
+[TEXT] Công trình hoàn thành đúng tiến độ, chất lượng tuyệt vời 👏
+[IMAGES] Tổng số ảnh: 2
+- Ảnh 1: Hình chụp con đường mới làm đã xuất hiện nhiều ổ gà lớn, nước đọng thành vũng.
+- Ảnh 2: Biển hiệu ghi "Công trình hoàn thành tháng 3/2024".
+
+Output:
+{
+  "reasoning": {
+    "first_check": {
+      "is_valid": "Valid",
+      "invalid_reason": ""
+    },
+    "second_check": {
+      "argue_label_0": "Có thể lập luận rằng đây là một bài đăng thông báo chính thức hoặc chia sẻ tin tức hoàn thành công trình một cách chân thành. Emoji 👏 phù hợp với tone chúc mừng. Ảnh 2 (biển hoàn thành) xác nhận sự kiện có thật. Người đăng có thể thực sự hài lòng với tiến độ bàn giao dù chất lượng chưa hoàn hảo.",
+      "argue_label_1": "Cụm từ 'chất lượng tuyệt vời' là tuyên bố tuyệt đối — và Ảnh 1 bác bỏ hoàn toàn: đường mới bàn giao đã xuất hiện ổ gà và nước đọng. Đây là mâu thuẫn không thể chối cãi. Trong bối cảnh Việt Nam, chủ đề công trình hạ tầng kém chất lượng là nguồn mỉa mai phổ biến. Người đăng cố tình khen 'tuyệt vời' trong khi đính kèm ảnh thực tế tệ hại — đây là sarcasm bằng hình ảnh điển hình."
+    },
+    "third_check": {
+      "emoji_present": ["👏"],
+      "effect_on_sentence": "Emoji vỗ tay thường mang nghĩa chúc mừng hoặc khen ngợi chân thành. Đứng một mình với text, 👏 củng cố tone khen ngợi bề mặt. Tuy nhiên khi đặt cạnh ảnh thực tế tiêu cực, emoji này trở thành một phần của sarcasm — vỗ tay khen công trình hỏng."
+    },
+    "final_verdict": "Lập luận Nhãn 1 áp đảo: conflict giữa text ('chất lượng tuyệt vời') và Ảnh 1 (đường hỏng ngay sau bàn giao) là không thể phủ nhận. Lập luận Nhãn 0 không đứng vững trước bằng chứng ảnh. Label_LLM1 = 1.",
+    "text_only_decision": "Không nhìn ảnh: 'chất lượng tuyệt vời 👏' về công trình công cộng gợi nghi ngờ mỉa mai do phong cách ca ngợi tuyệt đối, nhưng không đủ chắc chắn. Text_Only = 1 (nghi ngờ mỉa mai).",
+    "imageset_only_decision": "Ảnh 1 (đường hỏng) + Ảnh 2 (biển hoàn thành) kết hợp có thể đọc là phê phán, nhưng không rõ ràng khi thiếu text. ImageSet_Only = 0."
+  },
+  "Label_LLM1": 1,
+  "Text_Only": 1,
+  "ImageSet_Only": 0,
+  "Key_Images": [1],
+  "Difficulty": "Easy",
+  "Notes": ""
+}
+
+--- VÍ DỤ 2: NON-SARCASTIC ---
+
+Input:
+[TEXT] Hôm nay mưa to quá, ở nhà nấu mì gói thôi 🌧️
+[IMAGES] Tổng số ảnh: 1
+- Ảnh 1: Hình cửa sổ với giọt mưa chảy dài, bầu trời xám ngoài khung cửa.
+
+Output:
+{
+  "reasoning": {
+    "first_check": {
+      "is_valid": "Valid",
+      "invalid_reason": ""
+    },
+    "second_check": {
+      "argue_label_0": "Text chia sẻ thời tiết mưa và quyết định ở nhà nấu mì — một hành động sinh hoạt hoàn toàn bình thường. Không có khen ngợi quá mức, không có cấu trúc nói ngược. Ảnh cửa sổ mưa minh họa trực tiếp và chính xác nội dung text. Emoji 🌧️ phù hợp hoàn toàn. Đây là bài đăng chia sẻ thường ngày không có dấu hiệu ẩn ý.",
+      "argue_label_1": "Cố gắng tìm dấu hiệu mỉa mai: 'mì gói' có thể ngầm ý than nghèo hoặc lười biếng — nhưng đây là diễn giải quá gượng ép. Không có emoji chế giễu, không có mâu thuẫn với ảnh, không có bối cảnh xã hội khiến câu này mang nghĩa ngược. Lập luận Nhãn 1 cực kỳ yếu."
+    },
+    "third_check": {
+      "emoji_present": ["🌧️"],
+      "effect_on_sentence": "Emoji mưa củng cố trực tiếp nội dung text về thời tiết mưa. Không có hiệu ứng đảo ngược hay châm biếm. Emoji hoàn toàn nhất quán với nghĩa đen của câu."
+    },
+    "final_verdict": "Lập luận Nhãn 0 hoàn toàn thuyết phục. Lập luận Nhãn 1 không tìm được bất kỳ conflict đáng kể nào. Text, ảnh, emoji nhất quán hoàn toàn. Label_LLM1 = 0.",
+    "text_only_decision": "Text + emoji đọc độc lập là chia sẻ thời tiết chân thành, không có dấu hiệu mỉa mai. Text_Only = 0.",
+    "imageset_only_decision": "Ảnh cửa sổ mưa không mang tính châm biếm hay hài hước. ImageSet_Only = 0."
+  },
+  "Label_LLM1": 0,
+  "Text_Only": 0,
+  "ImageSet_Only": 0,
+  "Key_Images": [],
+  "Difficulty": "Easy",
+  "Notes": ""
+}
+
+--- VÍ DỤ 3: SARCASTIC (emoji-driven, không có ảnh) ---
+
+Input:
+[TEXT] Họp 3 tiếng đồng hồ để quyết định màu sắc của nút bấm. Productive lắm 😂🤡
+[IMAGES] Không có ảnh.
+
+Output:
+{
+  "reasoning": {
+    "first_check": {
+      "is_valid": "Valid",
+      "invalid_reason": ""
+    },
+    "second_check": {
+      "argue_label_0": "Có thể lập luận rằng người đăng thực sự hài lòng với cuộc họp và dùng 'Productive' theo nghĩa đen, còn emoji 😂🤡 chỉ thể hiện không khí vui vẻ của buổi họp. Tuy nhiên lập luận này rất yếu — không có bối cảnh nào khiến một cuộc họp 3 tiếng chỉ để chọn màu nút được coi là productive thực sự.",
+      "argue_label_1": "Từ 'Productive lắm' đứng sau mô tả cuộc họp 3 tiếng chỉ để quyết định chi tiết vô nghĩa — đây là khen ngợi ngược rõ ràng. Emoji 😂🤡 là bằng chứng không thể chối cãi: cười lăn và hề cùng nhau sau câu ca ngợi công việc = chế giễu hoàn toàn. Văn hóa 'họp vô bổ' là chủ đề mỉa mai phổ biến trong cộng đồng mạng Việt Nam."
+    },
+    "third_check": {
+      "emoji_present": ["😂", "🤡"],
+      "effect_on_sentence": "😂 (cười lăn) và 🤡 (hề/clown) là tổ hợp emoji chế giễu mạnh. Đặt sau 'Productive lắm', hai emoji này đảo ngược hoàn toàn nghĩa bề mặt của từ 'Productive' — biến lời khen thành chỉ trích. Đây là trường hợp emoji quyết định toàn bộ nhãn của câu."
+    },
+    "final_verdict": "Lập luận Nhãn 1 áp đảo từ cả hai phía: cấu trúc 'khen ngược' của text và tổ hợp emoji 😂🤡 cùng bác bỏ Nhãn 0. Conflict là không thể phủ nhận. Label_LLM1 = 1.",
+    "text_only_decision": "'Productive lắm 😂🤡' đọc độc lập là mỉa mai rõ ràng nhờ tổ hợp emoji chế giễu. Text_Only = 1.",
+    "imageset_only_decision": "Không có ảnh. ImageSet_Only = 0."
+  },
+  "Label_LLM1": 1,
+  "Text_Only": 1,
+  "ImageSet_Only": 0,
+  "Key_Images": [],
+  "Difficulty": "Easy",
+  "Notes": ""
+}
+
+--- VÍ DỤ 4: INVALID ---
+
+Input:
+[TEXT] Chị Nguyễn Thị Lan, 0912345678, địa chỉ 12 Lê Lợi Q1. Đúng là dịch vụ tuyệt vời 🙄
+[IMAGES] Không có ảnh.
+
+Output:
+{
+  "reasoning": {
+    "first_check": {
+      "is_valid": "INVALID",
+      "invalid_reason": "Bài đăng chứa PII: họ tên đầy đủ (Nguyễn Thị Lan), số điện thoại (0912345678) và địa chỉ nhà riêng (12 Lê Lợi Q1). Không thể gán nhãn."
+    },
+    "second_check": {
+      "argue_label_0": "",
+      "argue_label_1": ""
+    },
+    "third_check": {
+      "emoji_present": [],
+      "effect_on_sentence": ""
+    },
+    "final_verdict": "INVALID",
+    "text_only_decision": "",
+    "imageset_only_decision": ""
+  },
+  "Label_LLM1": "INVALID",
+  "Text_Only": null,
+  "ImageSet_Only": null,
+  "Key_Images": [],
+  "Difficulty": null,
+  "Notes": "PII detected: full name, phone number, home address."
+}

@@ -1,6 +1,6 @@
 # Round-1 Weak Annotation Pipeline
 
-Sinh nhãn yếu (silver labels) cho bài toán phát hiện mỉa mai đa phương thức tiếng Việt bằng phương pháp **LLM-as-a-judge** sử dụng mô hình **Qwen2.5-VL-7B-Instruct** chạy cục bộ trên GPU.
+Sinh nhãn yếu (silver labels) cho bài toán phát hiện mỉa mai đa phương thức tiếng Việt bằng phương pháp **LLM-as-a-judge** sử dụng mô hình **Qwen3,5-2B** chạy cục bộ trên GPU.
 
 > Pipeline được thiết kế để chạy trên **Kaggle Notebooks** (GPU T4/P100 miễn phí).
 
@@ -54,7 +54,7 @@ Data (ảnh + JSON) **không** nằm trong repo do kích thước lớn. Cần u
 
 ### Bước 4 — Thêm HF_TOKEN vào Kaggle Secrets
 
-HuggingFace token dùng để download mô hình Qwen2.5-VL-7B-Instruct. Mô hình này là public nên token không bắt buộc, nhưng nên cài để tránh rate limit.
+HuggingFace token dùng để download mô hình Qwen3.5-2B. Mô hình này là public nên token không bắt buộc, nhưng nên cài để tránh rate limit.
 
 1. Trong notebook → **Add-ons > Secrets > Add a new secret**
 2. Name: `HF_TOKEN`

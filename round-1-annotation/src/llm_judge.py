@@ -1,17 +1,31 @@
 from __future__ import annotations
 
 """
-LLM judge backed by local model inference (Qwen2.5-VL-7B-Instruct).
+LLM judge backed by local model inference (Qwen/Qwen3.5-2B).
 
 Requires CUDA GPU. Designed for Kaggle / Colab environments with free GPU.
 
 The model is downloaded from HuggingFace Hub on first run and cached locally.
-Set HF_TOKEN if the model requires Hub authentication:
-    export HF_TOKEN="hf_..."
-or pass it to judge_batch().
+No HF_TOKEN needed — Qwen3.5-2B is public. If you add a private model later,
+set HF_TOKEN or pass it to judge_batch().
 
 The model singleton is loaded once and reused across all batch calls in the
 same process. Supports 4-bit quantization (bitsandbytes) to reduce VRAM usage.
+
+Model: Qwen/Qwen3.5-2B
+  - Class    : AutoModelForImageTextToText  (natively multimodal, no -VL- suffix)
+  - Processor: AutoProcessor
+  - Inference API: processor.apply_chat_template(tokenize=True, return_dict=True)
+  - Operates in non-thinking mode by default (no <think> block in output)
+  - Requires: transformers >= 4.51.0
+
+Prompt contract (prompt.txt):
+  - Placeholder {text}   : the post text (may contain emoji)
+  - Placeholder {images} : short description of image availability shown in
+                           the text section; actual PIL images are prepended as
+                           content items in the VL message so the model sees them.
+  - The model must return a single JSON object with keys:
+    reasoning, Label_LLM1, Text_Only, ImageSet_Only, Key_Images, Difficulty, Notes
 """
 
 import json
@@ -22,7 +36,7 @@ from typing import List, Optional, Tuple
 
 import torch
 from PIL import Image
-from transformers import AutoProcessor, BitsAndBytesConfig, Qwen2_5_VLForConditionalGeneration
+from transformers import AutoModelForImageTextToText, AutoProcessor, BitsAndBytesConfig
 from tqdm import tqdm
 
 from .schemas import InputRecord, LLMJudgeRecord
@@ -30,7 +44,8 @@ from .utils_logging import get_logger
 
 logger = get_logger(__name__)
 
-_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "llm_sarcasm_vi.txt"
+_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "prompt.txt"
+_FEW_SHOT_PATH = Path(__file__).parent.parent / "prompts" / "few-short-examples.txt"
 _PROMPT_TEMPLATE: Optional[str] = None
 
 _MODEL = None
@@ -39,8 +54,8 @@ _LOADED_MODEL_NAME: Optional[str] = None
 
 _REPAIR_SUFFIX = (
     "\n\nPhản hồi trước của bạn không phải JSON hợp lệ. "
-    "Hãy chỉ trả về đúng một đối tượng JSON với các trường: "
-    "llm_pred_label, llm_prob_sarcastic, llm_confidence, llm_rationale_short. "
+    "Hãy chỉ trả về đúng một đối tượng JSON với các trường bắt buộc: "
+    "reasoning, Label_LLM1, Text_Only, ImageSet_Only, Key_Images, Difficulty, Notes. "
     "Không thêm bất kỳ nội dung nào khác ngoài đối tượng JSON."
 )
 
@@ -52,13 +67,28 @@ _REPAIR_SUFFIX = (
 def _load_prompt_template() -> str:
     global _PROMPT_TEMPLATE
     if _PROMPT_TEMPLATE is None:
-        _PROMPT_TEMPLATE = _PROMPT_PATH.read_text(encoding="utf-8")
+        prompt = _PROMPT_PATH.read_text(encoding="utf-8")
+        if _FEW_SHOT_PATH.exists():
+            few_shot = _FEW_SHOT_PATH.read_text(encoding="utf-8")
+            prompt = prompt.rstrip() + "\n\n" + few_shot.lstrip()
+        _PROMPT_TEMPLATE = prompt
     return _PROMPT_TEMPLATE
 
 
 def _is_vl_model(model_name: str) -> bool:
+    """
+    Detect multimodal (vision-language) models by name convention.
+
+    Covers:
+      - Qwen2.5-VL-*, Qwen3-VL-* (explicit -vl- suffix)
+      - Qwen3.5-* series (natively multimodal despite no -vl- in name)
+    """
     n = model_name.lower()
-    return "-vl-" in n or n.endswith("-vl")
+    if "-vl-" in n or n.endswith("-vl"):
+        return True
+    if "qwen3.5" in n or "qwen3_5" in n:
+        return True
+    return False
 
 
 def load_local_model(
@@ -91,17 +121,16 @@ def load_local_model(
         load_kwargs["token"] = token
 
     if load_in_4bit:
-        bnb_config = BitsAndBytesConfig(
+        load_kwargs["quantization_config"] = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4",
             bnb_4bit_compute_dtype=torch.float16,
         )
-        load_kwargs["quantization_config"] = bnb_config
     else:
-        load_kwargs["torch_dtype"] = torch.float16
+        load_kwargs["dtype"] = "auto"
 
-    _MODEL = Qwen2_5_VLForConditionalGeneration.from_pretrained(**load_kwargs)
+    _MODEL = AutoModelForImageTextToText.from_pretrained(**load_kwargs)
     _MODEL.eval()
 
     proc_kwargs: dict = {}
@@ -134,42 +163,60 @@ def _open_image(image_path: str) -> Optional[Image.Image]:
         return None
 
 
-def _extract_images_from_messages(messages: list) -> Optional[List[Image.Image]]:
-    """Pull PIL Image objects out of a messages list (Qwen chat format)."""
-    images = []
-    for msg in messages:
-        content = msg.get("content")
-        if isinstance(content, list):
-            for item in content:
-                if item.get("type") == "image":
-                    img = item.get("image")
-                    if isinstance(img, Image.Image):
-                        images.append(img)
-    return images if images else None
+def _load_images(record: InputRecord, is_vl: bool) -> Tuple[List[Image.Image], bool]:
+    """
+    Load all images for a record.
+    Returns (list_of_pil_images, image_missing_flag).
+
+    image_missing is True when the record references at least one image path
+    but none of the images could be opened from disk.
+    """
+    if not is_vl:
+        return [], False
+
+    paths: List[str] = []
+    if record.image_paths:
+        paths = record.image_paths
+    elif record.image_path:
+        paths = [record.image_path]
+
+    if not paths:
+        return [], False
+
+    images_pil = [img for p in paths for img in [_open_image(p)] if img is not None]
+    image_missing = len(images_pil) == 0
+    return images_pil, image_missing
 
 
 def _build_messages(
     text: str,
-    image_pil: Optional[Image.Image],
+    images_pil: List[Image.Image],
     is_vl: bool,
 ) -> list:
-    """Build a chat messages list in Qwen2.5-VL format."""
+    """Build a chat messages list for Qwen3.5-2B using the loaded prompt."""
     template = _load_prompt_template()
-    image_description = (
-        "[Xem ảnh đính kèm]" if image_pil else "[Không có ảnh hoặc ảnh không đọc được]"
-    )
+
+    if images_pil:
+        n = len(images_pil)
+        images_placeholder = (
+            f"[{n} ảnh đính kèm — xem ảnh trong nội dung tin nhắn]"
+            if n > 1
+            else "[Xem ảnh đính kèm]"
+        )
+    else:
+        images_placeholder = "[Không có ảnh hoặc ảnh không đọc được]"
+
     # IMPORTANT: do NOT use str.format — the prompt contains raw JSON braces
     # for output contract examples, which would raise KeyError.
     prompt = (
-        template.replace("{text}", text)
-        .replace("{image_description}", image_description)
+        template
+        .replace("{text}", text)
+        .replace("{images}", images_placeholder)
     )
 
-    if is_vl and image_pil:
-        content = [
-            {"type": "image", "image": image_pil},
-            {"type": "text", "text": prompt},
-        ]
+    if is_vl and images_pil:
+        content: list = [{"type": "image", "image": img} for img in images_pil]
+        content.append({"type": "text", "text": prompt})
     else:
         content = [{"type": "text", "text": prompt}]
 
@@ -185,18 +232,44 @@ def _extract_json(raw: str) -> dict:
 
 
 def _validate(data: dict) -> LLMJudgeRecord:
-    label = data.get("llm_pred_label", "uncertain")
-    if label not in ("sarcastic", "non_sarcastic", "uncertain"):
-        label = "uncertain"
-    prob = max(0.0, min(1.0, float(data.get("llm_prob_sarcastic", 0.5))))
-    conf = max(0.0, min(1.0, float(data.get("llm_confidence", 0.5))))
-    rationale = str(data.get("llm_rationale_short", ""))[:500]
+    """Parse and validate the new prompt output schema into a LLMJudgeRecord."""
+    raw_label = data.get("Label_LLM1", "INVALID")
+    if raw_label == "INVALID":
+        label = "INVALID"
+    elif raw_label in (0, 1):
+        label = int(raw_label)
+    else:
+        label = "INVALID"
+
+    text_only_raw = data.get("Text_Only")
+    text_only = int(text_only_raw) if text_only_raw in (0, 1) else None
+
+    imageset_only_raw = data.get("ImageSet_Only")
+    imageset_only = int(imageset_only_raw) if imageset_only_raw in (0, 1) else None
+
+    key_images = [
+        int(i) for i in (data.get("Key_Images") or [])
+        if isinstance(i, (int, float)) and not isinstance(i, bool)
+    ]
+
+    difficulty_raw = data.get("Difficulty")
+    difficulty = difficulty_raw if difficulty_raw in ("Easy", "Hard") else None
+
+    notes = str(data.get("Notes", ""))[:500]
+
+    reasoning = data.get("reasoning", {})
+    if not isinstance(reasoning, dict):
+        reasoning = {}
+
     return LLMJudgeRecord(
         id=-1,
-        llm_pred_label=label,
-        llm_prob_sarcastic=prob,
-        llm_confidence=conf,
-        llm_rationale_short=rationale,
+        label_llm1=label,
+        text_only=text_only,
+        imageset_only=imageset_only,
+        key_images=key_images,
+        difficulty=difficulty,
+        notes=notes,
+        reasoning=reasoning,
     )
 
 
@@ -209,24 +282,27 @@ def _call_local(
     processor,
     messages: list,
     temperature: float,
-    max_new_tokens: int = 512,
+    max_new_tokens: int = 1024,
 ) -> str:
-    text_input = processor.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
+    """
+    Run a single forward+generate pass using the unified processor API.
+
+    processor.apply_chat_template with tokenize=True + return_dict=True
+    handles both text tokenization and image preprocessing in one step,
+    producing a dict with input_ids, attention_mask, and pixel_values.
+    Qwen3.5-2B runs in non-thinking mode by default — no <think> block.
+    """
+    inputs = processor.apply_chat_template(
+        messages,
+        tokenize=True,
+        add_generation_prompt=True,
+        return_dict=True,
+        return_tensors="pt",
     )
-    images = _extract_images_from_messages(messages)
-
-    proc_kwargs: dict = {
-        "text": [text_input],
-        "padding": True,
-        "return_tensors": "pt",
-    }
-    if images:
-        proc_kwargs["images"] = images
-
-    inputs = processor(**proc_kwargs)
+    # Use next(model.parameters()).device so this works with device_map="auto"
+    # (model.device is not defined when the model is sharded across devices)
     device = next(model.parameters()).device
-    inputs = {k: v.to(device) for k, v in inputs.items()}
+    inputs = {k: v.to(device) if hasattr(v, "to") else v for k, v in inputs.items()}
 
     gen_kwargs: dict = {"max_new_tokens": max_new_tokens}
     if temperature > 0:
@@ -260,28 +336,21 @@ def judge_single(
     is_vl: bool,
 ) -> LLMJudgeRecord:
     """Run local inference for one record with one repair retry on bad JSON."""
-    image_pil = _open_image(record.image_path) if is_vl else None
-    missing_image = is_vl and image_pil is None
+    images_pil, image_missing = _load_images(record, is_vl)
 
-    if missing_image:
-        logger.warning("Image missing for id=%d: %s", record.id, record.image_path)
+    if image_missing:
+        logger.warning("All images missing for id=%d: %s", record.id, record.image_path)
 
-    messages = _build_messages(record.text, image_pil, is_vl)
+    messages = _build_messages(record.text, images_pil, is_vl)
     raw = ""
 
     try:
         raw = _call_local(model, processor, messages, temperature)
         result = _validate(_extract_json(raw))
-        result.id = record.id
-
-        if missing_image:
-            result = LLMJudgeRecord(
-                id=record.id,
-                llm_pred_label="uncertain",
-                llm_prob_sarcastic=result.llm_prob_sarcastic,
-                llm_confidence=0.0,
-                llm_rationale_short=result.llm_rationale_short,
-            )
+        result = result.model_copy(update={
+            "id": record.id,
+            "image_missing": image_missing,
+        })
         return result
 
     except (json.JSONDecodeError, ValueError, KeyError):
@@ -293,26 +362,29 @@ def judge_single(
         try:
             raw2 = _call_local(model, processor, repair_messages, temperature)
             result2 = _validate(_extract_json(raw2))
-            result2.id = record.id
+            result2 = result2.model_copy(update={
+                "id": record.id,
+                "image_missing": image_missing,
+            })
             return result2
         except Exception as exc2:
             logger.error("Repair failed for id=%d: %s", record.id, exc2)
             return LLMJudgeRecord(
                 id=record.id,
-                llm_pred_label="uncertain",
-                llm_prob_sarcastic=0.5,
-                llm_confidence=0.0,
-                llm_rationale_short="JSON parse error after retry.",
+                label_llm1="INVALID",
+                notes="JSON parse error after retry.",
+                parse_error=True,
+                image_missing=image_missing,
             )
 
     except Exception as exc:
         logger.error("Unexpected error for id=%d: %s", record.id, exc)
         return LLMJudgeRecord(
             id=record.id,
-            llm_pred_label="uncertain",
-            llm_prob_sarcastic=0.5,
-            llm_confidence=0.0,
-            llm_rationale_short=f"Unexpected error: {str(exc)[:100]}",
+            label_llm1="INVALID",
+            notes=f"Unexpected error: {str(exc)[:200]}",
+            parse_error=True,
+            image_missing=image_missing,
         )
 
 
@@ -334,10 +406,9 @@ def judge_batch(
     Parameters
     ----------
     records      : list of InputRecord
-    model_name   : HuggingFace model ID, e.g. "Qwen/Qwen2.5-VL-7B-Instruct"
+    model_name   : HuggingFace model ID, e.g. "Qwen/Qwen3.5-2B"
     temperature  : sampling temperature (0.1 recommended)
-    hf_token     : HF token for downloading the model from Hub (optional for
-                   public models, required for gated ones)
+    hf_token     : HF token for downloading the model from Hub
     device       : "cuda" or "cpu"
     load_in_4bit : enable 4-bit quantization via bitsandbytes to reduce VRAM
     """
@@ -353,9 +424,8 @@ def judge_batch(
         result = judge_single(model, processor, record, temperature, is_vl)
         results.append(result)
         logger.debug(
-            "id=%d | label=%s | prob=%.3f | conf=%.3f",
-            record.id, result.llm_pred_label,
-            result.llm_prob_sarcastic, result.llm_confidence,
+            "id=%d | label=%s | difficulty=%s | parse_err=%s",
+            record.id, result.label_llm1, result.difficulty, result.parse_error,
         )
 
     return results

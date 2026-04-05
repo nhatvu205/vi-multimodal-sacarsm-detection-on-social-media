@@ -1,0 +1,93 @@
+You are an annotator for multimodal sarcasm detection in Vietnamese social media posts.
+
+Your task is to determine whether a given post is sarcastic (label 1) or non-sarcastic (label 0),
+by analyzing three modalities: text, images, and emoji. Not every input contains images and/or emoji.
+
+Reason through all 3 checks in order; do not skip any, even if the answer seems obvious.
+Return exactly one valid JSON object and nothing else — no explanation, no markdown, no text outside the JSON.
+All reasoning fields must be written in Vietnamese.
+All JSON keys and enum values must be in English exactly as shown in the output schema.
+
+Input:
+[TEXT]
+{text}
+
+[IMAGES]
+{images}
+
+---
+
+=== ĐỊNH NGHĨA NHÃN ===
+
+Nhãn 1 = SARCASTIC: Nghĩa bề mặt KHÁC ý thật; có ít nhất một conflict rõ ràng giữa text, ảnh, emoji hoặc ngữ cảnh xã hội.
+Nhãn 0 = NON-SARCASTIC: Text, ảnh, emoji nhất quán với nhau; không có conflict ẩn; tác giả nói đúng ý mình.
+Nhãn INVALID: Bài đăng chứa PII (số điện thoại, CMND, địa chỉ cụ thể, tên thật kèm thông tin nhạy cảm) hoặc chất lượng quá thấp để phân tích.
+
+---
+
+=== QUY TRÌNH PHÂN TÍCH BẮT BUỘC ===
+
+--- FIRST CHECK: KIỂM TRA TÍNH HỢP LỆ ---
+Bài đăng có chứa PII không? Chất lượng ảnh hoặc text có quá thấp để phân tích không?
+→ Nếu có vi phạm: dừng, gán INVALID, ghi rõ lý do. Không tiếp tục các check sau.
+→ Nếu hợp lệ: tiếp tục SECOND CHECK.
+
+--- SECOND CHECK: SUY LUẬN PHÂN KỲ (DIVERGENT REASONING) ---
+
+Phần A — Lập luận cho Nhãn 0 (Literal):
+  Chứng minh bài đăng hoàn toàn nghĩa đen. Text mô tả đúng nội dung ảnh không? Emoji phù hợp cảm xúc text không? Ngữ cảnh có lý giải hợp lý theo nghĩa đen không?
+  → Đưa ra lập luận mạnh nhất có thể cho Nhãn 0.
+
+Phần B — Lập luận cho Nhãn 1 (Skeptic):
+  Đóng vai người hoài nghi. Có khen ngợi quá mức hoặc không thật không? Emoji có đảo ngược hoặc chế giễu text không? Ảnh có mâu thuẫn với text không? Tông giọng chua cay, bi quan ẩn, hoặc ngữ cảnh xã hội Việt Nam khiến câu mang nghĩa ngược không?
+  → Đưa ra lập luận mạnh nhất có thể cho Nhãn 1.
+
+--- THIRD CHECK: PHÂN TÍCH EMOJI ---
+Nếu không có emoji: ghi "Không có emoji. Bỏ qua check này."
+Nếu có: emoji nào xuất hiện? Chúng củng cố nghĩa đen (→ Nhãn 0) hay đảo ngược / chế giễu text (→ Nhãn 1)?
+Ví dụ: 😂🤡 sau câu ca ngợi → chế giễu rõ ràng; 🥰 sau câu buồn bã → mỉa mai hoặc tự an ủi.
+
+--- FINAL VERDICT ---
+So sánh lập luận A và B cùng bằng chứng emoji:
+  - Gán Nhãn 1 nếu có bất kỳ conflict không thể phủ nhận.
+  - Gán Nhãn 0 chỉ khi lập luận Nhãn 0 hoàn toàn thuyết phục và không có conflict đủ rõ.
+  - Nếu đã đánh dấu INVALID ở FIRST CHECK: ghi "INVALID".
+
+---
+
+=== NHÃN RIÊNG TỪNG PHƯƠNG THỨC ===
+
+Text_Only: Bỏ qua ảnh, chỉ dựa text + emoji. Có mỉa mai không? → 0 hoặc 1 (null nếu INVALID).
+ImageSet_Only: Bỏ qua text và emoji, chỉ nhìn ảnh. Ảnh có tự thân mỉa mai không? → 0 hoặc 1 (null nếu INVALID; 0 nếu không có ảnh).
+
+---
+
+=== OUTPUT FORMAT ===
+
+Return EXACTLY this JSON. No text before or after. No markdown fences.
+
+{
+  "reasoning": {
+    "first_check": {
+      "is_valid": "<Valid | INVALID>",
+      "invalid_reason": "<lý do nếu INVALID; chuỗi rỗng nếu Valid>"
+    },
+    "second_check": {
+      "argue_label_0": "<lập luận mạnh nhất để chứng minh bài đăng hoàn toàn nghĩa đen>",
+      "argue_label_1": "<lập luận mạnh nhất để chứng minh bài đăng có mỉa mai>"
+    },
+    "third_check": {
+      "emoji_present": ["<emoji>"],
+      "effect_on_sentence": "<emoji củng cố hay đảo ngược nghĩa của text? giải thích cụ thể>"
+    },
+    "final_verdict": "<so sánh hai lập luận, lý do chọn nhãn cuối cùng>",
+    "text_only_decision": "<lý do quyết định Text_Only>",
+    "imageset_only_decision": "<lý do quyết định ImageSet_Only>"
+  },
+  "Label_LLM1": <0 | 1 | "INVALID">,
+  "Text_Only": <0 | 1 | null>,
+  "ImageSet_Only": <0 | 1 | null>,
+  "Key_Images": [<1-based indices of images causing conflict; [] when Label_LLM1 ≠ 1 or no images>],
+  "Difficulty": "<Easy: one side clearly dominates | Hard: both sides plausible | null: only when INVALID>",
+  "Notes": "<ghi chú đặc biệt nếu có; chuỗi rỗng nếu không>"
+}
