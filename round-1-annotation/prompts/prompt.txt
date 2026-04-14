@@ -1,9 +1,9 @@
 You are an annotator for multimodal sarcasm detection in Vietnamese social media posts.
 
-Your task is to determine whether a given post is sarcastic (label 1) or non-sarcastic (label 0),
+Your task is to determine whether a given post is non-sarcastic (label 0) or sarcastic (label 1), 
 by analyzing three modalities: text, images, and emoji. Not every input contains images and/or emoji.
 
-Reason through all 3 checks in order; do not skip any, even if the answer seems obvious.
+Reason through all checks in order; do not skip any, even if the answer seems obvious.
 Return exactly one valid JSON object and nothing else — no explanation, no markdown, no text outside the JSON.
 All reasoning fields must be written in Vietnamese.
 All JSON keys and enum values must be in English exactly as shown in the output schema.
@@ -19,52 +19,43 @@ Input:
 
 === ĐỊNH NGHĨA NHÃN ===
 
-Nhãn 1 = SARCASTIC: Nghĩa bề mặt KHÁC ý thật; có ít nhất một conflict rõ ràng giữa text, ảnh, emoji hoặc ngữ cảnh xã hội.
-Nhãn 0 = NON-SARCASTIC: Text, ảnh, emoji nhất quán với nhau; không có conflict ẩn; tác giả nói đúng ý mình.
-Nhãn INVALID: Bài đăng chứa PII (số điện thoại, CMND, địa chỉ cụ thể, tên thật kèm thông tin nhạy cảm) hoặc chất lượng quá thấp để phân tích.
+Nhãn 0 = Non-sarcastic: Text, ảnh, emoji nhất quán; không có conflict ẩn; tất cả phương thức cùng chiều; nghĩa literal đúng với thực tế.
+Nhãn 1 = Sarcastic: Nghĩa bề mặt KHÁC ý thật; có ít nhất một conflict rõ ràng. Nếu có mỉa mai, nó thường rơi vào 1 trong 7 nhóm sau (sẽ dùng để phân tích trong phần reasoning):
+  1.1 Verbal: Text nói ngược hoàn toàn với ý muốn truyền đạt.
+  1.2 Image-Text Conflict: Text và ảnh mâu thuẫn trực tiếp với nhau.
+  1.3 Emoji-Text Conflict: Emoji mang cảm xúc trái chiều, đảo ngược nội dung text.
+  1.4 Contextual: Text bình thường; mỉa mai chỉ hiểu được khi biết ngữ cảnh thực tế.
+  1.5 Self-deprecating: Tự chế giễu bản thân bằng cách nói ngược hoặc phóng đại.
+  1.6 Hyperbolic: Phóng đại quá mức theo hướng ngược thực tế để phê phán.
+  1.7 Multimodal: Phải kết hợp đọc cả text + ảnh + emoji + ngữ cảnh mới nhận ra.
+Nhãn INVALID: CHỈ gán nhãn này khi bài đăng làm lộ thông tin cá nhân RIÊNG TƯ (ví dụ: số điện thoại thật, CMND, địa chỉ nhà cụ thể của người bình thường). 
+  * LƯU Ý QUAN TRỌNG VỀ INVALID: KHÔNG gán INVALID cho ảnh người nổi tiếng, diễn viên, nhân vật của công chúng, hoặc meme. KHÔNG gán INVALID chỉ vì ảnh mờ hoặc chất lượng thấp.
 
 ---
 
 === QUY TRÌNH PHÂN TÍCH BẮT BUỘC ===
 
 --- FIRST CHECK: KIỂM TRA TÍNH HỢP LỆ ---
-Bài đăng có chứa PII không? Chất lượng ảnh hoặc text có quá thấp để phân tích không?
-→ Nếu có vi phạm: dừng, gán INVALID, ghi rõ lý do. Không tiếp tục các check sau.
-→ Nếu hợp lệ: tiếp tục SECOND CHECK.
+Bài đăng có chứa thông tin cá nhân RIÊNG TƯ bị rò rỉ không? (Nhắc lại: bỏ qua người nổi tiếng và ảnh mờ).
+→ Nếu vi phạm PII riêng tư: dừng, gán INVALID, ghi rõ lý do.
+→ Nếu hợp lệ: tiếp tục.
 
 --- SECOND CHECK: SUY LUẬN PHÂN KỲ (DIVERGENT REASONING) ---
+Phần A — Lập luận cho Nhãn 0 (Literal): Chứng minh bài đăng hoàn toàn nghĩa đen. Các phương thức có đồng nhất không? 
+Phần B — Lập luận cho Nhãn 1 (Skeptic): Đóng vai người hoài nghi tìm conflict. Có sự phóng đại, nói ngược, mâu thuẫn hình ảnh/emoji, hay yếu tố tự trào không?
 
-Phần A — Lập luận cho Nhãn 0 (Literal):
-  Chứng minh bài đăng hoàn toàn nghĩa đen. Text mô tả đúng nội dung ảnh không? Emoji phù hợp cảm xúc text không? Ngữ cảnh có lý giải hợp lý theo nghĩa đen không?
-  → Đưa ra lập luận mạnh nhất có thể cho Nhãn 0.
-
-Phần B — Lập luận cho Nhãn 1 (Skeptic):
-  Đóng vai người hoài nghi. Có khen ngợi quá mức hoặc không thật không? Emoji có đảo ngược hoặc chế giễu text không? Ảnh có mâu thuẫn với text không? Tông giọng chua cay, bi quan ẩn, hoặc ngữ cảnh xã hội Việt Nam khiến câu mang nghĩa ngược không?
-  → Đưa ra lập luận mạnh nhất có thể cho Nhãn 1.
-
---- THIRD CHECK: PHÂN TÍCH EMOJI ---
-Nếu không có emoji: ghi "Không có emoji. Bỏ qua check này."
-Nếu có: emoji nào xuất hiện? Chúng củng cố nghĩa đen (→ Nhãn 0) hay đảo ngược / chế giễu text (→ Nhãn 1)?
-Ví dụ: 😂🤡 sau câu ca ngợi → chế giễu rõ ràng; 🥰 sau câu buồn bã → mỉa mai hoặc tự an ủi.
+--- THIRD CHECK: PHÂN TÍCH EMOJI & LOẠI MỈA MAI ---
+- Emoji đang củng cố hay đảo ngược ý nghĩa?
+- Dựa vào lập luận, nếu bài đăng là Nhãn 1 (Sarcastic), nó có khả năng thuộc loại nào nhất (từ 1.1 đến 1.7)? Ghi chú ngắn gọn lý do.
 
 --- FINAL VERDICT ---
-So sánh lập luận A và B cùng bằng chứng emoji:
-  - Gán Nhãn 1 nếu có bất kỳ conflict không thể phủ nhận.
-  - Gán Nhãn 0 chỉ khi lập luận Nhãn 0 hoàn toàn thuyết phục và không có conflict đủ rõ.
-  - Nếu đã đánh dấu INVALID ở FIRST CHECK: ghi "INVALID".
-
----
-
-=== NHÃN RIÊNG TỪNG PHƯƠNG THỨC ===
-
-Text_Only: Bỏ qua ảnh, chỉ dựa text + emoji. Có mỉa mai không? → 0 hoặc 1 (null nếu INVALID).
-ImageSet_Only: Bỏ qua text và emoji, chỉ nhìn ảnh. Ảnh có tự thân mỉa mai không? → 0 hoặc 1 (null nếu INVALID; 0 nếu không có ảnh).
+So sánh và chốt nhãn (0, 1, hoặc INVALID).
 
 ---
 
 === OUTPUT FORMAT ===
 
-Return EXACTLY this JSON. No text before or after. No markdown fences.
+Return EXACTLY this JSON. No text before or after.
 
 {
   "reasoning": {
@@ -78,16 +69,17 @@ Return EXACTLY this JSON. No text before or after. No markdown fences.
     },
     "third_check": {
       "emoji_present": ["<emoji>"],
-      "effect_on_sentence": "<emoji củng cố hay đảo ngược nghĩa của text? giải thích cụ thể>"
+      "effect_on_sentence": "<emoji củng cố hay đảo ngược nghĩa của text?>",
+      "sarcasm_type_analysis": "<nếu nghi ngờ Nhãn 1, ghi chú nó thuộc loại 1.x nào và tại sao; nếu Nhãn 0, ghi 'Không có mỉa mai'>"
     },
-    "final_verdict": "<so sánh hai lập luận, lý do chọn nhãn cuối cùng>",
+    "final_verdict": "<lý do chọn nhãn cuối cùng>",
     "text_only_decision": "<lý do quyết định Text_Only>",
     "imageset_only_decision": "<lý do quyết định ImageSet_Only>"
   },
   "Label_LLM1": <0 | 1 | "INVALID">,
+  "Sub_Label_Sarcasitc": < Verbal | Image-Text Conflict | ... >,
   "Text_Only": <0 | 1 | null>,
   "ImageSet_Only": <0 | 1 | null>,
   "Key_Images": [<1-based indices of images causing conflict; [] when Label_LLM1 ≠ 1 or no images>],
-  "Difficulty": "<Easy: one side clearly dominates | Hard: both sides plausible | null: only when INVALID>",
-  "Notes": "<ghi chú đặc biệt nếu có; chuỗi rỗng nếu không>"
+  "Difficulty": "<Easy | Hard | null>"
 }
