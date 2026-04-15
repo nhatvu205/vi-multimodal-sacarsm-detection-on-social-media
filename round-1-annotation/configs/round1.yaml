@@ -46,9 +46,8 @@ load_in_4bit: true
 # budget predictable on T4 (16 GB).
 #
 # Set to 0 to disable resizing (not recommended on Kaggle T4 with 7B model).
-max_image_pixels = 500_000  
-max_new_tokens = 512
-
+max_image_pixels: 500000
+max_new_tokens: 512
 # ---------------------------------------------------------------------------
 # Pipeline
 # ---------------------------------------------------------------------------
