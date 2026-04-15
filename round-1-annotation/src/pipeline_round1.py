@@ -99,6 +99,7 @@ def run_llm_with_checkpoint(
     hf_token: Optional[str] = None,
     device: str = "cuda",
     load_in_4bit: bool = False,
+    max_image_pixels: int = 1_048_576,
 ) -> List[LLMJudgeRecord]:
     cached = load_checkpoint(output_dir)
     remaining = [r for r in records if r.id not in cached]
@@ -117,7 +118,8 @@ def run_llm_with_checkpoint(
         for batch_idx, batch in enumerate(_iter_batches(remaining, batch_size), start=1):
             logger.info("Batch %d/%d (%d records)", batch_idx, n_batches, len(batch))
             batch_results = judge_batch(
-                batch, model_name, temperature, hf_token, device, load_in_4bit
+                batch, model_name, temperature, hf_token, device, load_in_4bit,
+                max_image_pixels,
             )
             all_results.extend(batch_results)
             save_checkpoint(output_dir, all_results)
@@ -236,12 +238,17 @@ def run_pipeline(
     batch_size = int(cfg.get("batch_size", 8))
     device = cfg.get("device", "cuda")
     load_in_4bit = bool(cfg.get("load_in_4bit", False))
+    max_image_pixels = int(cfg.get("max_image_pixels", 1_048_576))
 
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     logger.info("=== Round-1 Pipeline Start ===")
-    logger.info("Model: %s | device: %s | 4bit: %s", model_name, device, load_in_4bit)
+    logger.info(
+        "Model: %s | device: %s | 4bit: %s | max_img_px: %s",
+        model_name, device, load_in_4bit,
+        max_image_pixels if max_image_pixels > 0 else "unlimited",
+    )
     logger.info("RouterConfig: %s", router_cfg)
 
     input_records = load_input_records(input_data)
@@ -249,7 +256,7 @@ def run_pipeline(
 
     llm_results = run_llm_with_checkpoint(
         input_records, model_name, temperature, batch_size, out_dir,
-        hf_token, device, load_in_4bit,
+        hf_token, device, load_in_4bit, max_image_pixels,
     )
 
     routed = route_all(input_records, llm_results, router_cfg)

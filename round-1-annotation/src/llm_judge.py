@@ -143,9 +143,26 @@ def load_local_model(
     return _MODEL, _PROCESSOR
 
 
-def _open_image(image_path: str) -> Optional[Image.Image]:
+def _resize_image(img: Image.Image, max_pixels: int) -> Image.Image:
     """
-    Open image as a PIL Image (RGB).
+    Resize img so that width * height <= max_pixels, preserving aspect ratio.
+    Uses LANCZOS resampling. Returns the original image if already within budget.
+    """
+    w, h = img.size
+    if max_pixels <= 0 or w * h <= max_pixels:
+        return img
+    scale = (max_pixels / (w * h)) ** 0.5
+    new_w = max(1, int(w * scale))
+    new_h = max(1, int(h * scale))
+    logger.debug(
+        "Resizing image %dx%d -> %dx%d (max_pixels=%d)", w, h, new_w, new_h, max_pixels
+    )
+    return img.resize((new_w, new_h), Image.LANCZOS)
+
+
+def _open_image(image_path: str, max_pixels: int = 1_048_576) -> Optional[Image.Image]:
+    """
+    Open image as a PIL Image (RGB) and resize if needed.
 
     Resolution order (first existing path wins):
       1. Absolute path — used as-is.
@@ -154,6 +171,9 @@ def _open_image(image_path: str) -> Optional[Image.Image]:
          "data/images/foo.png" → /kaggle/input/DATASET_SLUG/images/foo.png.
          This is always tried with an absolute path so it is cwd-independent.
       3. Relative path resolved from cwd — convenience fallback for local dev.
+
+    After loading, the image is downscaled so that width * height <= max_pixels
+    to cap VRAM usage in the vision encoder (set max_pixels=0 to disable).
     """
     p = Path(image_path)
 
@@ -169,7 +189,8 @@ def _open_image(image_path: str) -> Optional[Image.Image]:
     for candidate in candidates:
         if candidate.exists():
             try:
-                return Image.open(candidate).convert("RGB")
+                img = Image.open(candidate).convert("RGB")
+                return _resize_image(img, max_pixels)
             except Exception as exc:
                 logger.warning("Cannot open image %s: %s", candidate, exc)
                 return None
@@ -178,13 +199,18 @@ def _open_image(image_path: str) -> Optional[Image.Image]:
     return None
 
 
-def _load_images(record: InputRecord, is_vl: bool) -> Tuple[List[Image.Image], bool]:
+def _load_images(
+    record: InputRecord,
+    is_vl: bool,
+    max_pixels: int = 1_048_576,
+) -> Tuple[List[Image.Image], bool]:
     """
     Load all images for a record.
     Returns (list_of_pil_images, image_missing_flag).
 
     image_missing is True when the record references at least one image path
     but none of the images could be opened from disk.
+    Each image is downscaled to fit within max_pixels (width * height).
     """
     if not is_vl:
         return [], False
@@ -198,7 +224,7 @@ def _load_images(record: InputRecord, is_vl: bool) -> Tuple[List[Image.Image], b
     if not paths:
         return [], False
 
-    images_pil = [img for p in paths for img in [_open_image(p)] if img is not None]
+    images_pil = [img for p in paths for img in [_open_image(p, max_pixels)] if img is not None]
     image_missing = len(images_pil) == 0
     return images_pil, image_missing
 
@@ -349,9 +375,10 @@ def judge_single(
     record: InputRecord,
     temperature: float,
     is_vl: bool,
+    max_image_pixels: int = 1_048_576,
 ) -> LLMJudgeRecord:
     """Run local inference for one record with one repair retry on bad JSON."""
-    images_pil, image_missing = _load_images(record, is_vl)
+    images_pil, image_missing = _load_images(record, is_vl, max_image_pixels)
 
     if image_missing:
         logger.warning("All images missing for id=%d: %s", record.id, record.image_path)
@@ -414,29 +441,33 @@ def judge_batch(
     hf_token: Optional[str] = None,
     device: str = "cuda",
     load_in_4bit: bool = False,
+    max_image_pixels: int = 1_048_576,
 ) -> List[LLMJudgeRecord]:
     """
     Judge a list of records via local model inference.
 
     Parameters
     ----------
-    records      : list of InputRecord
-    model_name   : HuggingFace model ID, e.g. "Qwen/Qwen3.5-2B"
-    temperature  : sampling temperature (0.1 recommended)
-    hf_token     : HF token for downloading the model from Hub
-    device       : "cuda" or "cpu"
-    load_in_4bit : enable 4-bit quantization via bitsandbytes to reduce VRAM
+    records          : list of InputRecord
+    model_name       : HuggingFace model ID, e.g. "Qwen/Qwen2.5-VL-7B-Instruct"
+    temperature      : sampling temperature (0.1 recommended)
+    hf_token         : HF token for downloading the model from Hub
+    device           : "cuda" or "cpu"
+    load_in_4bit     : enable 4-bit quantization via bitsandbytes to reduce VRAM
+    max_image_pixels : cap image width*height before vision encoding to limit VRAM
+                       (default 1_048_576 = 1024x1024; set 0 to disable)
     """
     model, processor = load_local_model(model_name, device, load_in_4bit, hf_token)
     is_vl = _is_vl_model(model_name)
     logger.info(
-        "Local inference | model=%s | VL=%s | device=%s | 4bit=%s",
+        "Local inference | model=%s | VL=%s | device=%s | 4bit=%s | max_img_px=%s",
         model_name, is_vl, device, load_in_4bit,
+        max_image_pixels if max_image_pixels > 0 else "unlimited",
     )
 
     results: List[LLMJudgeRecord] = []
     for record in tqdm(records, desc="LLM judging", unit="rec"):
-        result = judge_single(model, processor, record, temperature, is_vl)
+        result = judge_single(model, processor, record, temperature, is_vl, max_image_pixels)
         results.append(result)
         logger.debug(
             "id=%d | label=%s | difficulty=%s | parse_err=%s",
