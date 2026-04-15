@@ -146,21 +146,36 @@ def load_local_model(
 def _open_image(image_path: str) -> Optional[Image.Image]:
     """
     Open image as a PIL Image (RGB).
-    Falls back to resolving relative paths from the repository root when the
-    current working directory does not contain the file.
+
+    Resolution order (first existing path wins):
+      1. Absolute path — used as-is.
+      2. Relative path resolved from repo root (REPO_DIR).
+         On Kaggle, REPO_DIR/data/ is a symlink to the mounted dataset, so
+         "data/images/foo.png" → /kaggle/input/DATASET_SLUG/images/foo.png.
+         This is always tried with an absolute path so it is cwd-independent.
+      3. Relative path resolved from cwd — convenience fallback for local dev.
     """
     p = Path(image_path)
-    if not p.is_absolute() and not p.exists():
-        repo_root_candidate = Path(__file__).resolve().parents[2] / image_path
-        if repo_root_candidate.exists():
-            p = repo_root_candidate
-    if not p.exists():
-        return None
-    try:
-        return Image.open(p).convert("RGB")
-    except Exception as exc:
-        logger.warning("Cannot open image %s: %s", image_path, exc)
-        return None
+
+    if p.is_absolute():
+        candidates = [p]
+    else:
+        repo_root = Path(__file__).resolve().parents[2]
+        candidates = [
+            repo_root / image_path,
+            Path.cwd() / image_path,
+        ]
+
+    for candidate in candidates:
+        if candidate.exists():
+            try:
+                return Image.open(candidate).convert("RGB")
+            except Exception as exc:
+                logger.warning("Cannot open image %s: %s", candidate, exc)
+                return None
+
+    logger.debug("Image not found at any candidate path: %s", image_path)
+    return None
 
 
 def _load_images(record: InputRecord, is_vl: bool) -> Tuple[List[Image.Image], bool]:
