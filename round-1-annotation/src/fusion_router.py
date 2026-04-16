@@ -5,8 +5,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
-from tqdm import tqdm
-
 from .schemas import LLMJudgeRecord, Round1OutputRecord
 from .utils_logging import get_logger
 
@@ -97,6 +95,7 @@ def route_single(
         difficulty=difficulty,
         notes=llm_rec.notes,
         reasoning=llm_rec.reasoning,
+        raw_llm_output=llm_rec.raw_llm_output,
         round1_label=round1_label,
         need_review=need_review,
         route_reason=route_reason,
@@ -149,7 +148,7 @@ def route_all(
     llm_by_id = {r.id: r for r in llm_results}
     routed: List[Round1OutputRecord] = []
 
-    for inp in tqdm(records_input, desc="Routing records", unit="rec"):
+    for inp in records_input:
         llm_rec = llm_by_id.get(inp.id)
 
         if llm_rec is None:

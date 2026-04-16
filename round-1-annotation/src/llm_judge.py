@@ -428,6 +428,7 @@ def judge_single(
         result = result.model_copy(update={
             "id": record.id,
             "image_missing": image_missing,
+            "raw_llm_output": raw,
         })
         return result
 
@@ -440,9 +441,12 @@ def judge_single(
         try:
             raw2 = _call_local(model, processor, repair_messages, temperature)
             result2 = _validate(_extract_json(raw2))
+            # raw_llm_output preserves the first (failed) attempt so the repair
+            # is visible; raw2 (the repaired output) is what was actually parsed.
             result2 = result2.model_copy(update={
                 "id": record.id,
                 "image_missing": image_missing,
+                "raw_llm_output": raw,
             })
             return result2
         except Exception as exc2:
@@ -451,6 +455,7 @@ def judge_single(
                 id=record.id,
                 label_llm1="INVALID",
                 notes="JSON parse error after retry.",
+                raw_llm_output=raw,
                 parse_error=True,
                 image_missing=image_missing,
             )
@@ -461,6 +466,7 @@ def judge_single(
             id=record.id,
             label_llm1="INVALID",
             notes=f"Unexpected error: {str(exc)[:200]}",
+            raw_llm_output=raw,
             parse_error=True,
             image_missing=image_missing,
         )
