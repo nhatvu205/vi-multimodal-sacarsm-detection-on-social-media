@@ -77,7 +77,6 @@ Return EXACTLY this JSON. No text before or after.
     "imageset_only_decision": "<lý do quyết định ImageSet_Only>"
   },
   "Label_LLM1": <0 | 1 | "INVALID">,
-  "Sub_Label_Sarcasitc": < Verbal | Image-Text Conflict | ... >,
   "Text_Only": <0 | 1 | null>,
   "ImageSet_Only": <0 | 1 | null>,
   "Key_Images": [<1-based indices of images causing conflict; [] when Label_LLM1 ≠ 1 or no images>],
