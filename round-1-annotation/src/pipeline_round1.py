@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import yaml
-from tqdm import tqdm
 
 from .fusion_router import RouterConfig, apply_audit_sampling, route_all
 from .llm_judge import judge_batch
@@ -114,21 +113,17 @@ def run_llm_with_checkpoint(
     )
 
     n_batches = (len(remaining) + batch_size - 1) // batch_size
-    with tqdm(
-        total=len(remaining),
-        desc="Record ?",
-        unit="rec",
-        dynamic_ncols=True,
-        leave=True,
-    ) as pbar:
-        for batch_idx, batch in enumerate(_iter_batches(remaining, batch_size), start=1):
-            logger.info("Batch %d/%d (%d records)", batch_idx, n_batches, len(batch))
-            batch_results = judge_batch(
-                batch, model_name, temperature, hf_token, device, load_in_4bit,
-                max_image_pixels, pbar=pbar,
-            )
-            all_results.extend(batch_results)
-            save_checkpoint(output_dir, all_results)
+    for batch_idx, batch in enumerate(_iter_batches(remaining, batch_size), start=1):
+        batch_results = judge_batch(
+            batch, model_name, temperature, hf_token, device, load_in_4bit,
+            max_image_pixels,
+        )
+        all_results.extend(batch_results)
+        save_checkpoint(output_dir, all_results)
+        logger.info(
+            "Batch %d/%d done | records in batch: %d | total completed: %d/%d",
+            batch_idx, n_batches, len(batch), len(all_results), len(records),
+        )
 
     return all_results
 

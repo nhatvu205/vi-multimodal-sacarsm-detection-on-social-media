@@ -478,7 +478,6 @@ def judge_batch(
     device: str = "cuda",
     load_in_4bit: bool = False,
     max_image_pixels: int = 1_048_576,
-    pbar=None,
 ) -> List[LLMJudgeRecord]:
     """
     Judge a list of records via local model inference.
@@ -493,7 +492,6 @@ def judge_batch(
     load_in_4bit     : enable 4-bit quantization via bitsandbytes to reduce VRAM
     max_image_pixels : cap image width*height before vision encoding to limit VRAM
                        (default 1_048_576 = 1024x1024; set 0 to disable)
-    pbar             : optional external tqdm instance; updated once per record
     """
     model, processor = load_local_model(model_name, device, load_in_4bit, hf_token)
     is_vl = _is_vl_model(model_name)
@@ -505,12 +503,8 @@ def judge_batch(
 
     results: List[LLMJudgeRecord] = []
     for record in records:
-        if pbar is not None:
-            pbar.set_description(f"Record {record.id}")
         result = judge_single(model, processor, record, temperature, is_vl, max_image_pixels)
         results.append(result)
-        if pbar is not None:
-            pbar.update(1)
         logger.debug(
             "id=%d | label=%s | difficulty=%s | parse_err=%s",
             record.id, result.label_llm1, result.difficulty, result.parse_error,
