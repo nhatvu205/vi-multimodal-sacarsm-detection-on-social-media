@@ -114,16 +114,21 @@ def run_llm_with_checkpoint(
     )
 
     n_batches = (len(remaining) + batch_size - 1) // batch_size
-    with tqdm(total=len(remaining), desc="Overall LLM progress", unit="rec") as pbar:
+    with tqdm(
+        total=len(remaining),
+        desc="Record ?",
+        unit="rec",
+        dynamic_ncols=True,
+        leave=True,
+    ) as pbar:
         for batch_idx, batch in enumerate(_iter_batches(remaining, batch_size), start=1):
             logger.info("Batch %d/%d (%d records)", batch_idx, n_batches, len(batch))
             batch_results = judge_batch(
                 batch, model_name, temperature, hf_token, device, load_in_4bit,
-                max_image_pixels,
+                max_image_pixels, pbar=pbar,
             )
             all_results.extend(batch_results)
             save_checkpoint(output_dir, all_results)
-            pbar.update(len(batch))
 
     return all_results
 
@@ -230,6 +235,7 @@ def run_pipeline(
     config_path: str,
     output_dir: str,
     hf_token: Optional[str] = None,
+    max_records: Optional[int] = None,
 ) -> None:
     cfg = load_config(config_path)
     router_cfg = build_router_config(cfg)
@@ -252,6 +258,9 @@ def run_pipeline(
     logger.info("RouterConfig: %s", router_cfg)
 
     input_records = load_input_records(input_data)
+    if max_records is not None:
+        input_records = input_records[:max_records]
+        logger.info("TEST MODE: limiting to first %d records", max_records)
     total_samples = len(input_records)
 
     llm_results = run_llm_with_checkpoint(
@@ -290,6 +299,10 @@ def main() -> None:
         "--hf_token", default=None,
         help="HuggingFace token for model download (overrides HF_TOKEN env var)"
     )
+    parser.add_argument(
+        "--max_records", type=int, default=None,
+        help="Limit to first N records (e.g. 5 for a quick smoke-test); omit to run all"
+    )
     args = parser.parse_args()
 
     run_pipeline(
@@ -297,6 +310,7 @@ def main() -> None:
         config_path=args.config,
         output_dir=args.output_dir,
         hf_token=args.hf_token,
+        max_records=args.max_records,
     )
 
 
