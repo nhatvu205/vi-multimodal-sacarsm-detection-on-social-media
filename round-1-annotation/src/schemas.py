@@ -56,7 +56,9 @@ class Round1OutputRecord(BaseModel):
     key_images: List[int]
     difficulty: Optional[Literal["Easy", "Hard"]]
     notes: str
-    round1_label: Literal["sarcastic", "non_sarcastic", "needs_human_review"]
+    reasoning: Dict[str, Any]
+    round1_label: Literal["sarcastic", "non_sarcastic", "invalid"]
+    need_review: bool
     route_reason: Literal[
         "high_conf",
         "low_conf",

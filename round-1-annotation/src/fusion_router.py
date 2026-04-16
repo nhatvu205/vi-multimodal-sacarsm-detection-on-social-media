@@ -40,34 +40,50 @@ def route_single(
     """
     Compute routing decision for a single record.
 
-    Routing rules (in order):
-      1. Missing image  -> needs_human_review / missing_image
-      2. JSON parse error -> needs_human_review / invalid_json
-      3. Label_LLM1 == "INVALID" -> needs_human_review / uncertain
-      4. Difficulty == "Easy" -> auto-accept sarcastic or non_sarcastic / high_conf
-      5. Difficulty == "Hard" or None -> needs_human_review / low_conf
+    round1_label is a 3-class field directly reflecting the LLM's verdict:
+      - "sarcastic"     : Label_LLM1 == 1
+      - "non_sarcastic" : Label_LLM1 == 0
+      - "invalid"       : Label_LLM1 == "INVALID" or unrecoverable parse error
+
+    need_review is a separate boolean flag indicating whether a human should
+    verify the record. Routing rules (in order):
+      1. missing_image  -> need_review=True  / route_reason=missing_image
+      2. invalid_json   -> need_review=True  / route_reason=invalid_json   (round1_label forced to "invalid")
+      3. label==INVALID -> need_review=True  / route_reason=uncertain
+      4. Difficulty==Easy -> need_review=False / route_reason=high_conf
+      5. Difficulty==Hard or None -> need_review=True / route_reason=low_conf
     """
     label = llm_rec.label_llm1
     difficulty = llm_rec.difficulty
 
+    # --- Determine round1_label from LLM output ---
+    if label == 1:
+        round1_label = "sarcastic"
+    elif label == 0:
+        round1_label = "non_sarcastic"
+    else:
+        round1_label = "invalid"
+
+    # --- Determine need_review and route_reason ---
     if route_reason_override == "missing_image":
-        round1_label = "needs_human_review"
+        need_review = True
         route_reason: str = "missing_image"
 
     elif route_reason_override == "invalid_json":
-        round1_label = "needs_human_review"
+        need_review = True
         route_reason = "invalid_json"
+        round1_label = "invalid"
 
     elif label == "INVALID":
-        round1_label = "needs_human_review"
+        need_review = True
         route_reason = "uncertain"
 
     elif difficulty == "Easy":
-        round1_label = "sarcastic" if label == 1 else "non_sarcastic"
+        need_review = False
         route_reason = "high_conf"
 
     else:
-        round1_label = "needs_human_review"
+        need_review = True
         route_reason = "low_conf"
 
     return Round1OutputRecord(
@@ -80,7 +96,9 @@ def route_single(
         key_images=llm_rec.key_images,
         difficulty=difficulty,
         notes=llm_rec.notes,
+        reasoning=llm_rec.reasoning,
         round1_label=round1_label,
+        need_review=need_review,
         route_reason=route_reason,
         timestamp_utc=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     )
@@ -109,7 +127,7 @@ def apply_audit_sampling(
         if i in sampled_indices:
             rec = rec.model_copy(
                 update={
-                    "round1_label": "needs_human_review",
+                    "need_review": True,
                     "route_reason": "audit_sampled",
                 }
             )

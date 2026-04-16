@@ -143,15 +143,12 @@ def build_stats(
     total_samples: int,
 ) -> dict:
     processed = len(all_records)
-    auto_accepted = [r for r in all_records if r.round1_label in ("sarcastic", "non_sarcastic")]
-    human_queue = [r for r in all_records if r.round1_label == "needs_human_review"]
+    auto_accepted = [r for r in all_records if not r.need_review]
+    human_queue = [r for r in all_records if r.need_review]
 
-    invalid_count = sum(1 for r in all_records if r.label_llm1 == "INVALID")
-    audit_count = sum(1 for r in all_records if r.route_reason == "audit_sampled")
-
-    class_dist: dict = {}
-    for r in auto_accepted:
-        class_dist[r.round1_label] = class_dist.get(r.round1_label, 0) + 1
+    label_dist: dict = {"sarcastic": 0, "non_sarcastic": 0, "invalid": 0}
+    for r in all_records:
+        label_dist[r.round1_label] = label_dist.get(r.round1_label, 0) + 1
 
     route_dist: dict = {}
     for r in all_records:
@@ -173,12 +170,10 @@ def build_stats(
         "processed_samples": processed,
         "bad_records": bad_count,
         "auto_accepted_count": len(auto_accepted),
-        "human_queue_count": len(human_queue),
+        "need_review_count": len(human_queue),
         "auto_accept_rate": round(len(auto_accepted) / processed, 4) if processed else 0,
-        "human_queue_rate": round(len(human_queue) / processed, 4) if processed else 0,
-        "invalid_count": invalid_count,
-        "audit_sampled_count": audit_count,
-        "class_distribution_auto_accepted": class_dist,
+        "need_review_rate": round(len(human_queue) / processed, 4) if processed else 0,
+        "label_distribution": label_dist,
         "route_reason_distribution": route_dist,
         "difficulty_distribution": difficulty_dist,
         "text_only_distribution": {str(k): v for k, v in text_only_dist.items()},
@@ -190,13 +185,16 @@ def build_stats(
 # Output writers
 # ---------------------------------------------------------------------------
 
-def _write_jsonl(path: Path, records: list) -> None:
+def _write_json(path: Path, records: list) -> None:
+    """Write a list of records as a pretty-printed JSON array."""
+    data = []
+    for rec in records:
+        if isinstance(rec, Round1OutputRecord):
+            data.append(rec.model_dump())
+        else:
+            data.append(rec)
     with path.open("w", encoding="utf-8") as f:
-        for rec in tqdm(records, desc=f"Writing {path.name}", unit="rec", leave=False):
-            if isinstance(rec, Round1OutputRecord):
-                f.write(rec.model_dump_json() + "\n")
-            else:
-                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 
 def write_outputs(
@@ -207,13 +205,13 @@ def write_outputs(
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    auto_accepted = [r for r in all_records if r.round1_label in ("sarcastic", "non_sarcastic")]
-    human_queue = [r for r in all_records if r.round1_label == "needs_human_review"]
+    auto_accepted = [r for r in all_records if not r.need_review]
+    human_queue = [r for r in all_records if r.need_review]
 
-    _write_jsonl(output_dir / "round1_all.jsonl", all_records)
-    _write_jsonl(output_dir / "round1_auto_accepted.jsonl", auto_accepted)
-    _write_jsonl(output_dir / "round1_human_queue.jsonl", human_queue)
-    _write_jsonl(output_dir / "bad_records.jsonl", bad_records)
+    _write_json(output_dir / "round1_all.json", all_records)
+    _write_json(output_dir / "round1_auto_accepted.json", auto_accepted)
+    _write_json(output_dir / "round1_human_queue.json", human_queue)
+    _write_json(output_dir / "bad_records.json", bad_records)
 
     (output_dir / "round1_stats.json").write_text(
         json.dumps(stats, ensure_ascii=False, indent=2),
@@ -221,7 +219,7 @@ def write_outputs(
     )
 
     logger.info(
-        "Outputs written to %s | all=%d | auto=%d | human=%d | bad=%d",
+        "Outputs written to %s | all=%d | auto=%d | need_review=%d | bad=%d",
         output_dir, len(all_records), len(auto_accepted), len(human_queue), len(bad_records),
     )
 
@@ -277,10 +275,10 @@ def run_pipeline(
 
     logger.info("=== Round-1 Pipeline Complete ===")
     logger.info(
-        "auto_accept_rate=%.2f | human_queue_rate=%.2f | invalid=%d",
+        "auto_accept_rate=%.2f | need_review_rate=%.2f | labels=%s",
         stats["auto_accept_rate"],
-        stats["human_queue_rate"],
-        stats["invalid_count"],
+        stats["need_review_rate"],
+        stats["label_distribution"],
     )
 
 
