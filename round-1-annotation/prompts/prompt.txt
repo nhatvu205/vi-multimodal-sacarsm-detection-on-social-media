@@ -59,22 +59,11 @@ Return EXACTLY this JSON. No text before or after.
 
 {
   "reasoning": {
-    "first_check": {
-      "is_valid": "<Valid | INVALID>",
-      "invalid_reason": "<lý do nếu INVALID; chuỗi rỗng nếu Valid>"
-    },
-    "second_check": {
-      "argue_label_0": "<lập luận mạnh nhất để chứng minh bài đăng hoàn toàn nghĩa đen>",
-      "argue_label_1": "<lập luận mạnh nhất để chứng minh bài đăng có mỉa mai>"
-    },
-    "third_check": {
-      "emoji_present": ["<emoji>"],
-      "effect_on_sentence": "<emoji củng cố hay đảo ngược nghĩa của text?>",
-      "sarcasm_type_analysis": "<nếu nghi ngờ Nhãn 1, ghi chú nó thuộc loại 1.x nào và tại sao; nếu Nhãn 0, ghi 'Không có mỉa mai'>"
-    },
-    "final_verdict": "<lý do chọn nhãn cuối cùng>",
-    "text_only_decision": "<lý do quyết định Text_Only>",
-    "imageset_only_decision": "<lý do quyết định ImageSet_Only>"
+    "validity": "<Valid — hoặc INVALID: <lý do cụ thể>>",
+    "literal_case": "<lập luận mạnh nhất rằng bài đăng hoàn toàn nghĩa đen (FIRST + SECOND CHECK A)>",
+    "sarcasm_case": "<lập luận mạnh nhất rằng bài đăng có mỉa mai; nếu có thì ghi loại 1.x (SECOND CHECK B)>",
+    "emoji_and_type": "<emoji hiện diện, tác dụng củng cố hay đảo ngược nghĩa; loại mỉa mai nếu label=1 (THIRD CHECK)>",
+    "verdict": "<lý do chốt nhãn cuối và quyết định Text_Only / ImageSet_Only (FINAL VERDICT)>"
   },
   "Label_LLM1": <0 | 1 | "INVALID">,
   "Text_Only": <0 | 1 | null>,

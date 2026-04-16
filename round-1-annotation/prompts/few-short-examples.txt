@@ -2,7 +2,7 @@
 
 === VÍ DỤ THAM KHẢO ===
 
---- VÍ DỤ 1: SARCASTIC ---
+--- VÍ DỤ 1: SARCASTIC (Image-Text Conflict) ---
 
 Input:
 [TEXT] Công trình hoàn thành đúng tiến độ, chất lượng tuyệt vời 👏
@@ -13,22 +13,11 @@ Input:
 Output:
 {
   "reasoning": {
-    "first_check": {
-      "is_valid": "Valid",
-      "invalid_reason": ""
-    },
-    "second_check": {
-      "argue_label_0": "Người đăng có thể thực sự hài lòng với tiến độ bàn giao dù chất lượng chưa hoàn hảo. Emoji 👏 phù hợp với tone chúc mừng.",
-      "argue_label_1": "Cụm 'chất lượng tuyệt vời' mâu thuẫn hoàn toàn với Ảnh 1 (đường đầy ổ gà và nước đọng). Người đăng cố tình khen trong khi đính kèm ảnh thực tế tệ hại."
-    },
-    "third_check": {
-      "emoji_present": ["👏"],
-      "effect_on_sentence": "Khi đặt cạnh ảnh thực tế tiêu cực, emoji 👏 mang tính châm biếm (vỗ tay khen công trình hỏng).",
-      "sarcasm_type_analysis": "Thuộc loại 1.2 Image-Text Conflict vì mâu thuẫn xảy ra trực tiếp giữa text ('chất lượng tuyệt vời') và hình ảnh (ổ gà)."
-    },
-    "final_verdict": "Lập luận Nhãn 1 áp đảo do có conflict rõ ràng giữa ảnh và text. Label_LLM1 = 1.",
-    "text_only_decision": "Không có ảnh, câu mang tính ca ngợi tuyệt đối có khả năng cao là mỉa mai (Verbal/Hyperbolic). Text_Only = 1",
-    "imageset_only_decision": "Ảnh 1 và 2 kết hợp có thể thấy sự xuống cấp sớm, nhưng không tạo ra conflict mỉa mai nếu thiếu text khen. ImageSet_Only = 0"
+    "validity": "Valid",
+    "literal_case": "Người đăng có thể thực sự hài lòng với tiến độ bàn giao dù chất lượng chưa hoàn hảo. Emoji 👏 phù hợp với tone chúc mừng.",
+    "sarcasm_case": "Cụm 'chất lượng tuyệt vời' mâu thuẫn hoàn toàn với Ảnh 1 (đường đầy ổ gà, nước đọng). Người đăng cố tình khen trong khi đính kèm ảnh thực tế tệ hại — đây là Image-Text Conflict (1.2).",
+    "emoji_and_type": "Emoji 👏 khi đặt cạnh ảnh tiêu cực mang tính châm biếm (vỗ tay khen công trình hỏng). Thuộc loại 1.2 Image-Text Conflict.",
+    "verdict": "Lập luận nhãn 1 áp đảo do conflict rõ ràng giữa ảnh và text. Label_LLM1=1. Text_Only=1 (câu khen tuyệt đối không ảnh vẫn có thể là mỉa mai). ImageSet_Only=0 (ảnh đơn thuần không tạo mỉa mai nếu thiếu text khen)."
   },
   "Label_LLM1": 1,
   "Text_Only": 1,
@@ -37,7 +26,7 @@ Output:
   "Difficulty": "Easy"
 }
 
---- VÍ DỤ 2: SARCASTIC (Emoji) ---
+--- VÍ DỤ 2: SARCASTIC (Emoji-Text Conflict) ---
 
 Input:
 [TEXT] Họp 3 tiếng đồng hồ để quyết định màu sắc của nút bấm. Productive lắm 😂🤡
@@ -46,22 +35,11 @@ Input:
 Output:
 {
   "reasoning": {
-    "first_check": {
-      "is_valid": "Valid",
-      "invalid_reason": ""
-    },
-    "second_check": {
-      "argue_label_0": "Người đăng dùng 'Productive' theo nghĩa đen, còn emoji chỉ thể hiện không khí vui vẻ. (Lập luận này yếu).",
-      "argue_label_1": "Họp 3 tiếng chỉ để chọn màu nút là vô bổ. Khen 'Productive lắm' kèm emoji 😂🤡 là khen ngược để chế giễu."
-    },
-    "third_check": {
-      "emoji_present": ["😂", "🤡"],
-      "effect_on_sentence": "Tổ hợp emoji cười lăn và hề đảo ngược hoàn toàn nghĩa bề mặt của từ 'Productive', biến lời khen thành chỉ trích.",
-      "sarcasm_type_analysis": "Thuộc loại 1.3 Emoji-Text Conflict vì sự xuất hiện của emoji hề và cười lăn đóng vai trò chủ đạo đảo ngược nghĩa câu."
-    },
-    "final_verdict": "Conflict rõ ràng tạo ra bởi emoji đảo ngược nghĩa text. Label_LLM1 = 1.",
-    "text_only_decision": "Đọc độc lập vẫn nhận ra mỉa mai nhờ emoji. Text_Only = 1",
-    "imageset_only_decision": "Không có ảnh. ImageSet_Only = null"
+    "validity": "Valid",
+    "literal_case": "Người đăng dùng 'Productive' theo nghĩa đen, emoji chỉ thể hiện không khí vui vẻ. Lập luận này yếu.",
+    "sarcasm_case": "Họp 3 tiếng chỉ để chọn màu nút là vô bổ. Khen 'Productive lắm' kèm 😂🤡 là khen ngược để chế giễu — Emoji-Text Conflict (1.3).",
+    "emoji_and_type": "😂🤡 đảo ngược hoàn toàn nghĩa bề mặt của 'Productive', biến lời khen thành chỉ trích. Thuộc loại 1.3 Emoji-Text Conflict.",
+    "verdict": "Conflict rõ ràng do emoji đảo ngược nghĩa text. Label_LLM1=1. Text_Only=1 (mỉa mai đọc qua emoji). ImageSet_Only=null (không có ảnh)."
   },
   "Label_LLM1": 1,
   "Text_Only": 1,
@@ -80,22 +58,11 @@ Input:
 Output:
 {
   "reasoning": {
-    "first_check": {
-      "is_valid": "Valid",
-      "invalid_reason": ""
-    },
-    "second_check": {
-      "argue_label_0": "Text khen ngợi diễn xuất gây xúc động. Ảnh minh họa đúng nhân vật đang có biểu cảm tương tự. Emoji 😭 đồng nhất với cảm xúc chia sẻ.",
-      "argue_label_1": "Có thể người dùng không thích diễn viên này nên nói mỉa, nhưng không có bằng chứng nào từ ảnh hay emoji ủng hộ việc nói ngược ở đây."
-    },
-    "third_check": {
-      "emoji_present": ["😭"],
-      "effect_on_sentence": "Củng cố trực tiếp cảm xúc xúc động của text.",
-      "sarcasm_type_analysis": "Không có mỉa mai."
-    },
-    "final_verdict": "Text, ảnh và emoji nhất quán hoàn toàn, không có conflict. Ảnh người nổi tiếng và hơi mờ nhưng hợp lệ. Label_LLM1 = 0.",
-    "text_only_decision": "Không có dấu hiệu nói ngược. Text_Only = 0",
-    "imageset_only_decision": "Ảnh diễn viên bình thường. ImageSet_Only = 0"
+    "validity": "Valid",
+    "literal_case": "Text khen ngợi diễn xuất gây xúc động. Ảnh minh hoạ đúng nhân vật đang có biểu cảm tương tự. Emoji 😭 đồng nhất với cảm xúc chia sẻ — tất cả nhất quán.",
+    "sarcasm_case": "Có thể người dùng không thích diễn viên này nên nói mỉa, nhưng không có bằng chứng từ ảnh hay emoji ủng hộ nói ngược ở đây. Lập luận yếu.",
+    "emoji_and_type": "😭 củng cố trực tiếp cảm xúc xúc động của text, không đảo ngược. Không có mỉa mai.",
+    "verdict": "Text, ảnh và emoji nhất quán, không có conflict. Ảnh người nổi tiếng dù hơi mờ vẫn hợp lệ. Label_LLM1=0. Text_Only=0. ImageSet_Only=0."
   },
   "Label_LLM1": 0,
   "Text_Only": 0,

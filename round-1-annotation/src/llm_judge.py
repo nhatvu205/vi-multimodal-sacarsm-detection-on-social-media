@@ -304,7 +304,11 @@ def _validate(data: dict) -> LLMJudgeRecord:
     notes = str(data.get("Notes", ""))[:500]
 
     reasoning = data.get("reasoning", {})
-    if not isinstance(reasoning, dict):
+    if isinstance(reasoning, str) and reasoning.strip():
+        # Model returned reasoning as a flat prose string instead of a dict.
+        # Preserve it under the "verdict" key so the content is not lost.
+        reasoning = {"verdict": reasoning}
+    elif not isinstance(reasoning, dict):
         reasoning = {}
 
     return LLMJudgeRecord(
