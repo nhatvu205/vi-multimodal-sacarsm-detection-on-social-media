@@ -22,7 +22,7 @@ seed: 42
 
 # HuggingFace model ID (downloaded locally on first run)
 # Class: AutoModelForImageTextToText  |  transformers >= 4.51.0
-llm_model: "Qwen/Qwen3.5-2B"
+llm_model: "Qwen/Qwen3.5-9B"
 
 # Provider tag (kept for reference; local inference ignores this field)
 llm_provider: "local"
@@ -37,14 +37,6 @@ device: "cuda"
 # ~14 GB (float16) to ~4 GB, leaving headroom for activations.
 load_in_4bit: true
 
-# Maximum image size in total pixels (width * height) before feeding to the
-# vision encoder. Images exceeding this limit are downscaled proportionally
-# while preserving aspect ratio (LANCZOS resampling).
-#
-# Qwen2.5-VL uses dynamic resolution — large images produce many visual tokens
-# which spike VRAM. Capping at 1 MP (1024x1024 equivalent) keeps the token
-# budget predictable on T4 (16 GB).
-#
 # Set to 0 to disable resizing (not recommended on Kaggle T4 with 7B model).
 max_image_pixels: 500000
 max_new_tokens: 512

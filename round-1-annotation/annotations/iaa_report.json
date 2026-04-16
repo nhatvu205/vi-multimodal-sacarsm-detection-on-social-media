@@ -1,0 +1,28 @@
+{
+  "n_total_human_tasks": 47,
+  "n_total_llm_records": 50,
+  "n_matched": 45,
+  "n_agree": 22,
+  "n_conflict": 23,
+  "n_skipped_no_match": 1,
+  "n_skipped_invalid": 1,
+  "agreement_pct": 48.89,
+  "cohen_kappa": -0.1361,
+  "kappa_interpretation": "poor (less than chance)",
+  "confusion_matrix": {
+    "TP_human_sarcastic_llm_sarcastic": 2,
+    "TN_human_not_sarcastic_llm_not_sarcastic": 20,
+    "FP_human_not_sarcastic_llm_sarcastic": 6,
+    "FN_human_sarcastic_llm_not_sarcastic": 17
+  },
+  "label_distribution": {
+    "human": {
+      "sarcastic": 19,
+      "not_sarcastic": 26
+    },
+    "llm": {
+      "sarcastic": 8,
+      "not_sarcastic": 37
+    }
+  }
+}

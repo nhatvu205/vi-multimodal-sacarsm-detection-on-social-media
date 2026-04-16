@@ -37,8 +37,6 @@ from typing import List, Optional, Tuple
 import torch
 from PIL import Image
 from transformers import AutoModelForImageTextToText, AutoProcessor, BitsAndBytesConfig
-from tqdm import tqdm
-
 from .schemas import InputRecord, LLMJudgeRecord
 from .utils_logging import get_logger
 
@@ -127,6 +125,21 @@ def load_local_model(
             bnb_4bit_quant_type="nf4",
             bnb_4bit_compute_dtype=torch.float16,
         )
+        # bitsandbytes 4-bit does NOT support CPU/disk offload — any layer placed
+        # on CPU causes: "ValueError: Some modules are dispatched on the CPU or the
+        # disk."  device_map="auto" may spill to CPU when it cannot estimate VRAM
+        # correctly (common on Kaggle multi-GPU).  Explicitly capping max_memory to
+        # GPU-only (no "cpu" key) prevents the fallback entirely.
+        n_gpus = torch.cuda.device_count()
+        if n_gpus > 0:
+            max_memory: dict = {}
+            for i in range(n_gpus):
+                props = torch.cuda.get_device_properties(i)
+                # Reserve ~1 GiB per GPU for activations / KV-cache headroom
+                usable_gib = max(1, int(props.total_memory / 1024**3) - 1)
+                max_memory[i] = f"{usable_gib}GiB"
+            load_kwargs["max_memory"] = max_memory
+            logger.info("4-bit GPU-only max_memory: %s", max_memory)
     else:
         load_kwargs["dtype"] = "auto"
 
@@ -306,7 +319,11 @@ def _validate(data: dict) -> LLMJudgeRecord:
     notes = str(data.get("Notes", ""))[:500]
 
     reasoning = data.get("reasoning", {})
-    if not isinstance(reasoning, dict):
+    if isinstance(reasoning, str) and reasoning.strip():
+        # Model returned reasoning as a flat prose string instead of a dict.
+        # Preserve it under the "verdict" key so the content is not lost.
+        reasoning = {"verdict": reasoning}
+    elif not isinstance(reasoning, dict):
         reasoning = {}
 
     return LLMJudgeRecord(
@@ -411,6 +428,7 @@ def judge_single(
         result = result.model_copy(update={
             "id": record.id,
             "image_missing": image_missing,
+            "raw_llm_output": raw,
         })
         return result
 
@@ -423,9 +441,12 @@ def judge_single(
         try:
             raw2 = _call_local(model, processor, repair_messages, temperature)
             result2 = _validate(_extract_json(raw2))
+            # raw_llm_output preserves the first (failed) attempt so the repair
+            # is visible; raw2 (the repaired output) is what was actually parsed.
             result2 = result2.model_copy(update={
                 "id": record.id,
                 "image_missing": image_missing,
+                "raw_llm_output": raw,
             })
             return result2
         except Exception as exc2:
@@ -434,6 +455,7 @@ def judge_single(
                 id=record.id,
                 label_llm1="INVALID",
                 notes="JSON parse error after retry.",
+                raw_llm_output=raw,
                 parse_error=True,
                 image_missing=image_missing,
             )
@@ -444,6 +466,7 @@ def judge_single(
             id=record.id,
             label_llm1="INVALID",
             notes=f"Unexpected error: {str(exc)[:200]}",
+            raw_llm_output=raw,
             parse_error=True,
             image_missing=image_missing,
         )
@@ -485,7 +508,7 @@ def judge_batch(
     )
 
     results: List[LLMJudgeRecord] = []
-    for record in tqdm(records, desc="LLM judging", unit="rec"):
+    for record in records:
         result = judge_single(model, processor, record, temperature, is_vl, max_image_pixels)
         results.append(result)
         logger.debug(
