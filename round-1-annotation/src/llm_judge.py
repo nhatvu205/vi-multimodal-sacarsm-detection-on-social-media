@@ -125,6 +125,21 @@ def load_local_model(
             bnb_4bit_quant_type="nf4",
             bnb_4bit_compute_dtype=torch.float16,
         )
+        # bitsandbytes 4-bit does NOT support CPU/disk offload — any layer placed
+        # on CPU causes: "ValueError: Some modules are dispatched on the CPU or the
+        # disk."  device_map="auto" may spill to CPU when it cannot estimate VRAM
+        # correctly (common on Kaggle multi-GPU).  Explicitly capping max_memory to
+        # GPU-only (no "cpu" key) prevents the fallback entirely.
+        n_gpus = torch.cuda.device_count()
+        if n_gpus > 0:
+            max_memory: dict = {}
+            for i in range(n_gpus):
+                props = torch.cuda.get_device_properties(i)
+                # Reserve ~1 GiB per GPU for activations / KV-cache headroom
+                usable_gib = max(1, int(props.total_memory / 1024**3) - 1)
+                max_memory[i] = f"{usable_gib}GiB"
+            load_kwargs["max_memory"] = max_memory
+            logger.info("4-bit GPU-only max_memory: %s", max_memory)
     else:
         load_kwargs["dtype"] = "auto"
 
