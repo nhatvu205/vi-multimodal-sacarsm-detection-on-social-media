@@ -381,10 +381,12 @@ def _call_local(
     device = next(model.parameters()).device
     inputs = {k: v.to(device) if hasattr(v, "to") else v for k, v in inputs.items()}
 
-    eos_id = model.config.eos_token_id
+    eos_id = getattr(model.config, "eos_token_id", None) or getattr(processor.tokenizer, "eos_token_id", None)
     pad_token_id = eos_id[0] if isinstance(eos_id, list) else eos_id
 
-    gen_kwargs: dict = {"max_new_tokens": max_new_tokens, "pad_token_id": pad_token_id}
+    gen_kwargs: dict = {"max_new_tokens": max_new_tokens}
+    if pad_token_id is not None:
+        gen_kwargs["pad_token_id"] = pad_token_id
     if temperature > 0:
         gen_kwargs["temperature"] = temperature
         gen_kwargs["do_sample"] = True
