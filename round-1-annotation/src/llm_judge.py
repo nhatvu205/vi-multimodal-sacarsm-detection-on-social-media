@@ -381,7 +381,10 @@ def _call_local(
     device = next(model.parameters()).device
     inputs = {k: v.to(device) if hasattr(v, "to") else v for k, v in inputs.items()}
 
-    gen_kwargs: dict = {"max_new_tokens": max_new_tokens}
+    eos_id = model.config.eos_token_id
+    pad_token_id = eos_id[0] if isinstance(eos_id, list) else eos_id
+
+    gen_kwargs: dict = {"max_new_tokens": max_new_tokens, "pad_token_id": pad_token_id}
     if temperature > 0:
         gen_kwargs["temperature"] = temperature
         gen_kwargs["do_sample"] = True
