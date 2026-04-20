@@ -42,8 +42,8 @@ from .utils_logging import get_logger
 
 logger = get_logger(__name__)
 
-_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "prompt_v2.txt"
-_FEW_SHOT_PATH = Path(__file__).parent.parent / "prompts" / "few-short-examples_v2.txt"
+_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "prompt_v3.txt"
+_FEW_SHOT_PATH = Path(__file__).parent.parent / "prompts" / "few-short-examples_v3.txt"
 _PROMPT_TEMPLATE: Optional[str] = None
 
 _MODEL = None

@@ -1,0 +1,120 @@
+---
+
+=== VÍ DỤ THAM KHẢO ===
+
+--- VÍ DỤ 1: SARCASTIC (Image-Text Conflict — 1.2) ---
+
+Input:
+[TEXT] Công trình hoàn thành đúng tiến độ, chất lượng tuyệt vời 👏
+[IMAGES] Tổng số ảnh: 2
+- Ảnh 1: Hình chụp con đường mới làm đã xuất hiện nhiều ổ gà lớn, nước đọng thành vũng.
+- Ảnh 2: Biển hiệu ghi "Công trình hoàn thành tháng 3/2024".
+
+Output:
+{
+  "reasoning": {
+    "validity": "Valid",
+    "literal_case": "Người đăng có thể thực sự hài lòng với tiến độ bàn giao. Emoji 👏 phù hợp với tone chúc mừng.",
+    "sarcasm_case": "Khoảng cách ý định rõ ràng: text khen 'chất lượng tuyệt vời' (X) nhưng Ảnh 1 cho thấy đường đầy ổ gà (NOT-X). Người đăng nói ngược để phê phán — Image-Text Conflict (1.2). Người đọc VN nhận ra ngay.",
+    "emoji_and_type": "Emoji 👏 cùng ảnh tiêu cực tạo thêm tính châm biếm. Loại 1.2.",
+    "verdict": "Khoảng cách ý định rõ ràng giữa text khen và ảnh thực tế tệ hại. Label_LLM1=1. Text_Only=1. ImageSet_Only=0."
+  },
+  "Label_LLM1": 1,
+  "Text_Only": 1,
+  "ImageSet_Only": 0,
+  "Key_Images": [1],
+  "Difficulty": "Easy"
+}
+
+--- VÍ DỤ 2: SARCASTIC (Emoji-Text Conflict — 1.3) ---
+
+Input:
+[TEXT] Họp 3 tiếng đồng hồ để quyết định màu sắc của nút bấm. Productive lắm 😂🤡
+[IMAGES] Không có ảnh.
+
+Output:
+{
+  "reasoning": {
+    "validity": "Valid",
+    "literal_case": "Người đăng dùng 'Productive' theo nghĩa đen và cảm thấy hài lòng. Lập luận yếu vì 🤡 không phù hợp với tone hài lòng.",
+    "sarcasm_case": "Khoảng cách ý định rõ: text khen 'Productive' (X) nhưng ngữ cảnh (họp 3 tiếng chọn màu nút) và emoji 🤡 chỉ rõ ý thực là 'vô bổ hoàn toàn' (NOT-X). Emoji-Text Conflict (1.3). Người đọc VN nhận ra ngay.",
+    "emoji_and_type": "🤡 đảo ngược hoàn toàn nghĩa của 'Productive'. Loại 1.3.",
+    "verdict": "Khoảng cách ý định rõ ràng. Label_LLM1=1. Text_Only=1. ImageSet_Only=null."
+  },
+  "Label_LLM1": 1,
+  "Text_Only": 1,
+  "ImageSet_Only": null,
+  "Key_Images": [],
+  "Difficulty": "Easy"
+}
+
+--- VÍ DỤ 3: NON-SARCASTIC ---
+
+Input:
+[TEXT] Hôm nay Trấn Thành diễn xuất thần quá, xem mà khóc luôn 😭
+[IMAGES] Tổng số ảnh: 1
+- Ảnh 1: Hình Trấn Thành đang khóc trên sân khấu, chất lượng hơi mờ do chụp qua màn hình TV.
+
+Output:
+{
+  "reasoning": {
+    "validity": "Valid",
+    "literal_case": "Text khen diễn xuất, emoji 😭 và ảnh đều đồng nhất với cảm xúc xúc động. Người đăng truyền đạt đúng điều họ cảm nhận. Lập luận mạnh.",
+    "sarcasm_case": "Không có khoảng cách ý định. Không có yếu tố nào chỉ ra người đăng muốn nói điều ngược lại — khen diễn xuất là đúng nghĩa đen.",
+    "emoji_and_type": "😭 củng cố cảm xúc xúc động, không tạo mâu thuẫn.",
+    "verdict": "Không có khoảng cách ý định. Label_LLM1=0. Text_Only=0. ImageSet_Only=0."
+  },
+  "Label_LLM1": 0,
+  "Text_Only": 0,
+  "ImageSet_Only": 0,
+  "Key_Images": [],
+  "Difficulty": "Easy"
+}
+
+--- VÍ DỤ 4: SARCASTIC (Contextual — 1.4) ---
+
+Input:
+[TEXT] Chuyện buồn giáo dục VN:
+Con: "Mẹ ơi con thi IELTS được 8.0!"
+Mẹ: "Giỏi quá con! Thế con thích truyện tranh nào mẹ mua cho?"
+[IMAGES] Không có ảnh.
+
+Output:
+{
+  "reasoning": {
+    "validity": "Valid",
+    "literal_case": "Đây là cuộc trò chuyện gia đình chân thành — con đạt thành tích cao, mẹ hỏi mua quà. Có thể đọc theo nghĩa đen.",
+    "sarcasm_case": "Khoảng cách ý định nằm ở tiêu đề 'Chuyện buồn giáo dục VN': tiêu đề báo hiệu nội dung sẽ minh họa điều gì đó đáng buồn về giáo dục, nhưng nội dung lại cho thấy mẹ không nhận ra giá trị của IELTS 8.0 (hỏi mua truyện tranh thay vì hiểu thành tích). Người đăng dùng câu chuyện có thật để phê phán nhận thức về giáo dục — Contextual (1.4). Người đọc VN quen với format này nhận ra ngay khoảng cách.",
+    "emoji_and_type": "Không có emoji. Khoảng cách ý định đến từ cấu trúc tiêu đề + nội dung. Loại 1.4.",
+    "verdict": "Khoảng cách ý định rõ ràng: tiêu đề hứa hẹn 'chuyện buồn', nội dung minh họa sự vô tình của mẹ → phê phán contextual. Label_LLM1=1. Text_Only=1. ImageSet_Only=null."
+  },
+  "Label_LLM1": 1,
+  "Text_Only": 1,
+  "ImageSet_Only": null,
+  "Key_Images": [],
+  "Difficulty": "Hard"
+}
+
+--- VÍ DỤ 5: NON-SARCASTIC (có emoji và văn phong thân mật — nhưng không có khoảng cách ý định) ---
+
+Input:
+[TEXT] Cách người lười sử dụng tối đa thời gian:
+Trên đường đi học tranh thủ ngủ trên ghế mát xa 😂
+[IMAGES] Tổng số ảnh: 1
+- Ảnh 1: Một người đang ngủ trên ghế mát xa di động trên xe buýt hoặc xe khách.
+
+Output:
+{
+  "reasoning": {
+    "validity": "Valid",
+    "literal_case": "Người đăng thực sự chia sẻ một hành vi thú vị/buồn cười: ngủ trên ghế mát xa trên đường đi học. Văn phong hài hước nhưng truyền đạt đúng điều xảy ra. Ảnh minh hoạ khớp với text. Lập luận mạnh.",
+    "sarcasm_case": "Không có khoảng cách ý định. Người đăng không nói ngược — họ thực sự mô tả cách người lười tận dụng thời gian. Hành vi này vừa hài hước vừa có thật; chia sẻ hài hước không phải mỉa mai. Không có yếu tố nào chỉ ra người đăng muốn nói điều ngược lại.",
+    "emoji_and_type": "😂 củng cố tính hài hước của tình huống, không đảo ngược nghĩa.",
+    "verdict": "Không có khoảng cách ý định — người đăng chia sẻ trung thực một tình huống buồn cười. Hài hước ≠ mỉa mai. Label_LLM1=0. Text_Only=0. ImageSet_Only=0."
+  },
+  "Label_LLM1": 0,
+  "Text_Only": 0,
+  "ImageSet_Only": 0,
+  "Key_Images": [],
+  "Difficulty": "Easy"
+}
