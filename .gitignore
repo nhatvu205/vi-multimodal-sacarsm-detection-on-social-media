@@ -40,3 +40,4 @@ pyvenv.cfg
 .cursor/
 images/
 data_collection/
+50_samples_images/
