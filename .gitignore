@@ -37,6 +37,6 @@ model_cache/
 Thumbs.db
 
 pyvenv.cfg
-
-data/
 .cursor/
+images/
+data_collection/

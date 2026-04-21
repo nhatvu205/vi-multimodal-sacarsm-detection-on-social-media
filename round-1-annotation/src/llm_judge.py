@@ -25,7 +25,7 @@ Prompt contract (prompt.txt):
                            the text section; actual PIL images are prepended as
                            content items in the VL message so the model sees them.
   - The model must return a single JSON object with keys:
-    reasoning, Label_LLM1, Text_Only, ImageSet_Only, Key_Images, Difficulty, Notes
+    reasoning, Label_LLM1, Text_Only, ImageSet_Only, Key_Images, Difficulty
 """
 
 import json
@@ -42,8 +42,8 @@ from .utils_logging import get_logger
 
 logger = get_logger(__name__)
 
-_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "prompt.txt"
-_FEW_SHOT_PATH = Path(__file__).parent.parent / "prompts" / "few-short-examples.txt"
+_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "prompt_v3.txt"
+_FEW_SHOT_PATH = Path(__file__).parent.parent / "prompts" / "few-short-examples_v3.txt"
 _PROMPT_TEMPLATE: Optional[str] = None
 
 _MODEL = None
@@ -53,7 +53,7 @@ _LOADED_MODEL_NAME: Optional[str] = None
 _REPAIR_SUFFIX = (
     "\n\nPhản hồi trước của bạn không phải JSON hợp lệ. "
     "Hãy chỉ trả về đúng một đối tượng JSON với các trường bắt buộc: "
-    "reasoning, Label_LLM1, Text_Only, ImageSet_Only, Key_Images, Difficulty, Notes. "
+    "reasoning, Label_LLM1, Text_Only, ImageSet_Only, Key_Images, Difficulty. "
     "Không thêm bất kỳ nội dung nào khác ngoài đối tượng JSON."
 )
 
@@ -316,7 +316,7 @@ def _validate(data: dict) -> LLMJudgeRecord:
     difficulty_raw = data.get("Difficulty")
     difficulty = difficulty_raw if difficulty_raw in ("Easy", "Hard") else None
 
-    notes = str(data.get("Notes", ""))[:500]
+    notes = str(data.get("notes") or data.get("Notes") or "")[:500]
 
     reasoning = data.get("reasoning", {})
     if isinstance(reasoning, str) and reasoning.strip():
@@ -381,7 +381,12 @@ def _call_local(
     device = next(model.parameters()).device
     inputs = {k: v.to(device) if hasattr(v, "to") else v for k, v in inputs.items()}
 
+    eos_id = getattr(model.config, "eos_token_id", None) or getattr(processor.tokenizer, "eos_token_id", None)
+    pad_token_id = eos_id[0] if isinstance(eos_id, list) else eos_id
+
     gen_kwargs: dict = {"max_new_tokens": max_new_tokens}
+    if pad_token_id is not None:
+        gen_kwargs["pad_token_id"] = pad_token_id
     if temperature > 0:
         gen_kwargs["temperature"] = temperature
         gen_kwargs["do_sample"] = True
