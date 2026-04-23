@@ -95,7 +95,6 @@ def route_single(
         difficulty=difficulty,
         notes=llm_rec.notes,
         reasoning=llm_rec.reasoning,
-        raw_llm_output=llm_rec.raw_llm_output,
         round1_label=round1_label,
         need_review=need_review,
         route_reason=route_reason,

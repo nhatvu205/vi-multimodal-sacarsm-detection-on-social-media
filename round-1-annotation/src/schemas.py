@@ -23,16 +23,15 @@ class LLMJudgeRecord(BaseModel):
     """
     Structured output of the LLM judge using the new prompt schema.
 
-    label_llm1      : 0 (non-sarcastic), 1 (sarcastic), or "INVALID"
-    text_only       : label when only text+emoji is considered (0/1/null)
-    imageset_only   : label when only images are considered (0/1/null)
-    key_images      : 1-based indices of images that caused conflict (empty when label != 1)
-    difficulty      : "Easy" | "Hard" (null when INVALID)
-    notes           : free-form notes from the model
-    reasoning       : full nested reasoning dict from the model response
-    raw_llm_output  : verbatim model output string before any parsing/filtering
-    parse_error     : True when the model output could not be parsed (routing hint)
-    image_missing   : True when expected images were not found on disk (routing hint)
+    label_llm1    : 0 (non-sarcastic), 1 (sarcastic), or "INVALID"
+    text_only     : label when only text+emoji is considered (0/1/null)
+    imageset_only : label when only images are considered (0/1/null)
+    key_images    : 1-based indices of images that caused conflict (empty when label != 1)
+    difficulty    : "Easy" | "Hard" (null when INVALID)
+    notes         : free-form notes from the model
+    reasoning     : full nested reasoning dict from the model response
+    parse_error   : True when the model output could not be parsed (routing hint)
+    image_missing : True when expected images were not found on disk (routing hint)
     """
 
     id: int
@@ -43,7 +42,6 @@ class LLMJudgeRecord(BaseModel):
     difficulty: Optional[Literal["Easy", "Hard"]] = None
     notes: str = ""
     reasoning: Dict[str, Any] = Field(default_factory=dict)
-    raw_llm_output: str = ""
     parse_error: bool = False
     image_missing: bool = False
 
@@ -59,7 +57,6 @@ class Round1OutputRecord(BaseModel):
     difficulty: Optional[Literal["Easy", "Hard"]]
     notes: str
     reasoning: Dict[str, Any]
-    raw_llm_output: str
     round1_label: Literal["sarcastic", "non_sarcastic", "invalid"]
     need_review: bool
     route_reason: Literal[
