@@ -31,7 +31,7 @@ Nhãn 1 = Sarcastic: Người đăng nói/thể hiện một điều nhưng ý t
 Nhãn "INVALID": Gặp khi không thể xác định sarcasm do dữ liệu đầu vào bị lỗi hoặc thiếu. Các trường hợp gán INVALID:
   - Caption và ảnh hoàn toàn không liên quan nhau (hai chủ đề khác biệt, không có quan hệ ngữ nghĩa nào).
   - Caption rỗng, chỉ có ký tự đặc biệt, hoặc không thành câu.
-  - Ảnh mờ/hỏng đến mức không nhận diện được nội dung.
+  - Ảnh không tồn tại trong input, mờ/hỏng đến mức không nhận diện được nội dung.
   - Caption bằng ngôn ngữ không xác định được.
   - Nội dung bị kiểm duyệt đến mức mất thông tin cần thiết.
   - Confidence < 0.4 và không xác định được quan hệ caption–ảnh.
