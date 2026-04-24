@@ -509,8 +509,8 @@ def judge_batch(
         result = judge_single(model, processor, record, temperature, is_vl, max_image_pixels)
         results.append(result)
         logger.debug(
-            "id=%d | label=%s | difficulty=%s | parse_err=%s",
-            record.id, result.label_llm1, result.difficulty, result.parse_error,
+            "id=%d | label=%s | needs_human_check=%s | parse_err=%s",
+            record.id, result.label_llm1, result.needs_human_check, result.parse_error,
         )
 
     return results
