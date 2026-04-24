@@ -246,6 +246,7 @@ def _build_messages(
     text: str,
     images_pil: List[Image.Image],
     is_vl: bool,
+    ocr_text: Optional[str] = None,
 ) -> list:
     """Build a chat messages list for Qwen3.5-2B using the loaded prompt."""
     template = _load_prompt_template()
@@ -260,12 +261,15 @@ def _build_messages(
     else:
         images_placeholder = "[Không có ảnh hoặc ảnh không đọc được]"
 
+    ocr_placeholder = ocr_text.strip() if ocr_text and ocr_text.strip() else "[Không có OCR text]"
+
     # IMPORTANT: do NOT use str.format — the prompt contains raw JSON braces
     # for output contract examples, which would raise KeyError.
     prompt = (
         template
         .replace("{text}", text)
         .replace("{images}", images_placeholder)
+        .replace("{ocr_text}", ocr_placeholder)
     )
 
     if is_vl and images_pil:
@@ -289,8 +293,8 @@ def _extract_json(raw: str) -> dict:
 
 
 def _validate(data: dict) -> LLMJudgeRecord:
-    """Parse and validate the new prompt output schema into a LLMJudgeRecord."""
-    raw_label = data.get("Label_LLM1", "INVALID")
+    """Parse and validate the prompt output schema into a LLMJudgeRecord."""
+    raw_label = data.get("llm_label", "INVALID")
     if raw_label == "INVALID":
         label = "INVALID"
     elif raw_label in (0, 1):
@@ -302,19 +306,15 @@ def _validate(data: dict) -> LLMJudgeRecord:
     else:
         label = "INVALID"
 
-    text_only_raw = data.get("Text_Only")
-    text_only = int(text_only_raw) if (text_only_raw in (0, 1) or str(text_only_raw) in ("0", "1")) else None
+    has_emoji_raw = data.get("has_emoji")
+    has_emoji = int(has_emoji_raw) if (has_emoji_raw in (0, 1) or str(has_emoji_raw) in ("0", "1")) else None
 
-    imageset_only_raw = data.get("ImageSet_Only")
-    imageset_only = int(imageset_only_raw) if (imageset_only_raw in (0, 1) or str(imageset_only_raw) in ("0", "1")) else None
-
-    key_images = [
-        int(i) for i in (data.get("Key_Images") or [])
-        if isinstance(i, (int, float)) and not isinstance(i, bool)
-    ]
-
-    difficulty_raw = data.get("Difficulty")
-    difficulty = difficulty_raw if difficulty_raw in ("Easy", "Hard") else None
+    needs_human_check_raw = data.get("needs_human_check")
+    # Model may return as int (0/1) or quoted string ("0"/"1")
+    if needs_human_check_raw in (0, 1) or str(needs_human_check_raw) in ("0", "1"):
+        needs_human_check = int(needs_human_check_raw)
+    else:
+        needs_human_check = None
 
     notes = str(data.get("notes") or data.get("Notes") or "")[:500]
 
@@ -329,10 +329,8 @@ def _validate(data: dict) -> LLMJudgeRecord:
     return LLMJudgeRecord(
         id=-1,
         label_llm1=label,
-        text_only=text_only,
-        imageset_only=imageset_only,
-        key_images=key_images,
-        difficulty=difficulty,
+        has_emoji=has_emoji,
+        needs_human_check=needs_human_check,
         notes=notes,
         reasoning=reasoning,
     )
@@ -424,7 +422,7 @@ def judge_single(
     if image_missing:
         logger.warning("All images missing for id=%d: %s", record.id, record.image_path)
 
-    messages = _build_messages(record.text, images_pil, is_vl)
+    messages = _build_messages(record.text, images_pil, is_vl, record.ocr_text)
     raw = ""
 
     try:

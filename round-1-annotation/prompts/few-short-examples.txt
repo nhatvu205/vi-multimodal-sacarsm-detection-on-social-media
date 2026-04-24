@@ -9,21 +9,20 @@ Input:
 [IMAGES] Tong so anh: 2
 - Anh 1: Hinh chup con duong moi lam da xuat hien nhieu o ga lon, nuoc dong thanh vung.
 - Anh 2: Bien hieu ghi "Cong trinh hoan thanh thang 3/2024".
+[OCR_TEXT] [Khong co OCR text]
 
 Output:
 {
-  "Label_LLM1": 1,
+  "llm_label": 1,
   "reasoning": {
-    "validity": "Hop le: caption noi ve cong trinh xay dung, anh cung ve cong trinh do — co quan he ngu nghia ro rang.",
-    "literal_case": "Nguoi dang co the thuc su hai long voi tien do ban giao du chat luong chua hoan hao. Emoji phu hop voi tone chuc mung.",
-    "sarcasm_case": "Cum 'chat luong tuyet voi' mau thuan truc tiep voi Anh 1 (duong day o ga, nuoc dong). Nguoi dang co tinh khen trong khi dinh kem anh thuc te te hai — Image-Text Conflict (1.2). Lap luan nay ro rang va manh hon.",
-    "emoji_and_type": "Emoji khi dat canh anh tieu cuc mang tinh cham biem. Thuoc loai 1.2 Image-Text Conflict.",
-    "verdict": "Lap luan Sarcastic manh hon do conflict giua anh va text. Label_LLM1=1. Text_Only=1 (cau khen tuyet doi khong anh van co the la mia mai). ImageSet_Only=0 (anh don thuan khong tao mia mai neu thieu text khen)."
+    "non_sacarstic_case": "Nguoi dang co the thuc su hai long voi tien do ban giao du chat luong chua hoan hao. Lap luan yeu.",
+    "sacartic_case": "Cum 'chat luong tuyet voi' mau thuan truc tiep voi Anh 1 (duong day o ga, nuoc dong). Nguoi dang co tinh khen trong khi dinh kem anh thuc te te hai — Image-Text Conflict (1.2). Lap luan nay ro rang va manh hon.",
+    "emoji_reasoning": "Emoji khi dat canh anh tieu cuc mang tinh cham biem, khong cu ngo su hai long that su.",
+    "sacarsm_type": "1.2 Image-Text Conflict",
+    "verdict": "Lap luan Sarcastic manh hon do conflict giua anh va text. llm_label=1."
   },
-  "Text_Only": 1,
-  "ImageSet_Only": 0,
-  "Key_Images": [1],
-  "Difficulty": "Easy"
+  "has_emoji": 1,
+  "needs_human_check": 0
 }
 
 --- VI DU 2: SARCASTIC (Emoji-Text Conflict — 1.3) ---
@@ -31,21 +30,20 @@ Output:
 Input:
 [TEXT] Hop 3 tieng dong ho de quyet dinh mau sac cua nut bam. Productive lam
 [IMAGES] Khong co anh.
+[OCR_TEXT] [Khong co OCR text]
 
 Output:
 {
-  "Label_LLM1": 1,
+  "llm_label": 1,
   "reasoning": {
-    "validity": "Hop le: khong co anh, caption du thong tin de phan tich.",
-    "literal_case": "Nguoi dang dung 'Productive' theo nghia den, emoji chi the hien khong khi vui ve. Lap luan nay yeu vi emoji khong phu hop voi tone hai long.",
-    "sarcasm_case": "Hop 3 tieng chi de chon mau nut la vo bo. Khen 'Productive lam' kem emoji la khen nguoc de che gieu — Emoji-Text Conflict (1.3). Tin hieu mia mai ro.",
-    "emoji_and_type": "Emoji dao nguoc hoan toan nghia be mat cua 'Productive'. Thuoc loai 1.3 Emoji-Text Conflict.",
-    "verdict": "Lap luan Sarcastic manh hon. Label_LLM1=1. Text_Only=1. ImageSet_Only=null."
+    "non_sacarstic_case": "Nguoi dang dung 'Productive' theo nghia den, emoji chi the hien khong khi vui ve. Lap luan yeu.",
+    "sacartic_case": "Hop 3 tieng chi de chon mau nut la vo bo. Khen 'Productive lam' kem emoji la khen nguoc de che gieu — Emoji-Text Conflict (1.3). Tin hieu mia mai ro.",
+    "emoji_reasoning": "Emoji dao nguoc hoan toan nghia be mat cua 'Productive'. Thuoc loai 1.3 Emoji-Text Conflict.",
+    "sacarsm_type": "1.3 Emoji-Text Conflict",
+    "verdict": "Lap luan Sarcastic manh hon. llm_label=1."
   },
-  "Text_Only": 1,
-  "ImageSet_Only": null,
-  "Key_Images": [],
-  "Difficulty": "Easy"
+  "has_emoji": 1,
+  "needs_human_check": 0
 }
 
 --- VI DU 3: NON-SARCASTIC ---
@@ -54,21 +52,20 @@ Input:
 [TEXT] Hom nay Tran Thanh dien xuat than qua, xem ma khoc luon
 [IMAGES] Tong so anh: 1
 - Anh 1: Hinh Tran Thanh dang khoc tren san khau, chat luong anh hoi mo do chup voi qua man hinh TV.
+[OCR_TEXT] [Khong co OCR text]
 
 Output:
 {
-  "Label_LLM1": 0,
+  "llm_label": 0,
   "reasoning": {
-    "validity": "Hop le: caption va anh cung ve Tran Thanh dang bieu cam xuc dong — co quan he ngu nghia. Anh hoi mo nhung van nhan ra noi dung, khong phai INVALID.",
-    "literal_case": "Text khen ngoi dien xuat gay xuc dong. Anh minh hoa dung nhan vat dang co bieu cam tuong tu. Emoji dong nhat voi cam xuc chia se — tat ca nhat quan. Lap luan manh.",
-    "sarcasm_case": "Khong co tin hieu mia mai nao tu danh sach dac trung. Khong co template meme hay khen nguoc. Lap luan yeu.",
-    "emoji_and_type": "Emoji cu ngo truc tiep cam xuc xuc dong, khong dao nguoc. Khong co mia mai.",
-    "verdict": "Lap luan Literal ap dao. Label_LLM1=0. Text_Only=0. ImageSet_Only=0."
+    "non_sacarstic_case": "Text khen ngoi dien xuat gay xuc dong. Anh minh hoa dung nhan vat dang co bieu cam tuong tu. Tat ca nhat quan — khong co conflict. Lap luan manh.",
+    "sacartic_case": "Khong co tin hieu mia mai nao tu danh sach dac trung. Lap luan yeu.",
+    "emoji_reasoning": "Khong co emoji. Tone cam xuc dong nhat trong text va anh.",
+    "sacarsm_type": "NULL",
+    "verdict": "Lap luan Literal ap dao. llm_label=0."
   },
-  "Text_Only": 0,
-  "ImageSet_Only": 0,
-  "Key_Images": [],
-  "Difficulty": "Easy"
+  "has_emoji": 0,
+  "needs_human_check": 0
 }
 
 --- VI DU 4: SARCASTIC (Contextual / Ironic Title — 1.4) ---
@@ -78,21 +75,20 @@ Input:
 Con: "Me oi con thi IELTS duoc 8.0!"
 Me: "Gioi qua con! The con thich truyen tranh nao me mua cho?"
 [IMAGES] Khong co anh.
+[OCR_TEXT] [Khong co OCR text]
 
 Output:
 {
-  "Label_LLM1": 1,
+  "llm_label": 1,
   "reasoning": {
-    "validity": "Hop le: khong co anh, caption la mot doan hoi thoai du ngu canh de phan tich.",
-    "literal_case": "Day la mot cau chuyen gia dinh vui ve — con dat thanh tich cao, me khen va hoi mua qua. Co the hieu theo nghia den la cuoc tro chuyen binh thuong.",
-    "sarcasm_case": "Tieu de 'Chuyen buon giao duc VN' la format ironic dien hinh tren mang xa hoi VN. Noi dung phia sau tuong la tich cuc (8.0 IELTS) nhung cu dam la cau me hoi 'truyen tranh nao' — ham y me khong hieu gia tri thanh tich hoc thuat, phe phan ngam ve nhan thuc giao duc. Day la Contextual Sarcasm (1.4).",
-    "emoji_and_type": "Khong co emoji. Mia mai den tu cau truc tieu de + noi dung tuong phan. Thuoc loai 1.4 Contextual.",
-    "verdict": "Tin hieu mia mai ro qua format tieu de 'Chuyen buon X' — ap dung tiebreaker: lap luan Sarcastic ngang bang hoac manh hon + dung format/template mia mai VN → gan nhan 1. Label_LLM1=1. Text_Only=1. ImageSet_Only=null."
+    "non_sacarstic_case": "Day la mot cau chuyen gia dinh vui ve — con dat thanh tich cao, me khen va hoi mua qua. Co the hieu theo nghia den la cuoc tro chuyen binh thuong.",
+    "sacartic_case": "Tieu de 'Chuyen buon giao duc VN' la format ironic dien hinh tren mang xa hoi VN. Cau me hoi 'truyen tranh nao' ham y me khong hieu gia tri thanh tich hoc thuat. Day la Contextual Sarcasm (1.4).",
+    "emoji_reasoning": "Khong co emoji. Mia mai den tu cau truc tieu de + noi dung tuong phan.",
+    "sacarsm_type": "1.4 Contextual",
+    "verdict": "Tin hieu mia mai ro qua format tieu de 'Chuyen buon X' — ap dung tiebreaker: lap luan Sarcastic manh hon + dung format/template mia mai VN → llm_label=1."
   },
-  "Text_Only": 1,
-  "ImageSet_Only": null,
-  "Key_Images": [],
-  "Difficulty": "Hard"
+  "has_emoji": 0,
+  "needs_human_check": 1
 }
 
 --- VI DU 5: SARCASTIC (Trich dan ngu canh ngam — Self-deprecating 1.5) ---
@@ -101,21 +97,20 @@ Input:
 [TEXT] "Tuy nhien, sau khi chung toi xem xet ky don ung tuyen cua em..."
 [IMAGES] Tong so anh: 1
 - Anh 1: Anh chup man hinh dien thoai the hien bieu cam buon hoac hinh nhan vat anime khoc.
+[OCR_TEXT] Tuy nhien sau khi chung toi xem xet ky don ung tuyen cua em
 
 Output:
 {
-  "Label_LLM1": 1,
+  "llm_label": 1,
   "reasoning": {
-    "validity": "Hop le: caption la doan trich thu, anh bieu cam phan ung — co quan he ngu nghia gian tiep (anh the hien cam xuc phu hop voi noi dung thu tu choi).",
-    "literal_case": "Day la mot doan trich email/thu tuyen dung binh thuong. Nguoi dung chi dang chia se doan mo dau cua thu phan hoi. Lap luan yeu vi khong ai dang nua cau ma khong co dung y.",
-    "sarcasm_case": "Cum 'Tuy nhien, sau khi chung toi xem xet ky...' la cau mo dau cua thu tu choi tuyen dung — mot template cuc ky quen thuoc. Nguoi dang co tinh cat dung cho ai cung hieu tiep theo la 'chung toi rat tiec...' Day la self-deprecating (1.5) ve viec bi tu choi, dung su im lang hai huoc thay vi noi thang.",
-    "emoji_and_type": "Khong co emoji trong text. Anh bieu cam buon/khoc cu ngo y nghia sarcastic (bi tu choi). Thuoc loai 1.5 Self-deprecating.",
-    "verdict": "Tin hieu mia mai ro qua format trich dan nua cau + anh reaction — ap dung tiebreaker: lap luan Sarcastic manh hon + dung tin hieu ngam VN → gan nhan 1. Label_LLM1=1. Text_Only=1 (cau van da du nghia ngam). ImageSet_Only=0 (anh chi phan ung, khong tao mia mai doc lap)."
+    "non_sacarstic_case": "Day la mot doan trich email/thu tuyen dung binh thuong. Lap luan yeu vi khong ai dang nua cau ma khong co dung y.",
+    "sacartic_case": "Cum 'Tuy nhien, sau khi chung toi xem xet ky...' la cau mo dau cua thu tu choi tuyen dung — mot template cuc ky quen thuoc. Nguoi dang co tinh cat dung cho ai cung hieu tiep theo la 'chung toi rat tiec...' Day la self-deprecating (1.5). OCR text xac nhan noi dung text chinh xac.",
+    "emoji_reasoning": "Khong co emoji trong text. Anh bieu cam buon/khoc cu ngo y nghia sarcastic (bi tu choi).",
+    "sacarsm_type": "1.5 Self-deprecating",
+    "verdict": "Tin hieu mia mai ro qua format trich dan nua cau + anh reaction. llm_label=1."
   },
-  "Text_Only": 1,
-  "ImageSet_Only": 0,
-  "Key_Images": [],
-  "Difficulty": "Hard"
+  "has_emoji": 0,
+  "needs_human_check": 1
 }
 
 --- VI DU 6: NON-SARCASTIC (Co :))) nhung khong phai mia mai) ---
@@ -123,21 +118,20 @@ Output:
 Input:
 [TEXT] Hom nay duoc sep khen truoc phong, xung dang voi 3 ngay thuc den 2 gio sang :)))
 [IMAGES] Khong co anh.
+[OCR_TEXT] [Khong co OCR text]
 
 Output:
 {
-  "Label_LLM1": 0,
+  "llm_label": 0,
   "reasoning": {
-    "validity": "Hop le: khong co anh, caption du thong tin de phan tich.",
-    "literal_case": "Nguoi dang chia se that su rang ho duoc khen va cam thay xung dang sau no luc. :))) co the la bieu cam vui ve, thoai mai sau cang thang.",
-    "sarcasm_case": ":))) thuong la tin hieu deadpan/mia mai trong VN. Tuy nhien, o day khong co conflict — 'duoc sep khen' la ket qua tich cuc THAT, va '3 ngay thuc den 2 gio sang' la nguyen nhan THAT. Nguoi dang dang thua nhan no luc cua minh, khong noi nguoc. Khong co su tuong phan giua no luc va ket qua — ca hai cung chieu. Lap luan Sarcastic yeu.",
-    "emoji_and_type": ":))) o day cu ngo su tu hao kieu hanh nhe, khong dao nguoc nghia. Mac du :))) thuong la tin hieu mia mai, can xem xet toan ngu canh — o day ket qua va no luc nhat quan. NULL.",
-    "verdict": "Lap luan Literal manh hon — khong co tuong phan giua no luc va ket qua, :))) khong du minh de tao mia mai khi noi dung nhat quan. Label_LLM1=0. Text_Only=0. ImageSet_Only=null."
+    "non_sacarstic_case": "Nguoi dang chia se that su rang ho duoc khen va cam thay xung dang sau no luc. Ket qua va no luc nhat quan — 'duoc sep khen' la ket qua tich cuc THAT, '3 ngay thuc den 2 gio sang' la nguyen nhan THAT. Khong co conflict.",
+    "sacartic_case": ":))) thuong la tin hieu deadpan/mia mai trong VN. Tuy nhien o day ket qua va no luc nhat quan, :))) khong du minh de tao mia mai. Lap luan yeu.",
+    "emoji_reasoning": ":))) o day cu ngo su tu hao kieu hanh nhe, khong dao nguoc nghia. Xem xet toan ngu canh — ket qua va no luc nhat quan.",
+    "sacarsm_type": "NULL",
+    "verdict": "Lap luan Literal manh hon. llm_label=0."
   },
-  "Text_Only": 0,
-  "ImageSet_Only": null,
-  "Key_Images": [],
-  "Difficulty": "Hard"
+  "has_emoji": 1,
+  "needs_human_check": 1
 }
 
 --- VI DU 7: INVALID (Caption va anh hoan toan khong lien quan) ---
@@ -146,19 +140,18 @@ Input:
 [TEXT] Cach lam banh mi kep thit: 300g thit heo, 1 o banh mi, hanh la, nuoc mam, tieu. Uop thit 30 phut roi chien vang. Cho vao banh an voi rau song.
 [IMAGES] Tong so anh: 1
 - Anh 1: Anh phong canh nui non hiem tro, rung xanh, khong co nguoi hoac do vat lien quan den am thuc.
+[OCR_TEXT] [Khong co OCR text]
 
 Output:
 {
-  "Label_LLM1": "INVALID",
+  "llm_label": "INVALID",
   "reasoning": {
-    "validity": "INVALID: Caption la cong thuc nau an (banh mi kep thit) trong khi anh la phong canh nui rung hoan toan khong lien quan. Khong tim duoc bat ky quan he ngu nghia nao giua caption va anh du co gang suy luan.",
-    "literal_case": "Khong ap dung — du lieu khong hop le de phan tich sarcasm.",
-    "sarcasm_case": "Khong ap dung — khong the xac dinh mia mai hay khong khi caption va anh thuoc hai chu de hoan toan khac biet.",
-    "emoji_and_type": "Khong co emoji. Khong ap dung.",
-    "verdict": "Gap truong hop Caption-Image unrelated trong dinh nghia INVALID. Label_LLM1='INVALID'. Text_Only=null. ImageSet_Only=null."
+    "non_sacarstic_case": "Khong ap dung — du lieu khong hop le de phan tich sarcasm.",
+    "sacartic_case": "Khong ap dung — khong the xac dinh mia mai hay khong khi caption va anh thuoc hai chu de hoan toan khac biet.",
+    "emoji_reasoning": "Khong co emoji. Khong ap dung.",
+    "sacarsm_type": "NULL",
+    "verdict": "Gap truong hop Caption-Image unrelated: caption la cong thuc nau an, anh la phong canh nui rung — khong tim duoc bat ky quan he ngu nghia nao. llm_label='INVALID'."
   },
-  "Text_Only": null,
-  "ImageSet_Only": null,
-  "Key_Images": [],
-  "Difficulty": null
+  "has_emoji": 0,
+  "needs_human_check": 1
 }

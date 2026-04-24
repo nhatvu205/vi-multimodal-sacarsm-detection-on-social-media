@@ -15,6 +15,10 @@ Input:
 [IMAGES]
 {images}
 
+[OCR_TEXT]
+{ocr_text}
+Lưu ý: OCR_TEXT là văn bản được trích xuất tự động từ ảnh bằng công nghệ OCR và có thể chứa lỗi nhận dạng (sai chính tả, thiếu dấu, ghép từ sai). Chỉ dùng OCR_TEXT làm tham khảo bổ sung để hiểu nội dung chữ trong ảnh — KHÔNG dùng làm bằng chứng chính khi phân tích.
+
 ---
 
 === ĐỊNH NGHĨA NHÃN ===

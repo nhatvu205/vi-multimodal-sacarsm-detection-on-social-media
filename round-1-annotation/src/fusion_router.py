@@ -39,20 +39,20 @@ def route_single(
     Compute routing decision for a single record.
 
     round1_label is a 3-class field directly reflecting the LLM's verdict:
-      - "sarcastic"     : Label_LLM1 == 1
-      - "non_sarcastic" : Label_LLM1 == 0
-      - "invalid"       : Label_LLM1 == "INVALID" or unrecoverable parse error
+      - "sarcastic"     : llm_label == 1
+      - "non_sarcastic" : llm_label == 0
+      - "invalid"       : llm_label == "INVALID" or unrecoverable parse error
 
     need_review is a separate boolean flag indicating whether a human should
     verify the record. Routing rules (in order):
-      1. missing_image  -> need_review=True  / route_reason=missing_image
-      2. invalid_json   -> need_review=True  / route_reason=invalid_json   (round1_label forced to "invalid")
-      3. label==INVALID -> need_review=True  / route_reason=uncertain
-      4. Difficulty==Easy -> need_review=False / route_reason=high_conf
-      5. Difficulty==Hard or None -> need_review=True / route_reason=low_conf
+      1. missing_image       -> need_review=True  / route_reason=missing_image
+      2. invalid_json        -> need_review=True  / route_reason=invalid_json  (round1_label forced to "invalid")
+      3. label==INVALID      -> need_review=True  / route_reason=uncertain
+      4. needs_human_check==0 -> need_review=False / route_reason=high_conf
+      5. needs_human_check==1 or None -> need_review=True / route_reason=low_conf
     """
     label = llm_rec.label_llm1
-    difficulty = llm_rec.difficulty
+    needs_human_check = llm_rec.needs_human_check
 
     # --- Determine round1_label from LLM output ---
     if label == 1:
@@ -76,7 +76,7 @@ def route_single(
         need_review = True
         route_reason = "uncertain"
 
-    elif difficulty == "Easy":
+    elif needs_human_check == 0:
         need_review = False
         route_reason = "high_conf"
 
@@ -89,10 +89,8 @@ def route_single(
         text=text,
         image_path=image_path,
         label_llm1=label,
-        text_only=llm_rec.text_only,
-        imageset_only=llm_rec.imageset_only,
-        key_images=llm_rec.key_images,
-        difficulty=difficulty,
+        has_emoji=llm_rec.has_emoji,
+        needs_human_check=needs_human_check,
         notes=llm_rec.notes,
         reasoning=llm_rec.reasoning,
         round1_label=round1_label,

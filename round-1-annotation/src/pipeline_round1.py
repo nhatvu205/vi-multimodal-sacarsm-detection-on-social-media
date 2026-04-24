@@ -149,16 +149,11 @@ def build_stats(
     for r in all_records:
         route_dist[r.route_reason] = route_dist.get(r.route_reason, 0) + 1
 
-    difficulty_dist: dict = {"Easy": 0, "Hard": 0, "null": 0}
+    has_emoji_dist: dict = {0: 0, 1: 0, "null": 0}
+    needs_human_check_dist: dict = {0: 0, 1: 0, "null": 0}
     for r in all_records:
-        key = r.difficulty if r.difficulty in ("Easy", "Hard") else "null"
-        difficulty_dist[key] += 1
-
-    text_only_dist: dict = {0: 0, 1: 0, "null": 0}
-    imageset_only_dist: dict = {0: 0, 1: 0, "null": 0}
-    for r in all_records:
-        text_only_dist[r.text_only if r.text_only is not None else "null"] += 1
-        imageset_only_dist[r.imageset_only if r.imageset_only is not None else "null"] += 1
+        has_emoji_dist[r.has_emoji if r.has_emoji is not None else "null"] += 1
+        needs_human_check_dist[r.needs_human_check if r.needs_human_check is not None else "null"] += 1
 
     return {
         "total_samples": total_samples,
@@ -170,9 +165,8 @@ def build_stats(
         "need_review_rate": round(len(human_queue) / processed, 4) if processed else 0,
         "label_distribution": label_dist,
         "route_reason_distribution": route_dist,
-        "difficulty_distribution": difficulty_dist,
-        "text_only_distribution": {str(k): v for k, v in text_only_dist.items()},
-        "imageset_only_distribution": {str(k): v for k, v in imageset_only_dist.items()},
+        "has_emoji_distribution": {str(k): v for k, v in has_emoji_dist.items()},
+        "needs_human_check_distribution": {str(k): v for k, v in needs_human_check_dist.items()},
     }
 
 

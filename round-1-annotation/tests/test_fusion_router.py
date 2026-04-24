@@ -9,14 +9,14 @@ from src.schemas import LLMJudgeRecord, Round1OutputRecord
 def _llm(
     id: int,
     label,
-    difficulty: str = "Easy",
+    needs_human_check: int = 0,
     parse_error: bool = False,
     image_missing: bool = False,
 ) -> LLMJudgeRecord:
     return LLMJudgeRecord(
         id=id,
         label_llm1=label,
-        difficulty=difficulty if label != "INVALID" else None,
+        needs_human_check=needs_human_check if label != "INVALID" else None,
         parse_error=parse_error,
         image_missing=image_missing,
     )
@@ -29,24 +29,24 @@ DEFAULT_CFG = RouterConfig(
 
 
 # ---------------------------------------------------------------------------
-# Test 1: label=1 + Easy => sarcastic, need_review=False, high_conf
+# Test 1: label=1 + needs_human_check=0 => sarcastic, need_review=False, high_conf
 # ---------------------------------------------------------------------------
-def test_sarcastic_easy_auto_accept():
-    llm = _llm(1, 1, difficulty="Easy")
+def test_sarcastic_confident_auto_accept():
+    llm = _llm(1, 1, needs_human_check=0)
     out = route_single(llm, DEFAULT_CFG, "text", "img.jpg")
 
     assert out.round1_label == "sarcastic"
     assert out.need_review is False
     assert out.route_reason == "high_conf"
     assert out.label_llm1 == 1
-    assert out.difficulty == "Easy"
+    assert out.needs_human_check == 0
 
 
 # ---------------------------------------------------------------------------
-# Test 2: label=0 + Easy => non_sarcastic, need_review=False, high_conf
+# Test 2: label=0 + needs_human_check=0 => non_sarcastic, need_review=False, high_conf
 # ---------------------------------------------------------------------------
-def test_non_sarcastic_easy_auto_accept():
-    llm = _llm(2, 0, difficulty="Easy")
+def test_non_sarcastic_confident_auto_accept():
+    llm = _llm(2, 0, needs_human_check=0)
     out = route_single(llm, DEFAULT_CFG, "text", "img.jpg")
 
     assert out.round1_label == "non_sarcastic"
@@ -56,10 +56,10 @@ def test_non_sarcastic_easy_auto_accept():
 
 
 # ---------------------------------------------------------------------------
-# Test 3: label=1 + Hard => sarcastic BUT need_review=True, low_conf
+# Test 3: label=1 + needs_human_check=1 => sarcastic BUT need_review=True, low_conf
 # ---------------------------------------------------------------------------
-def test_sarcastic_hard_needs_review():
-    llm = _llm(3, 1, difficulty="Hard")
+def test_sarcastic_uncertain_needs_review():
+    llm = _llm(3, 1, needs_human_check=1)
     out = route_single(llm, DEFAULT_CFG, "text", "img.jpg")
 
     assert out.round1_label == "sarcastic"
@@ -68,10 +68,10 @@ def test_sarcastic_hard_needs_review():
 
 
 # ---------------------------------------------------------------------------
-# Test 4: label=0 + Hard => non_sarcastic BUT need_review=True, low_conf
+# Test 4: label=0 + needs_human_check=1 => non_sarcastic BUT need_review=True, low_conf
 # ---------------------------------------------------------------------------
-def test_non_sarcastic_hard_needs_review():
-    llm = _llm(4, 0, difficulty="Hard")
+def test_non_sarcastic_uncertain_needs_review():
+    llm = _llm(4, 0, needs_human_check=1)
     out = route_single(llm, DEFAULT_CFG, "text", "img.jpg")
 
     assert out.round1_label == "non_sarcastic"
@@ -90,7 +90,7 @@ def test_invalid_label():
     assert out.need_review is True
     assert out.route_reason == "uncertain"
     assert out.label_llm1 == "INVALID"
-    assert out.difficulty is None
+    assert out.needs_human_check is None
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +98,7 @@ def test_invalid_label():
 #          round1_label still reflects LLM label (sarcastic here)
 # ---------------------------------------------------------------------------
 def test_missing_image_override():
-    llm = _llm(6, 1, difficulty="Easy", image_missing=True)
+    llm = _llm(6, 1, needs_human_check=0, image_missing=True)
     out = route_single(llm, DEFAULT_CFG, "text", "img.jpg", route_reason_override="missing_image")
 
     assert out.round1_label == "sarcastic"
@@ -124,7 +124,7 @@ def test_parse_error_override():
 def test_audit_sampling_reroute():
     records = []
     for i in range(20):
-        llm = _llm(i, 1, difficulty="Easy")
+        llm = _llm(i, 1, needs_human_check=0)
         out = route_single(llm, DEFAULT_CFG, "text", "img.jpg")
         records.append(out)
 
@@ -144,10 +144,10 @@ def test_audit_sampling_reroute():
 
 
 # ---------------------------------------------------------------------------
-# Test 9: difficulty=None falls through to low_conf, need_review=True
+# Test 9: needs_human_check=None falls through to low_conf, need_review=True
 # ---------------------------------------------------------------------------
-def test_no_difficulty_low_conf():
-    llm = LLMJudgeRecord(id=9, label_llm1=1, difficulty=None)
+def test_no_needs_human_check_low_conf():
+    llm = LLMJudgeRecord(id=9, label_llm1=1, needs_human_check=None)
     out = route_single(llm, DEFAULT_CFG, "text", "img.jpg")
 
     assert out.round1_label == "sarcastic"
@@ -161,7 +161,7 @@ def test_no_difficulty_low_conf():
 def test_mixed_batch_audit_seed_reproducible():
     records = []
     for i in range(10):
-        llm = _llm(i, 1 if i % 2 == 0 else 0, difficulty="Easy")
+        llm = _llm(i, 1 if i % 2 == 0 else 0, needs_human_check=0)
         out = route_single(llm, DEFAULT_CFG, "text", "img.jpg")
         records.append(out)
 
