@@ -174,8 +174,32 @@ def build_stats(
 # Output writers
 # ---------------------------------------------------------------------------
 
+def _slim_round1_public_dict(rec: Round1OutputRecord) -> dict:
+    """
+    Final JSON exports only these fields (routing/metadata stripped from disk).
+    ``timestamp`` replaces internal ``timestamp_utc`` key name for the artifact.
+    """
+    return {
+        "id": rec.id,
+        "text": rec.text,
+        "image_path": rec.image_path,
+        "label_llm1": rec.label_llm1,
+        "has_emoji": rec.has_emoji,
+        "needs_human_check": rec.needs_human_check,
+        "reasoning": rec.reasoning,
+        "timestamp": rec.timestamp_utc,
+    }
+
+
+def _write_round1_json(path: Path, records: List[Round1OutputRecord]) -> None:
+    """Write Round-1 labeled rows as JSON array with public slim schema."""
+    data = [_slim_round1_public_dict(r) for r in records]
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
 def _write_json(path: Path, records: list) -> None:
-    """Write a list of records as a pretty-printed JSON array."""
+    """Write arbitrary serializable rows (e.g. bad_records)."""
     data = []
     for rec in records:
         if isinstance(rec, Round1OutputRecord):
@@ -197,9 +221,9 @@ def write_outputs(
     auto_accepted = [r for r in all_records if not r.need_review]
     human_queue = [r for r in all_records if r.need_review]
 
-    _write_json(output_dir / "round1_all.json", all_records)
-    _write_json(output_dir / "round1_auto_accepted.json", auto_accepted)
-    _write_json(output_dir / "round1_human_queue.json", human_queue)
+    _write_round1_json(output_dir / "round1_all.json", all_records)
+    _write_round1_json(output_dir / "round1_auto_accepted.json", auto_accepted)
+    _write_round1_json(output_dir / "round1_human_queue.json", human_queue)
     _write_json(output_dir / "bad_records.json", bad_records)
 
     (output_dir / "round1_stats.json").write_text(
