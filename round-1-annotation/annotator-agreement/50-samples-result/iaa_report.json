@@ -1,0 +1,61 @@
+{
+  "coverage": {
+    "matching_rule": "llm.id == human.inner_id + human_inner_id_shift",
+    "human_inner_id_shift": -1,
+    "n_human_tasks": 50,
+    "n_llm_records": 50,
+    "n_human_inner_ids": 50,
+    "n_llm_ids_joinable_from_human": 50,
+    "n_llm_ids_without_matching_human_inner_id": 0,
+    "n_valid_pairs": 48,
+    "n_skipped_missing_llm": 0,
+    "n_skipped_invalid_human": 0,
+    "n_skipped_invalid_llm": 2
+  },
+  "skipped": {
+    "missing_llm_after_shift": [],
+    "invalid_human": [],
+    "invalid_llm": [
+      2,
+      18
+    ]
+  },
+  "pairwise": {
+    "human_vs_llm": {
+      "annotators": [
+        "human",
+        "llm"
+      ],
+      "n_pairs": 48,
+      "n_agree": 36,
+      "n_conflict": 12,
+      "agreement_pct": 75.0,
+      "cohen_kappa": 0.4894,
+      "kappa_interpretation": "moderate",
+      "confusion_matrix": {
+        "TP_human_1_llm_1": 22,
+        "TN_human_0_llm_0": 14,
+        "FP_human_0_llm_1": 8,
+        "FN_human_1_llm_0": 4
+      }
+    }
+  },
+  "two_way": {
+    "n_valid_pairs": 48,
+    "n_agree": 36,
+    "n_disagree": 12,
+    "agreement_pct": 75.0,
+    "fleiss_kappa": 0.4857,
+    "fleiss_kappa_interpretation": "moderate",
+    "label_distribution": {
+      "human": {
+        "sarcastic": 26,
+        "not_sarcastic": 22
+      },
+      "llm": {
+        "sarcastic": 30,
+        "not_sarcastic": 18
+      }
+    }
+  }
+}

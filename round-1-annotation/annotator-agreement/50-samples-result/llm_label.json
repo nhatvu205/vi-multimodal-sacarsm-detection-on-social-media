@@ -1,0 +1,994 @@
+[
+  {
+    "id": 0,
+    "text": "đây nhé cả nhà t ghim thù mấy năm nay r ^^\nđem cái mã vạch đó đi quét mà còn quét ra cả album gốc thì nhục để đâu cho hết, bắt chước cả pose gốc của anh t nữa thì t cũng chịu mẹ luôn =))))))",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00001.jpg",
+    "label_llm1": 1,
+    "has_emoji": 1,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Nguoi dang chia se kinh nghiem nghe album va xem MV, co the hieu theo nghia den la hoang tien khi bat chuc. Lap luan yeu.",
+      "sacartic_case": "Text khen 'nhục' khi ma 'quyet ra album goc' va 'bat chuc pose goc', trong khi anh chup la bat chuc. Day la Image-Text Conflict (1.2) va Self-deprecating (1.5). Anh chup la bat chuc (B Ray) trong khi text khen anh chup 'bat chuc' (Baekhyun) — nguoi dang ke la nguoi bat chuc, khong phai nguoi chup. Emoji '^^' va '=))))))' cu ngo tinh cham biem, khong phai tu hao that su. Day la sarcasm ro rang.",
+      "emoji_reasoning": "Emoji '^^' va '=))))))' cu ngo tinh cham biem, khong phai tu hao that su.",
+      "sacarsm_type": "1.2 Image-Text Conflict / 1.5 Self-deprecating",
+      "verdict": "Lap luan Sarcastic manh hon do conflict giua anh va text (anh chup bat chuc, text khen anh chup bat chuc). llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 1,
+    "text": "My son said, “My stomach hurts.” But the pain is called hunger. I held him and cried. If you’re scrolling… just a dot.",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00002.webp",
+    "label_llm1": 0,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text mô tả một tình huống thực tế và cảm xúc chân thành: con nói đau bụng nhưng thực ra là đói, mẹ ôm và khóc vì thương con. Đây là một câu chuyện đời thường, không có sự mâu thuẫn hay phóng đại. Hình ảnh một đứa trẻ đang ngủ ngon, tay nắm chặt, hoàn toàn phù hợp với ngữ cảnh 'đói' hoặc 'ngủ'. Không có dấu hiệu mỉa mai nào.",
+      "sacartic_case": "Không có lập luận mỉa mai nào. Text và ảnh nhất quán với nhau về mặt cảm xúc và ngữ cảnh. Việc người mẹ 'khóc' là biểu hiện của tình yêu thương và sự lo lắng, không phải là sự chế giễu.",
+      "emoji_reasoning": "Không có emoji trong bài đăng.",
+      "sacarsm_type": "NULL",
+      "verdict": "Lập luận Non-sarcastic áp đảo. Text và ảnh hoàn toàn đồng nhất về mặt cảm xúc và nội dung. Đây là một bài đăng chia sẻ cảm xúc chân thành, không phải mỉa mai. llm_label=0."
+    },
+    "round1_label": "non_sarcastic",
+    "need_review": true,
+    "route_reason": "audit_sampled",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 2,
+    "text": "Má ơi cái thần thái em bía Mason ng🤭👏",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00003.jpg",
+    "label_llm1": "INVALID",
+    "has_emoji": null,
+    "needs_human_check": null,
+    "notes": "",
+    "reasoning": {
+      "verdict": "Text khen 'thien thai em bía' (hay 'bia' - nguoi day day) trong khi anh trong anh dang day day, mat bi, tay day len day, co the hieu la anh day day, khong co tinh mia mai. Lap luan nay ro rang va manh hon."
+    },
+    "round1_label": "invalid",
+    "need_review": true,
+    "route_reason": "uncertain",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 3,
+    "text": "chúng m coi t mới phát hiện ra cái gì nè 🫢",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00004.jpg",
+    "label_llm1": 1,
+    "has_emoji": 1,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sarcastic_case": "Nguoi dang chia se mot phat hien ban than ve rap Viet, co the hieu theo nghia den la co nhieu fan va buoc phai nghe nhac minh. Lap luan yeu vi khong co xung dot giua text va anh.",
+      "sacartic_case": "Text noi 'co nhieu fan rap Viet' nhung anh minh hoa la 'Happy Chinese New Year' (Nen Nam Trung Hoa) — mot tieu de hoac anh lien quan den van hoa Trung Quoc, khong lien quan den rap Viet. Day la Image-Text Conflict (1.2). Nguoi dang khen nguoc de che gieu tinh thich rap Viet cua minh. Lap luan nay manh hon.",
+      "emoji_reasoning": "Emoji 🫢 (coi gi) thuong duoc dung de che gieu, khong phai la tinh thich thuc su, cu ngo su dua vao anh va tieu de.",
+      "sacarsm_type": "1.2 Image-Text Conflict",
+      "verdict": "Lap luan Sarcastic manh hon do conflict giua text va anh. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 4,
+    "text": "Dạo này đang hot phong trào bán hàng nhưng ảo Võ Tắc Thiên hả mọi người?\nMẹ mình mua bánh bột lọc của chị trong ảnh, và mẹ cũng lớn tuổi rồi nên nhắn tin có thể chưa đầy đủ chủ vị nhưng thái độ với khánh hàng kiểu này là sao vậy trời=)))?",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00005.webp",
+    "label_llm1": 1,
+    "has_emoji": 1,
+    "needs_human_check": 1,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Nguoi dung co the thuc su than thuong ve tinh trang cua em trong anh (em co the da bat dau kinh doanh) va co tinh lo cho em. Lap luan yeu.",
+      "sacartic_case": "Text van ban 'thai do voi khanh hang kieu nay la sao vay thien=)))' mang tinh chat gia dinh (giai thich, than thuong) nhung emoji '=)))' (kieu co gi, co gi) trong van ban Viet Nam thuong duoc dung de tao ra gia tri mia mai, che gieu, hoac than thuong. Ket hop voi tieu de 'ban hang nhung ao' va cau hoi 'la sao vay thien', day la mot cau hoi gia dinh duoc bao ve boi emoji, khong phai la than thuong that su. Day la Contextual Sarcasm (1.4) hoac Self-deprecating (1.5) (than thuong minh minh ve tinh trang).",
+      "emoji_reasoning": "Emoji '=)))' (kieu co gi) trong van ban Viet Nam thuong duoc dung de tao ra gia tri mia mai, che gieu, hoac than thuong. O day, no dao nguoc tinh than thuong that su, tao ra gia tri mia mai.",
+      "sacarsm_type": "1.4 Contextual",
+      "verdict": "Lap luan Sarcastic manh hon do emoji '=)))' trong van ban Viet Nam thuong duoc hieu la gia tri mia mai/che gieu, khong phai than thuong that su. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": true,
+    "route_reason": "low_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 5,
+    "text": "Đứa nào tung hô qua đây t lạy cho lạy",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00006.jpg",
+    "label_llm1": 1,
+    "has_emoji": 0,
+    "needs_human_check": 1,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Nguoi dung co the thuc su muon 'tung ho' (tung hô) de kich thuoc khac tham gia, va 'lay cho lay' la mot cau chuyen thuong xuyen trong giao tiep. Lap luan nay yeu vi khong co tin hieu nao cho thay nguoi dung thuc su muon lay.",
+      "sacartic_case": "Cac tu 'tung ho' va 'lay cho lay' duoc dung theo mot cau truc 'nói ngược' (ironic reversal) — thay vi kich thuoc, nguoi dung thuc te la muon 'im' hoac 'buoc' khac im. Day la mot dach cua 'Verbal Sarcasm' (1.1) trong van hoa Viet Nam, khong phai la kich thuoc thuc su. Neu la kich thuoc, nguoi ta se dung tu 'tham gia' hay 'like' thay vi 'lay cho lay'.",
+      "emoji_reasoning": "Khong co emoji trong post nay. Tone van ban minh hoa tinh cam mia mai.",
+      "sacarsm_type": "1.1 Verbal",
+      "verdict": "Lap luan Sarcastic manh hon do cau truc 'tung ho' + 'lay cho lay' la mot template mia mai quen thuoc trong van hoa Viet Nam. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": true,
+    "route_reason": "low_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 6,
+    "text": "Đừng làm t cười nữa pls =)))",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00007.webp",
+    "label_llm1": 1,
+    "has_emoji": 1,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Nguoi dung co the thuc su tin rang Bach khong biet rap va co tinh hoi, nhung cau hoi 'Vay tai sao huu het moi du luan deu nham den Bach?' va cau ket luan 'biet sai biet sua biet xin loi' la mot cau hoi mang tinh phan tuong, khong phai la cau hoi thuc su muon biet. Neu la nghia den, nguoi dung se khong cau hoi va khong co cau ket luan nay.",
+      "sacartic_case": "Bai post la mot bai phan tuong (sarcasm) ve tinh trang nguoi ta nhom vao mot nguoi (Bach) trong khi co nhieu nguoi khac (rapper under) cung sai. Bai post dung phuong phap 'nói ngược' (Verbal Sarcasm 1.1) khi khen 'biet sai biet sua biet xin loi' cho mot nguoi da bi nhom vao sai. Emoji '⚡' trong cau 'nhac nen vay' cuong co tinh phan tuong, khong phai la tin hieu trung thuc. Bai post khong phai la cau hoi thuc su muon biet, ma la cau hoi de che gieu tinh phan tuong.",
+      "emoji_reasoning": "Emoji '⚡' trong cau 'nhac nen vay' la mot tin hieu phan tuong, dung de cuc thanh tinh trang 'nhac nen vay' (nhac nen vay la sai) thay vi la tin hieu trung thuc.",
+      "sacarsm_type": "1.1 Verbal",
+      "verdict": "Lap luan Sarcastic manh hon vi bai post dung phuong phap 'nói ngược' de phan tuong tinh trang nguoi ta nhom vao mot nguoi trong khi co nhieu nguoi khac cung sai. Emoji cuong co tinh phan tuong. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 7,
+    "text": "ai lớp phụ nữ 🪭",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00008.jpg",
+    "label_llm1": 0,
+    "has_emoji": 1,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text 'ai lớp phụ nữ' (ai là lớp phụ nữ) kết hợp với hình ảnh hai người phụ nữ đang mặc trang phục cosplay/dress đẹp, tạo dáng tự tin. Nội dung này hoàn toàn nhất quán và mang tính mô tả thực tế, không có dấu hiệu mỉa mai nào. Người dùng đang giới thiệu hoặc hỏi về chủ đề 'lớp phụ nữ' (có thể là lớp học, nhóm bạn, hoặc một sự kiện dành cho phụ nữ) và hình ảnh minh họa đúng với nội dung đó.",
+      "sacartic_case": "Không có lập luận mỉa mai nào. Text và ảnh đồng nhất về chủ đề giới tính và sự kiện. Không có sự mâu thuẫn (Conflict) hay phóng đại (Hyperbole) nào để tạo ra ý nghĩa mỉa mai.",
+      "emoji_reasoning": "Emoji '🪭' (quạt) là biểu tượng trực quan cho trang phục của người phụ nữ bên phải (đang cầm quạt), củng cố thêm ý nghĩa về chủ đề 'phụ nữ' và trang phục, không đảo ngược nghĩa.",
+      "sacarsm_type": "NULL",
+      "verdict": "Lập luận Non-sarcastic áp đảo. Text và ảnh hoàn toàn đồng nhất về chủ đề (phụ nữ). Emoji hỗ trợ thêm cho nội dung. Không có dấu hiệu mỉa mai. llm_label=0."
+    },
+    "round1_label": "non_sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 8,
+    "text": "Ko biết agency nào đang cong đít chạy seeding cái post này luôn thấy thương vl =))))) vào đọc cmt cười lòi l. Ôi em bé xíu ơi =))))))))))))",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00009.jpg",
+    "label_llm1": 1,
+    "has_emoji": 1,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Nguoi dung co the thuc su tin tuong vao Coca-Cola va Vu Tru Hung Khoi, va co the thuc su muon tham gia su kien. Lap luan yeu.",
+      "sacartic_case": "Text khen 'thương vl' (thương quá) và 'cười lòi l' (cười đến chảy nước mắt) về việc agency seeding post này, trong khi ảnh là một quảng cáo thương mại hoàn toàn bình thường của Coca-Cola. Đây là sự mỉa mai rõ ràng (Self-deprecating 1.5) khi người dùng tự chế giễu bản thân vì đã tin vào marketing quá mức. Emoji '=)))))' và '=))))))))))))' củng cố cảm xúc hài hước, mỉa mai.",
+      "emoji_reasoning": "Emoji '=)))))' và '=))))))))))))' thể hiện sự cười sặc sụa, vui vẻ, nhưng trong ngữ cảnh này, nó dùng để nhấn mạnh sự hài hước mỉa mai về việc bị 'thương' vì tin vào quảng cáo.",
+      "sacarsm_type": "1.5 Self-deprecating",
+      "verdict": "Lập luận Sarcastic mạnh hơn do sự mâu thuẫn giữa lời khen 'thương vl' và thực tế là một quảng cáo thương mại. Người dùng đang mỉa mai chính mình vì đã tin vào marketing. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": true,
+    "route_reason": "audit_sampled",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 9,
+    "text": "Có thể bạn chưa biết hoặc đã biết, 2 con mụ trong ảnh giờ đã cưới nhau🤡",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00010.jpg",
+    "label_llm1": 1,
+    "has_emoji": 1,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text mô tả hai người trong ảnh đã kết hôn, điều này có thể đúng với thực tế nếu họ thực sự đã cưới nhau. Không có mâu thuẫn rõ ràng giữa văn bản và hình ảnh nếu hiểu theo nghĩa đen.",
+      "sacartic_case": "Từ ngữ '2 con mụ' mang tính xúc phạm, hạ thấp và thường được dùng để chế giễu phụ nữ. Kết hợp với emoji 🤡 (kẻ ngốc) và việc gọi hai người là 'con mụ' thay vì tên riêng hoặc từ trung lập, cho thấy người đăng đang mỉa mai, chế giễu vẻ ngoài hoặc hành vi của họ. Đây là sự mâu thuẫn giữa cách gọi (xúc phạm) và việc họ có thể là một cặp đôi (hoặc chỉ là hai người bạn), hoặc đơn giản là việc sử dụng từ ngữ xúc phạm để nhấn mạnh sự chế giễu. Đây là Sarcastic (1.1 Verbal hoặc 1.7 Multimodal).",
+      "emoji_reasoning": "Emoji 🤡 (kẻ ngốc) củng cố ý nghĩa chế giễu, hạ thấp, đảo ngược ý nghĩa tích cực của việc 'cưới nhau' thành một sự kết hợp 'ngốc nghếch' hoặc đáng cười.",
+      "sacarsm_type": "1.1 Verbal (sử dụng từ ngữ xúc phạm 'con mụ' và emoji 🤡 để chế giễu)",
+      "verdict": "Lập luận Sarcastic mạnh hơn do sự kết hợp giữa từ ngữ xúc phạm ('con mụ') và emoji chế giễu (🤡), cho thấy ý định mỉa mai rõ ràng. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 10,
+    "text": "ngày 1 bị fan mason block",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00011.jpg",
+    "label_llm1": 1,
+    "has_emoji": 0,
+    "needs_human_check": 1,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Nguoi dung co the thuc su nhom Bach den 8 lan theo nghia den, khong co tinh mia mai. Lap luan yeu.",
+      "sacartic_case": "Cum 'nhom Bach den 8 lan' la mot cau chuyen dien hinh tren mang xa hoi VN, thuong duoc dung de mia mai ve tinh trang khong the thay doi, khong the 'nhom' (group) theo nghia den. Day la Contextual Sarcasm (1.4).",
+      "emoji_reasoning": "Khong co emoji trong post nay.",
+      "sacarsm_type": "1.4 Contextual",
+      "verdict": "Tin hieu mia mai ro qua format tieu de 'nhom X den Y lan' — ap dung tiebreaker: lap luan Sarcastic manh hon + dung format/template mia mai VN → llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": true,
+    "route_reason": "low_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 11,
+    "text": "Tự hào vì bản thân là gái dân tộc thiểu số ở trên núi, có bố xuất phát từ nghề lái xe và mẹ xuất phát từ nghề đan nón, nhưng có chút thành tích học thuật đủ để người đời nghĩ rằng mình là nepo baby, có ô dù nâng đỡ.\nCảm ơn em vì khiến chị tự hào hơn về bản thân nhé.\nkhum.vui.pl",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00012.jpg",
+    "label_llm1": 1,
+    "has_emoji": 1,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Nguoi dang chia se kinh nghiem hoc tap thuc te: co tinh tu hao ve nguoi dan toc thieu so, co bo la xe va me dan nom, va co thanh tich hoc tap tot den do la nguoi dan co o du. Ket qua la nguoi dang khen minh minh, khong co y tuong mia mai.",
+      "sacartic_case": "Tieu de 'Thái độ hiếu chiến, dễ khoe khoang' la mot noi dung phan phoi, sau do nguoi dang ket qua la 'giải thích được một tí' (chỉ giải thích được một chút ít) va 'tự lực học cao lên' (tự học rất tốt). Cau truc 'khoe khoang' -> 'chỉ được một tí' -> 'tự lực' la mot phuong thuc 'Self-deprecating' (1.5) de che gieu, phan phoi minh ban than. Emoji '=))))' cuong co tinh vui ve, khong phai la tinh buon.",
+      "emoji_reasoning": "Emoji '=))))' (nhoi) cuong co tinh vui ve, khong phai la tinh buon hay than thuong. Nguoi dang co tinh tu hao ve tinh 'tự lực' va 'khoe khoang' (theo nghia den la khoe khoang nhieu) de che gieu.",
+      "sacarsm_type": "1.5 Self-deprecating",
+      "verdict": "Lap luan Sarcastic manh hon do cau truc noi dung phan phoi (khen -> che gieu) va emoji cuong co tinh vui ve. Day la mot bai post 'Self-deprecating' (1.5) ro rang. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 12,
+    "text": "Thấy nhỏ bạn nhắn tưởng nó nhắn vui nên cũng hùa theo\nVề nhà thấy nó đang móc thiệt 😭\nNgại vllll",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00013.webp",
+    "label_llm1": 1,
+    "has_emoji": 1,
+    "needs_human_check": 1,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Nguoi dang chia se kinh nghiem thuc te: ban da hùa theo noi vui, nhung ve nha thi thay ban khac (móc thiệt). Co the hieu theo nghia den la nguoi dang than thuong hoac than thuong minh minh. Lap luan yeu.",
+      "sacartic_case": "Cau 'Tui móc tí' (tôi móc thớt) la mot cau chuyen dien hinh tren mang xa hoi VN. Trong nguoc, 'móc' (móc thớt) la cau chuyen dien hinh cho nguoi khac, trong khi 'thiệt' (thớt) la cau chuyen dien hinh cho nguoi khac. Nguoi dang noi 'tui móc tí' (tôi móc thớt) la cau chuyen dien hinh cho nguoi khac, trong khi 'thiệt' (thớt) la cau chuyen dien hinh cho nguoi khac. Day la Contextual Sarcasm (1.4) — cau chuyen dien hinh dien hinh tren mang xa hoi VN. Nguoi dang noi 'tui móc tí' (tôi móc thớt) la cau chuyen dien hinh cho nguoi khac, trong khi 'thiệt' (thớt) la cau chuyen dien hinh cho nguoi khac. Day la Contextual Sarcasm (1.4).",
+      "emoji_reasoning": "Emoji 😭 (khóc) cu ngo tinh than than thuong, khong phai tinh vui. Emoji cu ngo tinh than than thuong, khong phai tinh vui. Emoji cu ngo tinh than than thuong, khong phai tinh vui.",
+      "sacarsm_type": "1.4 Contextual",
+      "verdict": "Tin hieu mia mai ro qua cau chuyen dien hinh 'móc tí' (móc thớt) — ap dung tiebreaker: lap luan Sarcastic manh hon + dung format/template mia mai VN → llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": true,
+    "route_reason": "low_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 13,
+    "text": "Cái này là zô diên thúi luôn á :)))\nFan vote thắng mẹ rồi còn vô tận bài cá nhân người ta thả phẫn nộ",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00014.webp",
+    "label_llm1": 0,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text và ảnh hoàn toàn nhất quán. Người đăng Hương Tràm Phạm đang cảm ơn fan vì chiến thắng (fan vote thắng), thể hiện sự vui mừng và biết ơn chân thành. Hình ảnh cô cầm cúp và hoa, cùng caption 'Cảm ơn! Cảm ơn và cảm ơn!!!' xác nhận đây là khoảnh khắc tích cực, không có mâu thuẫn nào giữa lời nói và hình ảnh.",
+      "sacartic_case": "Không có lập luận mỉa mai nào. Việc lặp lại 'Cảm ơn' ba lần là cách diễn đạt cảm xúc mạnh mẽ, chân thành, không phải là nói ngược hay chế giễu.",
+      "emoji_reasoning": "Không có emoji trong bài đăng này.",
+      "sacarsm_type": "NULL",
+      "verdict": "Lập luận Non-sarcastic áp đảo. Nội dung text và hình ảnh đồng nhất về mặt ngữ nghĩa (cảm ơn chân thành sau chiến thắng). llm_label=0."
+    },
+    "round1_label": "non_sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 14,
+    "text": "Alo Trung phải không em, em đừng có chối",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00015.webp",
+    "label_llm1": 0,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sarcastic_case": "Text 'Alo Trung phải không em, em đừng có chối' là một câu nói trực tiếp, nghiêm túc, dùng để đối chất hoặc xác minh thông tin với người tên Trung. Không có dấu hiệu mỉa mai nào trong văn bản này. Nội dung mang tính chất đối thoại thực tế, không có sự mâu thuẫn giữa lời nói và ý định.",
+      "sacartic_case": "Không có lập luận nào ủng hộ tính mỉa mai. Văn bản quá ngắn gọn và trực diện, không thuộc bất kỳ nhóm mỉa mai nào (nói ngược, phóng đại, ngữ cảnh đặc biệt).",
+      "emoji_reasoning": "Không có emoji trong bài đăng.",
+      "sacarsm_type": "NULL",
+      "verdict": "Lập luận Non-Sarcastic áp đảo hoàn toàn. Đây là một câu nói trực tiếp, nghiêm túc, không có dấu hiệu mỉa mai. llm_label=0."
+    },
+    "round1_label": "non_sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 15,
+    "text": "Tròn 12 năm :) gia đình đã thêm thằng ku 6 tuổi",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00016.jpg",
+    "label_llm1": 0,
+    "has_emoji": 1,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text chia sẻ niềm vui gia đình tròn 12 năm và thêm thành viên mới (con 6 tuổi). Hình ảnh minh họa một gia đình hạnh phúc (cha mẹ và con gái) đang mặc trang phục truyền thống Nhật Bản (kimono) và chụp ảnh cùng nhau dưới hoa anh đào với biểu cảm vui vẻ. Nội dung text và hình ảnh hoàn toàn nhất quán, cùng hướng về một sự kiện tích cực (sinh nhật gia đình), không có mâu thuẫn hay dấu hiệu mỉa mai nào.",
+      "sacartic_case": "Không có lập luận mỉa mai nào. Text và ảnh đồng nhất về chủ đề gia đình và sự kiện sinh nhật. Không thuộc bất kỳ loại sarcasm nào trong danh sách.",
+      "emoji_reasoning": "Emoji ':'' trong text thể hiện sự vui vẻ, hạnh phúc, củng cố ý nghĩa tích cực của câu văn, không đảo ngược nghĩa.",
+      "sacarsm_type": "NULL",
+      "verdict": "Lập luận Non-sarcastic áp đảo hoàn toàn. Text và ảnh hoàn toàn đồng nhất về chủ đề gia đình và sự kiện sinh nhật. Không có dấu hiệu mỉa mai. llm_label=0."
+    },
+    "round1_label": "non_sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 16,
+    "text": "Ê phấn phủ Canmake của t bị làm sao vậy 🥲\nTự dưng dùng 1 thời gian nó bị đen với cứng ngắc chỗ ở giữa vậy mấy bồ, xong nó cứ to dần ra nữa 😃",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00017.webp",
+    "label_llm1": 0,
+    "has_emoji": 1,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Nguoi dang than thuong phan mac cua minh (phan ben trong bi den va cung). Anh minh hoa dung nhan vat minh hoa cho cau noi. Tat ca nhat quan — khong co conflict. Day la chia se that su khong phai mia mai.",
+      "sacartic_case": "Khong co tin hieu mia mai nao tu danh sach dac trung. Lap luan yeu.",
+      "emoji_reasoning": "Emoji 🥲 (than thuong) va 😃 (vui) trong text dung de than thuong tinh trang khong may va chia se kinh nghiem. Emoji khong dao nguoc nghia.",
+      "sacarsm_type": "NULL",
+      "verdict": "Lap luan Literal ap dao. llm_label=0."
+    },
+    "round1_label": "non_sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 17,
+    "text": "Matcha hết thời chưa ?",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00018.jpg",
+    "label_llm1": 0,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text 'Matcha hết thời chưa ?' là một câu hỏi trực tiếp, trung lập về xu hướng ẩm thực. Hình ảnh hiển thị một cửa hàng Matcha đang đóng cửa (cửa cuốn kéo xuống), có thể được hiểu là một minh họa cho việc cửa hàng này không còn hoạt động hoặc kinh doanh Matcha không còn phổ biến. Sự kết hợp giữa câu hỏi và hình ảnh cửa hàng đóng cửa là nhất quán và không mâu thuẫn, thể hiện một quan sát thực tế hoặc một câu hỏi nghiêm túc về xu hướng, không có dấu hiệu mỉa mai.",
+      "sacartic_case": "Không có bằng chứng rõ ràng cho thấy đây là sự mỉa mai. Không có emoji trái chiều, không có sự đối lập giữa văn bản và hình ảnh (cả hai đều nói về Matcha), và không có ngữ cảnh văn hóa đặc biệt nào (như meme 'chuyện buồn') được sử dụng để đảo ngược ý nghĩa. Việc cửa hàng đóng cửa có thể là một sự thật khách quan hoặc một tình huống thực tế mà người đăng đang thắc mắc.",
+      "emoji_reasoning": "Không có emoji trong bài đăng.",
+      "sacarsm_type": "NULL",
+      "verdict": "Lập luận Non-sarcastic áp đảo. Câu hỏi và hình ảnh bổ sung cho nhau một cách logic (hỏi về xu hướng, hình ảnh minh họa cho sự vắng mặt của xu hướng đó). Không có tín hiệu mỉa mai nào từ danh sách đặc trưng. llm_label=0."
+    },
+    "round1_label": "non_sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 18,
+    "text": "Cười vl nhìn cách họ xin lỗi nó còn chả nghiêm túc và thực sự nghĩ mình đang thiếu tôn trọng phụ nữ cỡ nào.\n\"Anh Bằng\" aka \"anh Bằng Cổ Tay\" xuất phát từ câu chuyện anh 24k.right bị phốt để ny bị rách và phải đi khám một mình. Mn joke vì của anh to bằng cổ tay nên bị phốt.\nAnh lấy luôn tên Bằng Cổ Tay ra làm tên riêng rồi joke. Tự hào về chiếc cam mười tú thay vì nhìn lại mình tệ ntn khi để bạn gái mình như vậy. Và xã hội coi đó là bình thường.\nTởm.",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00019.jpg",
+    "label_llm1": "INVALID",
+    "has_emoji": null,
+    "needs_human_check": null,
+    "notes": "JSON parse error after retry.",
+    "reasoning": {},
+    "round1_label": "invalid",
+    "need_review": true,
+    "route_reason": "invalid_json",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 19,
+    "text": "Suy nghĩ của mọi người về nhóm “KISS OF LIFE” ạ",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00020.jpg",
+    "label_llm1": 0,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Caption hỏi ý kiến cộng đồng về nhóm nhạc KISS OF LIFE. Hình ảnh hiển thị 4 thành viên nữ của nhóm nhạc này đang đứng cùng nhau, mặc trang phục thời trang và tạo dáng chụp ảnh. Nội dung text và hình ảnh hoàn toàn đồng nhất, cùng hướng về một chủ đề (nhóm nhạc KISS OF LIFE). Không có dấu hiệu mâu thuẫn, phóng đại, hoặc mỉa mai nào.",
+      "sacartic_case": "Không có lập luận mỉa mai nào. Đây là một bài đăng chia sẻ thông tin hoặc hình ảnh một cách chân thành và trực tiếp.",
+      "emoji_reasoning": "Không có emoji trong bài đăng.",
+      "sacarsm_type": "NULL",
+      "verdict": "Lập luận Non-sarcastic áp đảo vì text và ảnh hoàn toàn nhất quán về chủ đề. llm_label=0."
+    },
+    "round1_label": "non_sarcastic",
+    "need_review": true,
+    "route_reason": "audit_sampled",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 20,
+    "text": "Mng biết vụ chú này không?\nChú này trc làm giám đốc bị kết án oan, sau khi được trả tự do thì doanh nghiệp đã phá sản, nhà đã bán nên phải đi thuê trọ và làm bảo vệ để mưu sinh.\nChú được đền bủ 2,6 tỷ nhưng vẫn đang chờ phía trên cấp tiền, chưa biết khi nào được nhận. Biết là đền bù theo quy định nma t cảm thấy 2.6 tỷ k là gì so với những thứ chú mất. Có tiền cũng khó xây lại sự nghiệp, đi lâu cũng bị tụt hậu so với XH ấy. Giờ vừa oan vừa phải chờ đợi đền bù, hi vọng là chú được nhận sớm🥲",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00021.jpg",
+    "label_llm1": 0,
+    "has_emoji": 1,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Bài đăng mô tả một câu chuyện đời thực đầy cảm thông về một người đàn ông từng bị oan, sau khi được trả tự do thì mất hết tài sản và phải làm bảo vệ để sinh sống. Người viết bày tỏ sự đồng cảm và hy vọng rằng chú sẽ sớm nhận được khoản đền bù 2,6 tỷ đồng. Văn bản sử dụng các từ ngữ tích cực như 'hi vọng', 'mưu sinh' và kết thúc bằng biểu cảm '🥲' (cảm xúc thương cảm, nuối tiếc) hoàn toàn phù hợp với nội dung chia sẻ. Không có dấu hiệu mỉa mai nào trong văn bản.",
+      "sacartic_case": "Không có lập luận mỉa mai nào. Bài viết là một câu chuyện kể chân thành, không có sự mâu thuẫn giữa văn bản và hình ảnh, cũng không có sự phóng đại hay nói ngược. Hình ảnh người đàn ông mặc đồng phục bảo vệ khớp hoàn toàn với mô tả trong văn bản. Emoji '🥲' củng cố cảm xúc thương cảm chứ không đảo ngược nghĩa.",
+      "emoji_reasoning": "Emoji '🥲' (mặt cười với nước mắt) được sử dụng để thể hiện sự thương cảm, nuối tiếc và đồng cảm với hoàn cảnh khó khăn của người đàn ông trong ảnh. Nó củng cố ý nghĩa đen của bài viết chứ không đảo ngược nó.",
+      "sacarsm_type": "NULL",
+      "verdict": "Lập luận Non-sarcastic áp đảo hoàn toàn. Bài viết là một câu chuyện chia sẻ thông tin và cảm xúc chân thành, không có dấu hiệu mỉa mai. Hình ảnh và văn bản nhất quán với nhau. llm_label=0."
+    },
+    "round1_label": "non_sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 21,
+    "text": "gửi bé tiểu cường ở đây để thật điềm tĩnh khi xem, chứ các mom xịn thíaaaa 🥹",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00022.jpg",
+    "label_llm1": 0,
+    "has_emoji": 1,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text khuyến khích người xem giữ bình tĩnh khi xem video của bé Tiểu Cường, đồng thời khen ngợi các mẹ 'xịn'. Hình ảnh minh họa một con bọ cánh cứng đang ngồi thiền với vẻ mặt bình thản, thể hiện sự điềm tĩnh. Nội dung text và hình ảnh hoàn toàn nhất quán, cùng hướng về một trạng thái bình tĩnh, không có mâu thuẫn hay dấu hiệu mỉa mai nào.",
+      "sacartic_case": "Không có lập luận mỉa mai nào. Text và ảnh cùng nhau truyền tải thông điệp tích cực về sự bình tĩnh.",
+      "emoji_reasoning": "Emoji '🥹' (cái mặt khóc nhẹ) ở cuối câu text thường dùng để thể hiện sự xúc động, cảm động hoặc biết ơn chân thành trong các tình huống tích cực (như khen ngợi), chứ không phải để mỉa mai. Nó củng cố ý nghĩa của việc 'khen' các mẹ xịn.",
+      "sacarsm_type": "NULL",
+      "verdict": "Lập luận Non-sarcastic áp đảo. Text và hình ảnh hoàn toàn đồng nhất về mặt ngữ nghĩa (khuyên giữ bình tĩnh + hình ảnh thiền). Emoji cũng hỗ trợ cảm xúc tích cực. Không có dấu hiệu mỉa mai."
+    },
+    "round1_label": "non_sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 22,
+    "text": "Mình bị mất con gấu nghiền, mình đổ cho chồng mình làm mất. Thế là chồng mình âm thầm tìm mua cho mình bằng mọi cách. Gấu vừa ship về tay thì tối mình tìm đc gấu cũ lẫn trong tủ quần áo 😅 Ko nghĩ tiền ship đắt thế cho đến khi đọc đc tn của chồng mình, chắc gần hết cái quỹ đen cà phê cà pháo 😅",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00023.jpg",
+    "label_llm1": 1,
+    "has_emoji": 1,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text mô tả một tình huống đời thường: người viết bị mất gấu, chồng mua lại, và người viết tìm thấy gấu cũ trong tủ quần áo. Nếu hiểu theo nghĩa đen, đây là một câu chuyện kể về sự bất ngờ và hài hước nhẹ nhàng khi phát hiện ra gấu cũ.",
+      "sacartic_case": "Tuy nhiên, cách diễn đạt 'chắc gần hết cái quỹ đen cà phê cà pháo' là một tín hiệu mỉa mai rõ ràng (Self-deprecating 1.5). Người viết dùng cụm từ này để chế giễu chính mình vì đã tiêu tiền ship đắt đỏ (do chồng mua) thay vì mua gấu mới, đồng thời ám chỉ việc 'hối' vì không biết gấu cũ còn trong nhà. Sự tương phản giữa việc 'tìm đc gấu cũ' và việc 'chồng mua gấu mới' tạo nên sự mỉa mai về sự thiếu cẩn thận và lãng phí tiền bạc.",
+      "emoji_reasoning": "Emoji '😅' (face with sweat) được sử dụng để thể hiện sự xấu hổ, ngại ngùng hoặc bối rối trước sự thật bất ngờ, củng cố ý nghĩa mỉa mai về việc người viết tự trách bản thân.",
+      "sacarsm_type": "1.5 Self-deprecating",
+      "verdict": "Bài đăng sử dụng ngôn ngữ mỉa mai (chế giễu bản thân) và emoji phù hợp để nhấn mạnh sự xấu hổ/bối rối. Mặc dù có thể hiểu theo nghĩa đen, nhưng ngữ cảnh và cách dùng từ 'quỹ đen' cho thấy ý định chính là mỉa mai. Áp dụng tiebreaker: lập luận Sarcastic mạnh hơn do có tín hiệu văn hóa rõ ràng. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 23,
+    "text": "Điều gì đến cũng sẽ đến..\nSun Group chính thức đầu tư vào Ngọn Núi Quốc Dân tại Nha Trang: \"Núi Cô Tiên\".\nP/s: Không biết có chừa chỗ cho mọi người thể dục hay không.\n#hưngcamping\n#79camping\n#nhatrang\n#uthung\n#nuicotien",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00024.jpg",
+    "label_llm1": 0,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sarcastic_case": "Bài đăng thông báo một sự kiện thực tế (Sun Group đầu tư vào dự án Ngọn Núi Quốc Dân tại Nha Trang) và chia sẻ một thắc mắc chân thành về việc có chừa chỗ cho mọi người tập thể dục hay không. Câu 'Điều gì đến cũng sẽ đến' thể hiện sự chấp nhận và tin tưởng vào kết quả của quá trình, không phải là sự mỉa mai. Nội dung mang tính chất chia sẻ thông tin và hỏi han cộng đồng.",
+      "sacartic_case": "Không có dấu hiệu mỉa mai rõ ràng. Cụm từ 'Điều gì đến cũng sẽ đến' ở đây được dùng theo nghĩa đen để nói về sự kiện đã xảy ra, không phải để chế giễu. P/S hỏi về việc tập thể dục là một câu hỏi thực tế, không phải là sự mỉa mai về chất lượng dự án.",
+      "emoji_reasoning": "Không có emoji trong bài đăng.",
+      "sacarsm_type": "NULL",
+      "verdict": "Lập luận Non-sarcastic áp đảo. Bài đăng là một thông báo tin tức và chia sẻ thắc mắc chân thành, không có xung đột giữa văn bản và hình ảnh, cũng không có dấu hiệu mỉa mai. llm_label=0."
+    },
+    "round1_label": "non_sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 24,
+    "text": "khóc r cất gọn poster vào góc, đ bênh nổi. T đã giả điếc đi qua biết bao nhiêu cái phốt r nhưng tới cái này t tỉnh mẹ luôn. Không tưởng tượng được cảm giác của Amee khi nghe đc cái line đó luôn á?!",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post00025.jpg",
+    "label_llm1": 0,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text mô tả một tình huống cảm xúc thật sự: người viết đã 'giả điếc' qua nhiều scandal trước nhưng lần này thì 'tỉnh mẹ luôn' (tức là không thể giả điếc được nữa). Đây là cách nói thẳng, chân thành về sự thất vọng và tỉnh táo, không có ý mỉa mai. Hình ảnh là thông tin thành viên của một nhóm 'anti' (chống) một người, hoàn toàn phù hợp với nội dung text về việc phát hiện ra sự thật và không còn tin tưởng. Không có mâu thuẫn nào giữa text và ảnh.",
+      "sacartic_case": "Không có dấu hiệu mỉa mai. Cụm từ 'tỉnh mẹ luôn' là cách nói cường điệu để nhấn mạnh mức độ tỉnh táo, không phải là nói ngược. 'Giả điếc' ở đây dùng theo nghĩa đen là cố tình không nghe, không phải là nói mỉa.",
+      "emoji_reasoning": "Không có emoji trong bài đăng.",
+      "sacarsm_type": "NULL",
+      "verdict": "Lập luận Non-sarcastic áp đảo. Bài đăng là một lời chia sẻ chân thành về cảm xúc và nhận định, không có tín hiệu mỉa mai nào. Hình ảnh và text nhất quán. llm_label=0."
+    },
+    "round1_label": "non_sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 25,
+    "text": "Tôi sau khi lĩnh hội được skill \"₫ quan tâm\" và nhận ra rằng ánh mắt của mấy c0n một lằn ghe‘t mình không quan trọng đến thế:",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01876.jpg",
+    "label_llm1": 1,
+    "has_emoji": 0,
+    "needs_human_check": 1,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text mô tả việc người dùng lĩnh hội được kỹ năng '₫ quan tâm' (một cách nói mỉa mai về việc người khác không quan tâm) và nhận ra ánh mắt của người khác không quan trọng. Nếu hiểu theo nghĩa đen, đây là một tuyên bố tích cực về sự tự do khỏi sự phán xét của người khác. Tuy nhiên, cách diễn đạt này thường mang tính mỉa mai trong văn hóa mạng.",
+      "sacartic_case": "Text sử dụng từ '₫ quan tâm' (ký hiệu tiền tệ) để ám chỉ sự 'quan tâm' một cách mỉa mai, ngụ ý rằng sự quan tâm đó có giá trị bằng 0 hoặc không đáng kể. Hình ảnh minh họa một chú chó đang ngồi thiền (tượng trưng cho sự bình thản, không quan tâm) và một chú chó khác đang nhìn với vẻ mặt thờ ơ, cùng với hình bóng con người đang giơ tay lên trời (tượng trưng cho sự giải thoát khỏi sự phán xét). Sự kết hợp giữa text nói về việc 'không quan tâm' và hình ảnh thể hiện sự bình thản/tự do là một sự nhất quán trong ý nghĩa mỉa mai (Self-deprecating hoặc Contextual). Người dùng đang chế giễu chính mình vì đã từng quá quan tâm đến ánh mắt người khác, giờ thì đã 'lĩnh hội' được bài học.",
+      "emoji_reasoning": "Không có emoji trong bài đăng này.",
+      "sacarsm_type": "1.5 Self-deprecating",
+      "verdict": "Text sử dụng ngôn ngữ mỉa mai ('₫ quan tâm') để nói về việc không còn quan tâm, và hình ảnh minh họa sự bình thản/tự do. Đây là một trường hợp mỉa mai tự chế (Self-deprecating) rõ ràng. Người dùng đang nói 'tôi đã học được cách không quan tâm' nhưng thực chất là đang chế giễu chính mình vì đã từng quá quan tâm. Lap luan Sarcastic manh hon."
+    },
+    "round1_label": "sarcastic",
+    "need_review": true,
+    "route_reason": "low_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 26,
+    "text": "Hồi bé: Mơ lớn lên đi làm kiếm nhiều tiền, đi đây đi đó, mua này mua kia thoả thích đam mê \nTư bản tuổi 25: Hồi bé: Mơ lớn lên đi làm kiếm nhiều tiền, đi đây đi đó, mua này mua kia thoả thích đam mê Tư bản tuổi 25:",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01877.jpg",
+    "label_llm1": 1,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text mô tả một giấc mơ tuổi thơ rất bình thường và tích cực: lớn lên kiếm tiền, đi đây đi đó, mua sắm thỏa thích đam mê. Đây là một lời tự thú về ước mơ của trẻ em, không có dấu hiệu mỉa mai rõ ràng nếu xét riêng lẻ.",
+      "sacartic_case": "Tuy nhiên, việc lặp lại cấu trúc 'Hồi bé: [Ước mơ]' và 'Tư bản tuổi 25: [Ước mơ]' tạo ra một sự tương phản mạnh mẽ. Trong văn hóa mạng Việt Nam, cụm từ 'Tư bản' thường được dùng với hàm ý mỉa mai để chỉ những người trẻ bị áp lực cuộc sống, không còn tự do như lời hứa hẹn của tuổi thơ. Việc lặp lại nguyên văn giấc mơ nhưng gắn với danh xưng 'Tư bản' ngụ ý rằng người đăng đã không thực hiện được giấc mơ đó, hoặc cuộc sống hiện tại trái ngược hoàn toàn với mong đợi ban đầu. Đây là một dạng mỉa mai ngữ cảnh (Contextual Sarcasm) dựa trên meme phổ biến về 'Tư bản'.",
+      "emoji_reasoning": "Không có emoji trong bài đăng này. Sự mỉa mai được truyền tải hoàn toàn qua văn bản và sự tương phản giữa hai dòng chữ.",
+      "sacarsm_type": "1.4 Contextual",
+      "verdict": "Bài đăng sử dụng một template meme phổ biến ('Hồi bé... / Tư bản...') để thể hiện sự thất vọng hoặc mỉa mai về thực tế cuộc sống so với ước mơ. Sự tương phản giữa 'thỏa thích đam mê' và danh xưng 'Tư bản' (thường ám chỉ áp lực, nghèo khó, hoặc mất tự do) là tín hiệu mỉa mai rõ ràng trong ngữ cảnh mạng xã hội Việt Nam. Do đó, nhãn Sarcastic là chính xác."
+    },
+    "round1_label": "sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 27,
+    "text": "POV: Bạn mệt nhưng đối phương liên tục hỏi tới",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01878.jpg",
+    "label_llm1": 1,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text mô tả một tình huống mệt mỏi khi đối phương liên tục hỏi, có thể hiểu theo nghĩa đen là người đang thực sự cảm thấy mệt và bị làm phiền. Đây là lập luận yếu.",
+      "sacartic_case": "Hình ảnh cho thấy một người đàn ông đang đứng yên, vẻ mặt trầm tư, không có biểu hiện mệt mỏi hay bị làm phiền. Sự tương phản giữa text (mô tả mệt, bị hỏi liên tục) và hình ảnh (người bình thản, không có dấu hiệu mệt) tạo ra mâu thuẫn rõ ràng. Đây là trường hợp Image-Text Conflict (1.2).",
+      "emoji_reasoning": "Không có emoji trong bài đăng.",
+      "sacarsm_type": "1.2 Image-Text Conflict",
+      "verdict": "Lập luận Sarcastic mạnh hơn do sự mâu thuẫn trực tiếp giữa nội dung text và hình ảnh. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 28,
+    "text": "Tôi đồng ý!!!",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01879.jpg",
+    "label_llm1": 1,
+    "has_emoji": null,
+    "needs_human_check": null,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text liệt kê các phương án phân bổ lao động theo độ tuổi một cách logic: người già làm việc vì sức khỏe, người trung niên học vì ước mơ. Đây là lập luận hợp lý, không có dấu hiệu mỉa mai rõ ràng.",
+      "sacartic_case": "Câu cuối cùng 'Cho người trẻ vào viện dưỡng lão vì chỉ cần cái điện thoại là nằm yên một chỗ' là sự phóng đại và nói ngược hoàn toàn với thực tế (người trẻ không thể nằm yên trong viện dưỡng lão). Đây là kỹ thuật 'nói ngược' (Verbal Sarcasm) để phê phán lối sống thụ động của giới trẻ. Sự tương phản giữa các câu trước (tích cực) và câu cuối (tiêu cực, phi thực tế) tạo nên ý mỉa mai rõ ràng.",
+      "emoji_reasoning": "Không có emoji. Tone văn bản mang tính chất liệt kê và kết luận một cách 'chân thành' nhưng nội dung kết luận lại trái ngược hoàn toàn với thực tế, tạo ra sự mỉa mai ngầm.",
+      "sacarsm_type": "1.1 Verbal",
+      "verdict": "Lập luận Sarcastic mạnh hơn do sự mâu thuẫn giữa logic thực tế và nội dung văn bản (người trẻ không thể sống trong viện dưỡng lão). Đây là dạng mỉa mai bằng cách nói ngược (Verbal Sarcasm) để phê phán.",
+      "has_emoji": 0,
+      "needs_human_check": 0
+    },
+    "round1_label": "sarcastic",
+    "need_review": true,
+    "route_reason": "low_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 29,
+    "text": "Có ai mà buổi trưa chỉ cần ngủ 15p là hồi phục năng lượng để chiều đi làm không ạ?\nMình không, mình cần 3 tiếng. Có ai mà buổi trưa chỉ cần ngủ 15p là hồi phục năng lượng để chiều đi làm không ạ? Mình không, mình cần 3 tiếng.",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01880.jpg",
+    "label_llm1": 1,
+    "has_emoji": 0,
+    "needs_human_check": 1,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Nguoi dung co the thuc su co mong muon nguoi khac co khac neng luc sau khi ngu 15p. Lap luan yeu.",
+      "sacartic_case": "Text noi 'Co ai...?' va 'Minh khong, minh can 3 tieng' la mot cau hoi va cau tra loi trong tinh trang khong the thuc hien duoc (ngu 15p khong duoc). Anh minh hoa mot con vat (con duong) dang khoc rat manh, co mat nuoc, rang, va co the la dang day chon hay day gi de tang cuong tinh trang. Anh va text chung mot tinh trang bi quan, khong co khac neng luc. Day la self-deprecating (1.5) hoac Hyperbolic (1.6) vi nguoi dung phat thanh 'can 3 tieng' thay vi 15p. Lap luan nay manh hon.",
+      "emoji_reasoning": "Khong co emoji trong text. Anh bieu cam khoc rat manh, khong cu ngo tinh trang bi quan trong text.",
+      "sacarsm_type": "1.5 Self-deprecating",
+      "verdict": "Lap luan Sarcastic manh hon do anh minh hoa tinh trang bi quan (khoc) trong khi text noi ve khac neng luc. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": true,
+    "route_reason": "low_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 30,
+    "text": "Tự hiểu ha",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01881.jpg",
+    "label_llm1": 1,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text 'T sau giờ làm:' có thể được hiểu theo nghĩa đen là người đăng đang liệt kê những việc họ làm sau giờ làm. Tuy nhiên, lập luận này yếu vì hình ảnh một con gà đang ngủ say hoàn toàn mâu thuẫn với việc 'làm việc' (làm việc cần sự tỉnh táo, không thể ngủ).",
+      "sacartic_case": "Đây là trường hợp Image-Text Conflict (1.2). Text hỏi 'Làm ráng không má?' (có làm ráng không?) và trả lời 'T sau giờ làm:' (Tôi sau giờ làm [đó là gì?]). Hình ảnh trả lời là một con gà đang ngủ, ngụ ý rằng sau giờ làm, người đăng chỉ biết ngủ hoặc 'làm' việc là ngủ. Sự mâu thuẫn giữa hành động 'làm' (trong ngữ cảnh làm việc) và trạng thái 'ngủ' của con gà tạo nên sự mỉa mai rõ ràng về việc lười biếng hoặc không có việc gì để làm sau giờ làm.",
+      "emoji_reasoning": "Không có emoji trong bài đăng này.",
+      "sacarsm_type": "1.2 Image-Text Conflict",
+      "verdict": "Lập luận Sarcastic mạnh hơn do sự mâu thuẫn trực tiếp giữa ý nghĩa của từ 'làm' trong câu hỏi và hình ảnh con gà đang ngủ. Đây là meme phổ biến trên mạng xã hội Việt Nam (chicken meme) dùng để chế giễu việc không làm gì cả sau giờ làm. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 31,
+    "text": "Cách người lười sử dụng tối đa thời gian:\nTrên đường đi học tranh thủ ngủ trên ghế mát xa Cách người lười sử dụng tối đa thời gian: Trên đường đi học tranh thủ ngủ trên ghế mát xa",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01882.jpg",
+    "label_llm1": 1,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text mô tả một cách chân thực về việc người lười biếng tận dụng thời gian để ngủ trên ghế massage thay vì đi học. Nếu hiểu theo nghĩa đen, đây là một lời khuyên hoặc mô tả hành vi thực tế của một người lười. Không có sự mâu thuẫn rõ ràng giữa lời nói và hình ảnh nếu xem xét nghiêm túc.",
+      "sacartic_case": "Bài đăng sử dụng cấu trúc 'Cách người [tính từ tiêu cực] làm [hành động]' để mô tả một tình huống vô lý và thiếu trách nhiệm (ngủ trên đường đi học). Hình ảnh minh họa một người đang ngủ say trên xe đạp điện chở ghế massage, trong khi người lái đang cười tươi và quảng cáo dịch vụ 'Siêu rẻ - Siêu nhanh'. Sự tương phản giữa việc 'đi học' (nhiệm vụ nghiêm túc) và việc 'ngủ' (hành vi lười biếng) cùng với sự hài hước trong cách trình bày tạo nên sự mỉa mai. Đây là sự phóng đại (Hyperbolic) và tự chế giễu (Self-deprecating) về thói quen lười biếng.",
+      "emoji_reasoning": "Không có emoji trong text. Tuy nhiên, hình ảnh người lái xe cười tươi và người ngủ say tạo ra một không khí hài hước, nhấn mạnh tính chất mỉa mai của bài viết.",
+      "sacarsm_type": "1.6 Hyperbolic / 1.5 Self-deprecating",
+      "verdict": "Lập luận Sarcastic mạnh hơn do sự phóng đại về hành vi lười biếng và sự tương phản giữa lời nói (đi học) và thực tế (ngủ). Bài đăng dùng giọng điệu mỉa mai để chế giễu thói quen lười biếng. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 32,
+    "text": "Hạnh phúc: Điều hoà mát lạnh + nằm không làm gì!",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01883.jpg",
+    "label_llm1": 0,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text mô tả một tình huống thư giãn thực sự: điều hòa mát lạnh và việc nằm nghỉ ngơi. Hình ảnh minh họa một cô gái đang ngủ ngon, vẻ mặt thư thái, thể hiện sự hạnh phúc và thoải mái. Nội dung text và hình ảnh hoàn toàn nhất quán, cùng hướng về một trải nghiệm tích cực, không có dấu hiệu mỉa mai nào.",
+      "sacartic_case": "Không có lập luận mỉa mai nào. Text và ảnh cùng nhau xây dựng một thông điệp tích cực về sự nghỉ ngơi.",
+      "emoji_reasoning": "Không có emoji trong bài đăng.",
+      "sacarsm_type": "NULL",
+      "verdict": "Lập luận Non-sarcastic áp đảo vì text và ảnh hoàn toàn đồng nhất về mặt ngữ nghĩa và cảm xúc. Đây là một chia sẻ đời thường chân thành về việc nghỉ ngơi."
+    },
+    "round1_label": "non_sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 33,
+    "text": "T đọc lại những mục tiêu mà mình đã viết vào năm trước. Và đến giờ chưa mục tiêu nào được thực hiện :)))))",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01884.jpg",
+    "label_llm1": 1,
+    "has_emoji": 1,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Nguoi dang chia se kinh nghiem thuc su ve viec lam, trong do co mot muc tieu duoc thuc hien. Ket qua 'chua muc tieu nao duoc thuc hien' la mot cau hoi thuc te, khong phai la cau hoi gia dinh.",
+      "sacartic_case": "Vi tri 'chua muc tieu nao duoc thuc hien' trong cau hoi mang tinh gia dinh, trong khi emoji ':)))))' (nhiem dau) la tin hieu diai mai trong van hoa Viet Nam. Nguoi dang dien hinh 'co' nhung thuc te la 'khong' — day la Self-deprecating (1.5).",
+      "emoji_reasoning": "Emoji ':)))))' (nhiem dau) dao nguoc nghia cua cau hoi, tao ra tinh diai mai.",
+      "sacarsm_type": "1.5 Self-deprecating",
+      "verdict": "Lap luan Sarcastic manh hon do co emoji diai mai va cau hoi gia dinh. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 34,
+    "text": "Lối thoát cho mọi vấn đề của t:",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01885.jpg",
+    "label_llm1": 0,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text 'Lối thoát cho mọi vấn đề của t' mô tả một trạng thái thực tế là người đang ngủ say, không còn suy nghĩ hay giải quyết vấn đề. Hình ảnh minh họa một cô gái đang nằm ngủ trên sàn nhà với biểu cảm thư giãn, mắt nhắm lại. Nội dung text và hình ảnh hoàn toàn đồng nhất, cùng hướng về một ý nghĩa đen: việc ngủ là cách để tạm thời thoát khỏi các vấn đề. Không có dấu hiệu mỉa mai nào.",
+      "sacartic_case": "Không có lập luận mỉa mai nào. Việc gọi giấc ngủ là 'lối thoát' là một cách diễn đạt bình thường, chân thực, không phải là sự nói ngược hay phóng đại để phê phán.",
+      "emoji_reasoning": "Không có emoji trong bài đăng.",
+      "sacarsm_type": "NULL",
+      "verdict": "Lập luận Non-sarcastic áp đảo vì text và ảnh nhất quán về mặt ngữ nghĩa (ngủ = thoát khỏi vấn đề). llm_label=0."
+    },
+    "round1_label": "non_sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 35,
+    "text": "Cảm giác khi nằm giường đệm mà không có điều hoà:",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01886.jpg",
+    "label_llm1": 1,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text mô tả cảm giác khi nằm trên giường đệm mà không có điều hòa, có thể hiểu theo nghĩa đen là một tình huống khó chịu, nóng bức. Nếu người dùng thực sự cảm thấy khó chịu, đây là một lời than phiền chân thành. Tuy nhiên, lập luận này yếu hơn so với lập luận mỉa mai.",
+      "sacartic_case": "Hình ảnh hiển thị một chiếc giường đang cháy dữ dội, một tình huống cực kỳ nguy hiểm và không thể chịu được. Text nói 'Cảm giác khi nằm giường đệm mà không có điều hòa' (một tình huống khó chịu nhẹ) nhưng hình ảnh lại là 'giường đang cháy' (tình huống thảm khốc). Sự mâu thuẫn giữa mức độ khó chịu được mô tả trong text và mức độ thảm khốc trong hình ảnh tạo ra sự mỉa mai rõ ràng (Image-Text Conflict). Người dùng đang dùng hình ảnh quá mức so với text để chế giễu sự khó chịu của việc thiếu điều hòa.",
+      "emoji_reasoning": "Không có emoji trong bài đăng.",
+      "sacarsm_type": "1.2 Image-Text Conflict",
+      "verdict": "Lập luận Sarcastic mạnh hơn do sự mâu thuẫn trực tiếp giữa text (khó chịu nhẹ) và hình ảnh (thảm khốc). Hình ảnh được dùng để phóng đại và chế giễu cảm giác thiếu điều hòa. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 36,
+    "text": "Cảm giác khi ở trong cái phòng trọ bí bách không có nổi 1 cái điều hoà:",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01887.jpg",
+    "label_llm1": 1,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text mô tả cảm giác khó chịu, bí bách, thiếu tiện nghi (không có điều hòa). Nếu hiểu theo nghĩa đen, người đăng đang than phiền về điều kiện sống tồi tệ. Đây là lập luận hợp lý nếu không có hình ảnh.",
+      "sacartic_case": "Hình ảnh minh họa một bộ xương đang nhảy múa vui vẻ giữa địa ngục với hai con gián khổng lồ đang 'cầm tay' hoặc 'đi cùng'. Sự tương phản giữa text (cảm giác khó chịu, ngột ngạt) và hình ảnh (sự vui vẻ, điên rồ, quái dị) tạo ra mâu thuẫn trực tiếp. Người đăng dùng hình ảnh hài hước, phóng đại để chế giễu cảm giác khó chịu thực tế. Đây là Image-Text Conflict (1.2).",
+      "emoji_reasoning": "Không có emoji trong bài đăng.",
+      "sacarsm_type": "1.2 Image-Text Conflict",
+      "verdict": "Lập luận Sarcastic mạnh hơn do sự mâu thuẫn rõ rệt giữa nội dung text (than phiền) và hình ảnh (hài hước, quái dị). Hình ảnh gián khổng lồ và bộ xương nhảy múa là cách chế giễu cảm giác 'bí bách' một cách phóng đại. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 37,
+    "text": "Tôi sau khi đi xin việc và thật sự được nhận:",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01888.jpg",
+    "label_llm1": 0,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text nói về việc xin việc và được nhận, thể hiện niềm vui. Hình ảnh minh họa một chú chó đang khóc và lau nước mắt, biểu thị sự buồn bã hoặc thất vọng. Sự kết hợp này tạo ra một tình huống hài hước nhưng không phải là mỉa mai (sarcasm) theo nghĩa đen: người đăng đang chia sẻ một câu chuyện vui (được nhận việc) kèm theo một hình ảnh buồn (chó khóc) để tạo sự tương phản hài hước, không phải để nói ngược ý. Đây là một cách kể chuyện vui nhộn, không phải mỉa mai.",
+      "sacartic_case": "Nếu xét theo nghĩa đen, text và hình ảnh có sự mâu thuẫn về cảm xúc (vui vs buồn), nhưng đây là một kỹ thuật kể chuyện (storytelling) phổ biến trên mạng xã hội để tạo sự hài hước, không phải là sự mỉa mai (sarcasm) theo định nghĩa là nói ngược ý. Người đăng không có ý nói 'tôi không được nhận' mà thực sự là 'được nhận'. Do đó, lập luận mỉa mai yếu hơn.",
+      "emoji_reasoning": "Không có emoji trong bài đăng.",
+      "sacarsm_type": "NULL",
+      "verdict": "Lập luận Non-sarcastic áp đảo. Bài đăng sử dụng sự tương phản giữa text vui và hình ảnh buồn để tạo sự hài hước, không phải mỉa mai. llm_label=0."
+    },
+    "round1_label": "non_sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 38,
+    "text": "Tôi tự an ủi bản thân rằng cái tiếng thông báo Zalo tôi vừa nghe chỉ là dự báo thời tiết:",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01889.jpg",
+    "label_llm1": 1,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Nguoi dang chia se kinh nghiem thuc tap, co the hieu theo nghia den la nguoi dang thuc su thong dong voi tinh trang 'thong bao' thay vi 'thong bao' thuc te. Lap luan yeu.",
+      "sacartic_case": "Text noi 'chỉ là dự báo thời tiết' (dang an loi ban than) nhung anh minh hoa la con nhac (Pepe) dang thuc tap voi tinh trang 'chua' (chua co thong bao). Anh minh hoa tinh trang 'chua' (chua co thong bao) trong khi text an loi rang 'chỉ la du bao' (co thong bao). Day la Image-Text Conflict (1.2) va Self-deprecating (1.5). Anh minh hoa tinh trang 'chua' (chua co thong bao) trong khi text an loi rang 'chỉ la du bao' (co thong bao).",
+      "emoji_reasoning": "Khong co emoji trong post. Anh minh hoa tinh trang 'chua' (chua co thong bao) trong khi text an loi rang 'chỉ la du bao' (co thong bao).",
+      "sacarsm_type": "1.2 Image-Text Conflict",
+      "verdict": "Lap luan Sarcastic manh hon do conflict giua text (an loi) va anh (thuc te chua co thong bao). llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 39,
+    "text": "Đừng đi mà hơ ni",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01890.jpg",
+    "label_llm1": 1,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text 'Đừng đi mà hơ ni' có thể được hiểu theo nghĩa đen là lời khuyên hoặc sự lo lắng của người viết đối với người khác (hoặc chính mình) về việc không nên đi đâu đó vì sẽ bị 'hơ ni' (một cách nói ẩn dụ hoặc từ lóng). Nếu hiểu theo nghĩa đen, đây là một lời khuyên chân thành.",
+      "sacartic_case": "Hình ảnh minh họa một người phụ nữ đang khóc rất dữ dội và ôm chặt lấy một người đàn ông đang ngủ say, trong khi người đàn ông được gắn nhãn 'Chủ Nhật' và người phụ nữ là 'Tôi'. Sự tương phản giữa hành động 'Đừng đi' (lời khuyên) và thực tế là người 'Tôi' đang khóc vì không thể đi (hoặc không muốn đi) vào Chủ Nhật là một mâu thuẫn rõ ràng. Người viết đang mỉa mai rằng mình không thể làm được điều mình muốn (đi chơi) vào Chủ Nhật, dẫn đến việc phải ở nhà và khóc. Đây là sarcasm dựa trên sự mâu thuẫn giữa lời nói và hình ảnh (Image-Text Conflict).",
+      "emoji_reasoning": "Không có emoji trong bài đăng.",
+      "sacarsm_type": "1.2 Image-Text Conflict",
+      "verdict": "Lập luận Sarcastic mạnh hơn do sự mâu thuẫn trực tiếp giữa lời khuyên 'Đừng đi' và hình ảnh thể hiện nỗi đau khổ của người 'Tôi' khi không thể thực hiện hành động đó. Đây là một meme phổ biến trên mạng xã hội Việt Nam (meme 'Chủ Nhật' vs 'Tôi'). llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 40,
+    "text": "Một thành tích đáng nể của t trong quý 1/2026: hứa với bản thân hết 93 lần rằng sẽ đi ngủ sớm, nhưng cuối cùng vẫn nằm bấm điện thoại đến 3h sáng mới chịu ngủ",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01891.jpg",
+    "label_llm1": 1,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Nguoi dang chia se mot kinh nghiem thuc te ve thoi gian ngu. Text mo ra mot ket qua (ngu 3h sang) va mot cam xuc (thanh tich de nhe). Lap luan nay co the hieu theo nghia den la mot cau chuyen ve thoi gian ngu khong duoc.",
+      "sacartic_case": "Text dung cau 'MOT THANH TICH DAG NGE' de mo dau, nhung noi dung sau la 'hau 93 lan hura nhung van khong duoc'. Day la mot xung dong tinh cam (Conflict) giua cau chuan (khen) va thuc te (thua). Nguoi dang khen nguoc de che gieu tinh trang khong duoc. Thuoc loai 1.5 Self-deprecating (tự chế giễu bản thân).",
+      "emoji_reasoning": "Khong co emoji trong input. Anh minh hoa tinh trang nguoi ngu co the hieu la buon, lo, hoac bi mat, khong phai la tinh trang hanh phuc.",
+      "sacarsm_type": "1.5 Self-deprecating",
+      "verdict": "Lap luan Sarcastic manh hon do xung dong giua cau chuan 'thanh tich' va thuc te 'thua'. Anh minh hoa tinh trang khong duoc. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 41,
+    "text": "Nhìn cặp mắt là biết uy tín rồi đó =)))))",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01892.jpg",
+    "label_llm1": 1,
+    "has_emoji": 1,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Nguoi dang chia se kinh nghiem thuc su: sau khi lam viec xuan dem, nguoi dang duoc nguoi khac chong sinh va duoc an hanh. Ket qua va no luc nhat quan — 'duoc chong sinh' la ket qua tich cuc THAT, 'duoc an hanh' la tinh cam tich cuc. Khong co conflict giua text va anh.",
+      "sacartic_case": "Anh chup con duong co mat kinh dong, co the hieu la 'mat kinh' do lo, do khong duoc an hanh, hoac do 'uy tin' khong cao. Text nen la 'duoc an hanh' nhung anh la 'mat kinh' — Image-Text Conflict (1.2). Lap luan nay manh hon vi anh minh hoa tinh trang khac ngai voi text.",
+      "emoji_reasoning": "Emoji '=)))))' la tin hieu vui ve, hanh phuc, cu ngo su tu hao. Emoji cuong co tinh cam tich cuc cua text, khong dao nguoc.",
+      "sacarsm_type": "1.2 Image-Text Conflict",
+      "verdict": "Lap luan Sarcastic manh hon do conflict giua anh (mat kinh) va text (duoc an hanh). Anh minh hoa tinh trang khac ngai voi text. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 42,
+    "text": "T nghĩ nếu không cần đi vệ sinh thì t có thể nằm ngủ 24/24 cũng được",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01893.jpg",
+    "label_llm1": 1,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text nói về việc 'không cần đi vệ sinh thì có thể ngủ 24/24', có vẻ như một lời than vãn về việc phải thức dậy để đi vệ sinh. Nếu hiểu theo nghĩa đen, người đăng đang nói về một tình huống lý tưởng (không cần đi vệ sinh) để ngủ liên tục. Tuy nhiên, cách diễn đạt này thường là một lời than vãn về thực tế khó chịu.",
+      "sacartic_case": "Bài đăng sử dụng hình ảnh Tom (con chuột) đang ngủ ngon lành để minh họa cho một tình huống mà người đăng cho là 'không thể giải quyết' (không thể ngủ). Đây là sự mâu thuẫn trực tiếp giữa hình ảnh (ngủ ngon) và text (không thể ngủ). Người đăng dùng hình ảnh Tom ngủ để chế giễu chính mình hoặc tình huống khó chịu, ngụ ý rằng việc 'không cần đi vệ sinh' là điều không tưởng hoặc quá lý tưởng so với thực tế. Đây là trường hợp Image-Text Conflict (1.2) hoặc Self-deprecating (1.5).",
+      "emoji_reasoning": "Không có emoji trong bài đăng này.",
+      "sacarsm_type": "1.2 Image-Text Conflict",
+      "verdict": "Lập luận Sarcastic mạnh hơn vì có sự mâu thuẫn rõ ràng giữa hình ảnh (Tom ngủ ngon) và nội dung text (than vãn về việc không thể ngủ). Hình ảnh được dùng để nhấn mạnh sự trái ngược với thực tế của người đăng. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": true,
+    "route_reason": "audit_sampled",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 43,
+    "text": "Cảm giác sau khi bảo \"tao không biết\" để khỏi phải tốn sức giải thích 1 vấn đề phức tạp nào đấy:",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01894.jpg",
+    "label_llm1": 1,
+    "has_emoji": 0,
+    "needs_human_check": 1,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text mô tả cảm giác 'không tốn sức giải thích' khi nói 'tôi không biết' — một trải nghiệm thực tế và hợp lý. Nếu hiểu theo nghĩa đen, người dùng đang chia sẻ một chiến lược sống thông minh để tránh tranh cãi. Không có mâu thuẫn rõ ràng giữa text và hình ảnh nếu coi chó là biểu tượng cho sự 'không biết' hoặc 'thờ ơ'.",
+      "sacartic_case": "Hình ảnh hiển thị chó đang ngồi thiền (tư thế yoga) và một con chó khác đang sủa, trong khi text nói về việc 'không tốn sức giải thích'. Đây là sự mâu thuẫn giữa hành động (thiền, bình tĩnh) và lý do (không muốn giải thích). Người dùng đang mỉa mai rằng việc 'không biết' giúp họ đạt được trạng thái bình yên như trong ảnh, trong khi thực tế là họ đang sủa (phản ứng). Đây là Image-Text Conflict (1.2) hoặc Multimodal (1.7).",
+      "emoji_reasoning": "Không có emoji trong bài đăng này.",
+      "sacarsm_type": "1.2 Image-Text Conflict",
+      "verdict": "Lập luận Sarcastic mạnh hơn do sự mâu thuẫn rõ ràng giữa text (không muốn giải thích) và hình ảnh (thiền định, bình tĩnh). Người dùng đang dùng hình ảnh để mỉa mai rằng 'không biết' là cách tốt nhất để giữ bình yên. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": true,
+    "route_reason": "low_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 44,
+    "text": "Cảm giác của bạn tôi khi cố nhắn tin cho tôi (người tắt thông báo 24/7):",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01895.jpg",
+    "label_llm1": 1,
+    "has_emoji": 0,
+    "needs_human_check": 1,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Nguoi dang chia se cam xuc thuc te khi co nguoi khac khong co tinh hien dai (tinh 'tut' 24/7). Anh minh hoa tinh trang nay. Lap luan yeu.",
+      "sacartic_case": "Text noi 'Cảm giác của bạn tôi' (tinh trang cua ban) nhung anh minh hoa la anh (nguoi dat tin) la nguoi 'tut' 24/7. Day la Image-Text Conflict (1.2): Text noi ve nguoi khac, nhung anh minh hoa ve nguoi dat tin. Nguoi dang co tinh chua ché, chua ché ve tinh trang cua minh khi co nguoi khac khong co tinh hien dai. Day la sarcasm tinh vi.",
+      "emoji_reasoning": "Khong co emoji trong post. Mia mai den tu conflict giua text va anh.",
+      "sacarsm_type": "1.2 Image-Text Conflict",
+      "verdict": "Lap luan Sarcastic manh hon do conflict giua text va anh. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": true,
+    "route_reason": "low_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 45,
+    "text": "\"Ngủ trưa nhiều là tôi sẽ mất ngủ đấy\" \nTôi cả sáng, trưa, chiều: \"Ngủ trưa nhiều là tôi sẽ mất ngủ đấy\" Tôi cả sáng, trưa, chiều:",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01896.jpg",
+    "label_llm1": 1,
+    "has_emoji": 0,
+    "needs_human_check": 1,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Nguoi dang chia se kinh nghiem nguoi thuc su khong the ngu duoc do nguoi khac ngu, nen nen la 'tong' (ngon ngu Viet Nam). Anh chup con chon la minh hoa cho tinh trang nay. Lap luan nay co the hieu theo nghia den.",
+      "sacartic_case": "Text 'Ngui truoc la nguoi' (nghia la nguoi khac ngu) va 'Ngui sau la nguoi' (nghia la nguoi khac ngu) la mot cau chuyen dien hinh tren mang xa hoi Viet Nam de che gieu tinh trang khong the ngu duoc. Anh chup con chon minh hoa cho tinh trang nay. Day la Contextual Sarcasm (1.4) — mot template pham quan trong van hoa Viet Nam de che gieu tinh trang khong the ngu duoc.",
+      "emoji_reasoning": "Khong co emoji trong input. Anh chup con chon minh hoa cho tinh trang khong the ngu duoc.",
+      "sacarsm_type": "1.4 Contextual",
+      "verdict": "Tin hieu mia mai ro qua format tieu de + noi dung tuong phan. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": true,
+    "route_reason": "low_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 46,
+    "text": "Dù ngủ 3 tiếng hay 8 tiếng thì t vẫn luôn trong trạng thái như này:",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01897.jpg",
+    "label_llm1": 0,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text mô tả trạng thái mệt mỏi, buồn ngủ sau khi ngủ ít (3 tiếng) hoặc ngủ nhiều (8 tiếng). Hình ảnh minh họa một cô gái đang cuộn trong chăn, vẻ mặt buồn ngủ, mệt mỏi, và đang bước đi với dép chuột. Nội dung text và hình ảnh hoàn toàn nhất quán, cùng thể hiện cảm xúc mệt mỏi, buồn ngủ. Không có sự mâu thuẫn hay phóng đại nào để tạo ra ý mỉa mai.",
+      "sacartic_case": "Không có lập luận mỉa mai nào. Text và ảnh cùng chiều nhau về cảm xúc mệt mỏi. Đây là một chia sẻ đời thường, không phải sự chế giễu.",
+      "emoji_reasoning": "Không có emoji trong bài đăng.",
+      "sacarsm_type": "NULL",
+      "verdict": "Lập luận Non-sarcastic áp đảo vì text và ảnh hoàn toàn đồng nhất về ý nghĩa (mệt mỏi, buồn ngủ). Không có dấu hiệu mỉa mai nào."
+    },
+    "round1_label": "non_sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 47,
+    "text": "Kệ bạn bè phấn đấu mỗi ngày vì tương lai tươi sáng, thứ t cần là không bị mất ngủ, đi làm đúng giờ về, không bị trễ lương, có tiền xài dư dả mỗi tháng là vui lắm rồi",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01898.jpg",
+    "label_llm1": 0,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text mô tả một thực tế đời thường: người viết không phấn đấu vì tương lai mà chỉ mong muốn ngủ ngon, đi làm đúng giờ, không bị trễ lương và có tiền dư dả. Đây là một lời than thở chân thành, không có dấu mỉa mai. Hình ảnh minh họa một cô gái đang ngủ ngon, thoải mái, hoàn toàn phù hợp với nội dung text (mong muốn được ngủ ngon). Không có sự mâu thuẫn giữa text và ảnh.",
+      "sacartic_case": "Không có dấu hiệu mỉa mai. Text và ảnh cùng chiều hướng về một trạng thái bình yên, không có sự đối lập hay phóng đại theo hướng mỉa mai.",
+      "emoji_reasoning": "Không có emoji trong bài đăng.",
+      "sacarsm_type": "NULL",
+      "verdict": "Lập luận Non-sarcastic áp đảo. Text và ảnh nhất quán, cùng thể hiện mong muốn được nghỉ ngơi, không có xung đột hay tín hiệu mỉa mai. llm_label=0."
+    },
+    "round1_label": "non_sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 48,
+    "text": "Điều tuyệt vời của tôi mỗi khi trở về nhà:",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01899.jpg",
+    "label_llm1": 0,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text 'Điều tuyệt vời của tôi mỗi khi trở về nhà' mô tả một cảm xúc tích cực, hạnh phúc khi trở về nhà. Hình ảnh con chó đang cuộn mình trong chăn, trông rất ấm áp, thoải mái và hạnh phúc, hoàn toàn phù hợp với cảm xúc được mô tả trong text. Không có sự mâu thuẫn nào giữa text và hình ảnh, đây là một tình huống đời thường, chân thành.",
+      "sacartic_case": "Không có dấu hiệu mỉa mai nào. Text và hình ảnh đồng nhất về mặt cảm xúc (ấm áp, vui vẻ). Không thuộc bất kỳ nhóm mỉa mai nào (1.1-1.7).",
+      "emoji_reasoning": "Không có emoji trong bài đăng.",
+      "sacarsm_type": "NULL",
+      "verdict": "Lập luận Non-sarcastic áp đảo vì text và hình ảnh hoàn toàn nhất quán và chân thành. llm_label=0."
+    },
+    "round1_label": "non_sarcastic",
+    "need_review": false,
+    "route_reason": "high_conf",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  },
+  {
+    "id": 49,
+    "text": "Đi làm về mình sẽ tắm rửa, nấu ăn, học gì đó để phát triển bản thân...\nCũng là t sau khi đi làm về: Đi làm về mình sẽ tắm rửa, nấu ăn, học gì đó để phát triển bản thân... Cũng là t sau khi đi làm về:",
+    "image_path": "/kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/merged_dataset/50_samples_images/post01900.jpg",
+    "label_llm1": 1,
+    "has_emoji": 0,
+    "needs_human_check": 0,
+    "notes": "",
+    "reasoning": {
+      "non_sacarstic_case": "Text mô tả một quy trình sinh hoạt hàng ngày bình thường (tắm rửa, nấu ăn, học tập) sau khi đi làm. Nếu hiểu theo nghĩa đen, đây là một kế hoạch phát triển bản thân tích cực và nghiêm túc. Lập luận này yếu vì nó bỏ qua ngữ cảnh thực tế và hình ảnh minh họa.",
+      "sacartic_case": "Hình ảnh là Tom (con chuột) đang ngủ say, trong khi text nói về việc 'tắm rửa, nấu ăn, học gì đó để phát triển bản thân'. Đây là sự mâu thuẫn trực tiếp giữa nội dung text (hoạt động tích cực) và hình ảnh (ngủ lười biếng). Người đăng đang mỉa mai bản thân rằng sau khi đi làm về, thay vì làm những việc đó, mình lại ngủ như Tom. Đây là trường hợp Image-Text Conflict (1.2) hoặc Self-deprecating (1.5).",
+      "emoji_reasoning": "Không có emoji trong bài đăng. Sự mỉa mai được thể hiện hoàn toàn qua sự tương phản giữa văn bản và hình ảnh.",
+      "sacarsm_type": "1.2 Image-Text Conflict",
+      "verdict": "Lập luận Sarcastic mạnh hơn do có sự mâu thuẫn rõ ràng giữa text (kế hoạch phát triển) và ảnh (ngủ). Hình ảnh Tom ngủ là biểu tượng cho sự lười biếng, trái ngược với nội dung text. llm_label=1."
+    },
+    "round1_label": "sarcastic",
+    "need_review": true,
+    "route_reason": "audit_sampled",
+    "timestamp_utc": "2026-04-24T08:47:41Z"
+  }
+]
