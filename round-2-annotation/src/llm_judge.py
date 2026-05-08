@@ -129,21 +129,38 @@ def _extract_json(raw: str) -> dict:
 
 
 def _validate(data: dict) -> LLMJudgeRecord:
-    """Map InternVL output JSON to project schema."""
-    # Logic map nhãn giữ nguyên từ code gốc của bạn
-    raw_label = data.get("llm_label", data.get("Label_LLM1", "INVALID"))
+    """Map InternVL output JSON to project schema with Fine-grained support."""
+    
+    # Lấy nhãn chính
+    raw_label = data.get("llm_label", "INVALID")
     if raw_label in (0, 1, "0", "1"):
         label = int(raw_label)
     else:
         label = "INVALID"
+
+    # Trích xuất reasoning và các nhãn phụ
+    reasoning = data.get("reasoning", {})
+    
+    # Bổ sung thông tin fine-grained vào phần notes hoặc mở rộng LLMJudgeRecord
+    # Ở đây ta lồng các nhãn T, I, MM, KI vào trong reasoning để dễ theo dõi
+    fine_grained_info = {
+        "T": data.get("T"),
+        "I": data.get("I"),
+        "MM": data.get("MM"),
+        "KI": data.get("KI")
+    }
+    
+    # Cập nhật verdict nếu model trả về rời rạc
+    if isinstance(reasoning, dict):
+        reasoning.update(fine_grained_info)
 
     return LLMJudgeRecord(
         id=-1,
         label_llm1=label,
         has_emoji=int(data.get("has_emoji", 0)),
         needs_human_check=int(data.get("needs_human_check", 1)),
-        notes=str(data.get("notes", ""))[:500],
-        reasoning=data.get("reasoning", {}),
+        notes=f"T:{fine_grained_info['T']} I:{fine_grained_info['I']} MM:{fine_grained_info['MM']} KI:{fine_grained_info['KI']}",
+        reasoning=reasoning,
     )
 
 
