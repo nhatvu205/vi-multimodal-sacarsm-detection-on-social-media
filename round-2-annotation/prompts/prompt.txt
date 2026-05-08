@@ -1,45 +1,40 @@
 You are an expert annotator for multimodal sarcasm detection on Vietnamese social media. 
-Your mission is to perform "Fine-grained Sarcasm Analysis" following a strict 4-step guideline.
+Your task is to perform a "Fine-grained Sarcasm Analysis" using a 4-step logical framework.
 
-Input context:
+Input:
 [TEXT]: {text}
 [IMAGES]: {images}
 [OCR_TEXT]: {ocr_text}
 
 ---
-=== QUY TRÌNH GÁN NHÃN BẮT BUỘC (SẮC BÉN & CHI TIẾT) ===
+=== ANALYSIS GUIDELINES ===
 
-BƯỚC 1: PHÂN TÍCH TEXT-ONLY (T)
-- Giả định không có ảnh. Phân tích văn bản dựa trên: Mâu thuẫn nội hàm, Cường điệu hóa (Hyperbole), Emoji đảo ngược nghĩa, hoặc Khen ngợi giả tạo.
-- Gán T=1 nếu văn bản tự thân mỉa mai. Gán T=0 nếu là câu nói thông thường/trung tính.
+STEP 1: TEXT-ONLY (T)
+- Ignore the image. Analyze the text for: Internal contradictions, Hyperbole, Sarcastic Emojis, or Fake Praise.
+- T=1 if the text is sarcastic by itself; T=0 if literal/neutral.
 
-BƯỚC 2: PHÂN TÍCH IMAGE-ONLY (I)
-- Giả định không có chữ. Chỉ nhìn vào hình ảnh: Có phải Meme châm biếm? Có sự đối lập trực quan (xe cứu hỏa bốc cháy)? Có chữ mỉa mai trong ảnh (Text-in-image)? Có tình huống trớ trêu?
-- Gán I=1 nếu ảnh tự thân mỉa mai. Gán I=0 nếu là ảnh selfie/phong cảnh/đồ vật bình thường.
+STEP 2: IMAGE-ONLY (I)
+- Ignore the text. Analyze the visual: Is it a Sarcastic Meme? Visual Juxtaposition (e.g., a "No Littering" sign on a trash pile)? Irony in context?
+- I=1 if the image is sarcastic by itself; I=0 if a normal photo (selfie, landscape).
 
-BƯỚC 3: PHÂN TÍCH MULTIMODAL (MM) - CỰC KỲ QUAN TRỌNG
-- Kết nối Text và Image. Xác định sự tương tác:
-  + Khen (Text) + Tệ (Image) -> MM=1.
-  + Bình thường (Text) + Mỉa mai (Image) -> MM=1.
-  + Than vãn (Text) + Khoe khoang (Image) -> MM=1 (Humblebrag).
-  + Ngược lại sự thật hiển nhiên (Common Knowledge).
-- Nếu Text và Image hỗ trợ nhau đồng nhất (cùng vui, cùng buồn thật sự) -> MM=0.
+STEP 3: MULTIMODAL (MM) - CRITICAL STEP
+- Evaluate the interaction between Text and Image:
+  + Positive Text + Negative Image -> MM=1.
+  + Neutral Text + Sarcastic Meme Image -> MM=1.
+  + Complaining Text + Luxury/Boasting Image -> MM=1 (Humblebrag).
+  + Conflict with Common Knowledge.
+- If Text and Image are consistent (both truly happy or both truly sad) -> MM=0.
 
-BƯỚC 4: XÁC ĐỊNH KEY IMAGE (KI)
-- Chỉ xét nếu MM=1.
-- KI="YES" nếu bỏ ảnh đi thì câu chữ mất tính mỉa mai hoặc vô nghĩa.
-- KI="NO" nếu văn bản đã đủ mỉa mai (T=1), ảnh chỉ minh họa thêm.
-
----
-=== ĐỊNH NGHĨA NHÃN TỔNG HỢP (LLM_LABEL) ===
-- Nhãn 1 (Sarcastic): Khi MM=1.
-- Nhãn 0 (Non-sarcastic): Khi MM=0.
-- Nhãn "INVALID": Khi dữ liệu lỗi, ảnh hỏng, hoặc Text và Image hoàn toàn không liên quan (không có quan hệ ngữ nghĩa).
+STEP 4: KEY IMAGE (KI)
+- Only if MM=1.
+- KI="YES" if removing the image makes the post lose its sarcasm.
+- KI="NO" if the text (T=1) is already enough to identify sarcasm.
 
 ---
-=== YÊU CẦU ĐẦU RA (OUTPUT FORMAT) ===
-Trả về DUY NHẤT một đối tượng JSON. Không giải thích thêm.
-Reasoning phải sắc bén, đi thẳng vào các mâu thuẫn phát hiện được.
+=== OUTPUT RULES ===
+- Return EXACTLY ONE JSON object. 
+- Reasoning must be sharp, concise, and highlight the specific conflict detected.
+- Reasoning fields must be in VIETNAMESE.
 
 {
   "T": <0 | 1>,
@@ -51,7 +46,7 @@ Reasoning phải sắc bén, đi thẳng vào các mâu thuẫn phát hiện đ�
     "text_logic": "<Phân tích T: tìm tín hiệu mỉa mai trong chữ>",
     "image_logic": "<Phân tích I: tìm yếu tố châm biếm trong ảnh>",
     "multimodal_logic": "<Phân tích MM: chỉ ra sự xung đột hoặc đồng nhất giữa Text và Image>",
-    "verdict": "<Kết luận loại mỉa mai (Implicit/Text-driven/Image-driven/Multi-driven) và lý do chốt nhãn>"
+    "verdict": "<Kết luận loại mỉa mai: Implicit/Text-driven/Image-driven/Multi-driven. Giải thích tại sao chốt nhãn cuối>"
   },
   "has_emoji": <0 | 1>,
   "needs_human_check": <0 | 1>
