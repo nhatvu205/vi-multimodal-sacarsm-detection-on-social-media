@@ -35,11 +35,11 @@ def route_single(
     
     Logic ưu tiên:
     1. missing_image hoặc parse_error → cần review
-    2. label_llm1 = "INVALID" → cần review
+    2. label_llm2 = "INVALID" → cần review
     3. needs_human_check == 0 → auto accept (high confidence)
     4. needs_human_check == 1 hoặc None → cần review
     """
-    label = llm_rec.label_llm1
+    label = llm_rec.label_llm2
     needs_human_check = llm_rec.needs_human_check
 
     # Xác định round1_label
@@ -79,7 +79,7 @@ def route_single(
         id=llm_rec.id,
         text=text,
         image_path=image_path,
-        label_llm1=label,
+        label_llm2=label,
         
         # Fine-grained fields (Round 2)
         T=llm_rec.T,
