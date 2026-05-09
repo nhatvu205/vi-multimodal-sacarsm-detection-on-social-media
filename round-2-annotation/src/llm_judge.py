@@ -41,7 +41,7 @@ def _load_prompt_template() -> str:
 
 def load_local_model(
     model_name: str = "OpenGVLab/InternVL3_5-8B",
-    load_in_4bit: bool = True,
+    load_in_4bit: bool = False,
     hf_token: Optional[str] = None
 ):
     global _MODEL, _PROCESSOR, _LOADED_MODEL_NAME
@@ -49,18 +49,15 @@ def load_local_model(
     if _MODEL is not None and _LOADED_MODEL_NAME == model_name:
         return _MODEL, _PROCESSOR
 
-    logger.info(f"Loading InternVL3.5-8B: {model_name} | 4bit={load_in_4bit}")
+    logger.info(f"Loading InternVL3.5-8B (4bit={load_in_4bit}) ...")
 
     kwargs = {
         "pretrained_model_name_or_path": model_name,
         "trust_remote_code": True,
+        "device_map": "auto",
         "low_cpu_mem_usage": True,
     }
 
-    if hf_token or os.getenv("HF_TOKEN"):
-        kwargs["token"] = hf_token or os.getenv("HF_TOKEN")
-
-    # ====================== FIX QUANTIZATION ======================
     if load_in_4bit:
         from transformers import BitsAndBytesConfig
         kwargs["quantization_config"] = BitsAndBytesConfig(
@@ -69,20 +66,17 @@ def load_local_model(
             bnb_4bit_quant_type="nf4",
             bnb_4bit_compute_dtype=torch.bfloat16,
         )
-        # Patch quan trọng để tránh lỗi all_tied_weights_keys
-        kwargs["device_map"] = "auto"
     else:
         kwargs["torch_dtype"] = torch.bfloat16
-        kwargs["device_map"] = "auto"
-    # ============================================================
 
     _MODEL = AutoModel.from_pretrained(**kwargs)
 
-    # Patch thuộc tính thiếu (rất quan trọng)
+    # === PATCH QUAN TRỌNG ===
     if not hasattr(_MODEL, "all_tied_weights_keys"):
         _MODEL.all_tied_weights_keys = {}
+        logger.info("✅ Patched missing 'all_tied_weights_keys'")
 
-    _MODEL = _MODEL.eval()
+    _MODEL.eval()
 
     _PROCESSOR = AutoProcessor.from_pretrained(model_name, trust_remote_code=True)
     _LOADED_MODEL_NAME = model_name
