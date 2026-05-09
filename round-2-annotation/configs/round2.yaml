@@ -9,6 +9,10 @@ llm_temperature: 0.1
 
 device: "cuda"
 load_in_4bit: true
-
 max_image_pixels: 500000
 max_new_tokens: 512
+batch_size: 4                 
+
+# Round 2 specific
+round_name: "round2"
+output_prefix: "round2_internvl"
