@@ -1,0 +1,9 @@
+llm_model: "OpenGVLab/InternVL3_5-8B"
+llm_provider: "local"
+llm_temperature: 0.1
+device: "cuda"
+load_in_4bit: true
+max_image_pixels: 500000
+max_new_tokens: 512
+random_audit_rate: 0.10
+seed: 42
