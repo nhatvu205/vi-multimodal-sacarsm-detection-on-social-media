@@ -66,47 +66,55 @@ def build_transform(input_size=448):
     ])
 
 def load_local_model(
-    model_name: str,
+    model_name: str = "OpenGVLab/InternVL3_5-8B",
     device: str = "cuda",
     load_in_4bit: bool = True,
     hf_token: Optional[str] = None,
 ) -> Tuple:
-    """Load InternVL with Monkey Patch for AttributeError."""
     global _MODEL, _TOKENIZER, _LOADED_MODEL_NAME
-
+    
     if _MODEL is not None and _LOADED_MODEL_NAME == model_name:
         return _MODEL, _TOKENIZER
 
-    logger.info(f"Loading model {model_name} with patches...")
+    # Xử lý token cực kỳ nghiêm ngặt
+    token_to_use = hf_token.strip() if hf_token and isinstance(hf_token, str) and hf_token.strip() else None
+    
+    logger.info(f"Loading model {model_name} | 4bit={load_in_4bit} | token={'Yes' if token_to_use else 'No'}")
 
-    # Monkey Patch the Class to avoid AttributeError: all_tied_weights_keys
+    # Monkey Patch
+    config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
     from transformers import dynamic_module_utils
-    config = AutoConfig.from_pretrained(model_name, trust_remote_code=True, token=hf_token)
     model_class = dynamic_module_utils.get_class_from_dynamic_module(config.auto_map["AutoModel"], model_name)
     
     if not hasattr(model_class, "all_tied_weights_keys"):
         model_class.all_tied_weights_keys = property(lambda self: {})
 
     bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,
+        load_in_4bit=load_in_4bit,
         bnb_4bit_compute_dtype=torch.bfloat16,
         bnb_4bit_use_double_quant=True,
         bnb_4bit_quant_type="nf4"
+    ) if load_in_4bit else None
+
+    _TOKENIZER = AutoTokenizer.from_pretrained(
+        model_name, 
+        trust_remote_code=True,
+        token=token_to_use
     )
 
-    _TOKENIZER = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, token=hf_token)
     _MODEL = AutoModel.from_pretrained(
         model_name,
         trust_remote_code=True,
-        quantization_config=bnb_config if load_in_4bit else None,
+        quantization_config=bnb_config,
         torch_dtype=torch.bfloat16,
         device_map="auto",
-        token=hf_token
+        token=token_to_use
     ).eval()
-    
-    _MODEL.config.max_dynamic_patch = 6 
+
+    _MODEL.config.max_dynamic_patch = 6
     _LOADED_MODEL_NAME = model_name
-    
+
+    logger.info("✅ InternVL3.5-8B loaded successfully!")
     return _MODEL, _TOKENIZER
 
 # ====================== INFERENCE ======================
