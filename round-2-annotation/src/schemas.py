@@ -26,7 +26,7 @@ class LLMJudgeRecord(BaseModel):
     id: int = -1
     
     # Core label
-    label_llm1: Union[int, Literal["INVALID"]] = "INVALID"
+    label_llm2: Union[int, Literal["INVALID"]] = "INVALID"
     
     # Fine-grained fields (Round 2)
     T: Optional[int] = None          # Text-Only
@@ -54,7 +54,7 @@ class Round1OutputRecord(BaseModel):
     text: str
     image_path: str
 
-    label_llm1: Union[int, Literal["INVALID"]]
+    label_llm2: Union[int, Literal["INVALID"]]
 
     # Fine-grained fields
     T: Optional[int] = None
