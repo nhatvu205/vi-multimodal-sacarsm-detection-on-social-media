@@ -136,7 +136,7 @@ def _slim_round2_public_dict(rec: Round1OutputRecord) -> dict:
         "id": rec.id,
         "text": rec.text,
         "image_path": rec.image_path,
-        "label_llm1": rec.label_llm1,
+        "label_llm2": rec.label_llm2,
         "T": getattr(rec, "T", None),
         "I": getattr(rec, "I", None),
         "MM": getattr(rec, "MM", None),
