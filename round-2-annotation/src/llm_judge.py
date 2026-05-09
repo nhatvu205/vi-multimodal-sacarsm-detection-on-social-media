@@ -60,21 +60,34 @@ def load_local_model(
     if hf_token or os.getenv("HF_TOKEN"):
         kwargs["token"] = hf_token or os.getenv("HF_TOKEN")
 
+    # ====================== FIX QUANTIZATION ======================
     if load_in_4bit:
+        from transformers import BitsAndBytesConfig
         kwargs["quantization_config"] = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4",
             bnb_4bit_compute_dtype=torch.bfloat16,
         )
+        # Patch quan trọng để tránh lỗi all_tied_weights_keys
+        kwargs["device_map"] = "auto"
     else:
         kwargs["torch_dtype"] = torch.bfloat16
+        kwargs["device_map"] = "auto"
+    # ============================================================
 
-    _MODEL = AutoModel.from_pretrained(**kwargs).eval().cuda()
+    _MODEL = AutoModel.from_pretrained(**kwargs)
+
+    # Patch thuộc tính thiếu (rất quan trọng)
+    if not hasattr(_MODEL, "all_tied_weights_keys"):
+        _MODEL.all_tied_weights_keys = {}
+
+    _MODEL = _MODEL.eval()
+
     _PROCESSOR = AutoProcessor.from_pretrained(model_name, trust_remote_code=True)
     _LOADED_MODEL_NAME = model_name
 
-    logger.info("InternVL3.5-8B loaded successfully!")
+    logger.info("✅ InternVL3.5-8B loaded successfully!")
     return _MODEL, _PROCESSOR
 
 
