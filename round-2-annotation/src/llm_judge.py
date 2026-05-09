@@ -1,19 +1,15 @@
 from __future__ import annotations
-
-"""
-LLM judge backed by local model inference (InternVL3.5-8B).
-Optimized for Kaggle T4 GPU (16GB VRAM) using 4-bit quantization.
-"""
-
 import json
-import os
 import re
+import os
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 import torch
 from PIL import Image
-from transformers import AutoModel, AutoTokenizer, BitsAndBytesConfig
+
+from transformers import AutoModel, AutoProcessor, BitsAndBytesConfig
+
 from .schemas import InputRecord, LLMJudgeRecord
 from .utils_logging import get_logger
 
@@ -21,26 +17,20 @@ logger = get_logger(__name__)
 
 _PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "prompt.txt"
 _FEW_SHOT_PATH = Path(__file__).parent.parent / "prompts" / "few-short-examples.txt"
-_PROMPT_TEMPLATE: Optional[str] = None
 
 _MODEL = None
-_TOKENIZER = None
+_PROCESSOR = None
 _LOADED_MODEL_NAME: Optional[str] = None
 
-_REPAIR_SUFFIX = (
-    "\n\nPhản hồi trước của bạn không phải JSON hợp lệ. "
-    "Hãy chỉ trả về đúng một đối tượng JSON với các trường bắt buộc: "
-    "reasoning, Label_LLM1, Text_Only, ImageSet_Only, Key_Images, Difficulty. "
-    "Không thêm bất kỳ nội dung nào khác ngoài đối tượng JSON."
-)
+_REPAIR_SUFFIX = """
+Phản hồi trước của bạn không phải là JSON hợp lệ. 
+Hãy trả về đúng một đối tượng JSON theo đúng format yêu cầu, không thêm bất kỳ nội dung nào khác.
+"""
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
+# ====================== HELPERS ======================
 def _load_prompt_template() -> str:
     global _PROMPT_TEMPLATE
-    if _PROMPT_TEMPLATE is None:
+    if '_PROMPT_TEMPLATE' not in globals():
         prompt = _PROMPT_PATH.read_text(encoding="utf-8")
         if _FEW_SHOT_PATH.exists():
             few_shot = _FEW_SHOT_PATH.read_text(encoding="utf-8")
@@ -50,74 +40,91 @@ def _load_prompt_template() -> str:
 
 
 def load_local_model(
-    model_name: str,
-    device: str = "cuda",
+    model_name: str = "OpenGVLab/InternVL3_5-8B",
     load_in_4bit: bool = True,
-    hf_token: Optional[str] = None,
-) -> Tuple:
-    """
-    Load InternVL model and tokenizer.
-    Uses BitsAndBytesConfig to avoid the 'load_in_4bit' TypeError.
-    """
-    global _MODEL, _TOKENIZER, _LOADED_MODEL_NAME
+    hf_token: Optional[str] = None
+):
+    global _MODEL, _PROCESSOR, _LOADED_MODEL_NAME
 
     if _MODEL is not None and _LOADED_MODEL_NAME == model_name:
-        return _MODEL, _TOKENIZER
+        return _MODEL, _PROCESSOR
 
-    logger.info("Loading InternVL model: %s (4bit=%s)", model_name, load_in_4bit)
+    logger.info(f"Loading InternVL3.5-8B: {model_name} | 4bit={load_in_4bit}")
 
-    token = hf_token or os.environ.get("HF_TOKEN")
-    
-    # Cấu hình Quantization để tối ưu VRAM trên Kaggle T4
-    bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_compute_dtype=torch.bfloat16,
-        bnb_4bit_use_double_quant=True,
-        bnb_4bit_quant_type="nf4"
-    )
-
-    load_kwargs = {
+    kwargs = {
         "pretrained_model_name_or_path": model_name,
-        "torch_dtype": torch.bfloat16,
         "trust_remote_code": True,
-        "device_map": "auto",
-        "quantization_config": bnb_config if load_in_4bit else None,
+        "low_cpu_mem_usage": True,
     }
-    if token:
-        load_kwargs["token"] = token
 
-    # InternVL sử dụng AutoModel thay vì AutoModelForImageTextToText
-    _MODEL = AutoModel.from_pretrained(**load_kwargs).eval()
-    
-    # Giới hạn số lượng tile ảnh để tránh OOM (Out of Memory)
-    _MODEL.config.max_dynamic_patch = 6 
+    if hf_token or os.getenv("HF_TOKEN"):
+        kwargs["token"] = hf_token or os.getenv("HF_TOKEN")
 
-    _TOKENIZER = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, token=token)
-
-    _LOADED_MODEL_NAME = model_name
-    logger.info("InternVL loaded successfully.")
-    return _MODEL, _TOKENIZER
-
-
-def _open_image(image_path: str, max_pixels: int = 500_000) -> Optional[Image.Image]:
-    """Open and resize image for InternVL."""
-    p = Path(image_path)
-    # Logic tìm đường dẫn ảnh giữ nguyên của bạn
-    if not p.is_absolute():
-        repo_root = Path(__file__).resolve().parents[2]
-        candidates = [repo_root / image_path, Path.cwd() / image_path]
+    if load_in_4bit:
+        kwargs["quantization_config"] = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16,
+        )
     else:
-        candidates = [p]
+        kwargs["torch_dtype"] = torch.bfloat16
+
+    _MODEL = AutoModel.from_pretrained(**kwargs).eval().cuda()
+    _PROCESSOR = AutoProcessor.from_pretrained(model_name, trust_remote_code=True)
+    _LOADED_MODEL_NAME = model_name
+
+    logger.info("InternVL3.5-8B loaded successfully!")
+    return _MODEL, _PROCESSOR
+
+
+def _resize_image(img: Image.Image, max_pixels: int = 500000) -> Image.Image:
+    w, h = img.size
+    if max_pixels <= 0 or w * h <= max_pixels:
+        return img
+    scale = (max_pixels / (w * h)) ** 0.5
+    new_w = max(1, int(w * scale))
+    new_h = max(1, int(h * scale))
+    return img.resize((new_w, new_h), Image.LANCZOS)
+
+
+def _open_image(image_path: str, max_pixels: int = 500000) -> Optional[Image.Image]:
+    """Mở ảnh từ nhiều đường dẫn có thể"""
+    p = Path(image_path)
+    candidates = [p] if p.is_absolute() else [
+        p,
+        Path("/kaggle/working") / p,
+        Path.cwd() / p,
+    ]
 
     for candidate in candidates:
         if candidate.exists():
             try:
                 img = Image.open(candidate).convert("RGB")
-                # InternVL xử lý resize tốt hơn nếu để ảnh gốc hoặc giảm nhẹ
-                return img 
+                return _resize_image(img, max_pixels)
             except Exception as e:
-                logger.warning("Error loading image %s: %s", candidate, e)
+                logger.warning(f"Cannot open image {candidate}: {e}")
+    logger.warning(f"Image not found: {image_path}")
     return None
+
+
+def _load_images(record: InputRecord, max_pixels: int = 500000) -> Tuple[List[Image.Image], bool]:
+    """Load images và trả về flag missing"""
+    paths = []
+    if hasattr(record, 'image_paths') and record.image_paths:
+        paths = record.image_paths
+    elif hasattr(record, 'image_path') and record.image_path:
+        paths = [record.image_path]
+
+    images = [img for p in paths if (img := _open_image(p, max_pixels)) is not None]
+    image_missing = len(images) == 0 and len(paths) > 0
+    return images, image_missing
+
+
+def _build_messages(text: str, images_pil: List[Image.Image], prompt: str):
+    content = [{"type": "image", "image": img} for img in images_pil]
+    content.append({"type": "text", "text": prompt})
+    return [{"role": "user", "content": content}]
 
 
 def _extract_json(raw: str) -> dict:
@@ -129,109 +136,117 @@ def _extract_json(raw: str) -> dict:
 
 
 def _validate(data: dict) -> LLMJudgeRecord:
-    """Map InternVL output JSON to project schema with Fine-grained support."""
-    
-    # Lấy nhãn chính
-    raw_label = data.get("llm_label", "INVALID")
-    if raw_label in (0, 1, "0", "1"):
+    """Parse output từ InternVL theo schema Round 2"""
+    raw_label = data.get("llm_label")
+    label = "INVALID"
+    if isinstance(raw_label, int) or str(raw_label) in ("0", "1"):
         label = int(raw_label)
-    else:
+    elif raw_label == "INVALID":
         label = "INVALID"
 
-    # Trích xuất reasoning và các nhãn phụ
-    reasoning = data.get("reasoning", {})
-    
-    # Bổ sung thông tin fine-grained vào phần notes hoặc mở rộng LLMJudgeRecord
-    # Ở đây ta lồng các nhãn T, I, MM, KI vào trong reasoning để dễ theo dõi
-    fine_grained_info = {
-        "T": data.get("T"),
-        "I": data.get("I"),
-        "MM": data.get("MM"),
-        "KI": data.get("KI")
-    }
-    
-    # Cập nhật verdict nếu model trả về rời rạc
-    if isinstance(reasoning, dict):
-        reasoning.update(fine_grained_info)
+    has_emoji = int(data.get("has_emoji", 0))
+    needs_human = int(data.get("needs_human_check", 1))
 
     return LLMJudgeRecord(
         id=-1,
         label_llm1=label,
-        has_emoji=int(data.get("has_emoji", 0)),
-        needs_human_check=int(data.get("needs_human_check", 1)),
-        notes=f"T:{fine_grained_info['T']} I:{fine_grained_info['I']} MM:{fine_grained_info['MM']} KI:{fine_grained_info['KI']}",
-        reasoning=reasoning,
+        has_emoji=has_emoji,
+        needs_human_check=needs_human,
+        notes=str(data.get("notes", ""))[:500],
+        reasoning=data.get("reasoning", {}),
+        # Các field mới của Round 2
+        T=data.get("T"),
+        I=data.get("I"),
+        MM=data.get("MM"),
+        KI=data.get("KI"),
     )
 
 
-# ---------------------------------------------------------------------------
-# InternVL Inference Call
-# ---------------------------------------------------------------------------
-
+# ====================== INFERENCE ======================
 def judge_single(
-    model,
-    tokenizer,
     record: InputRecord,
-    temperature: float,
-    is_vl: bool = True,
-    max_image_pixels: int = 500_000,
+    temperature: float = 0.1,
+    max_image_pixels: int = 500000,
+    max_new_tokens: int = 512,
 ) -> LLMJudgeRecord:
-    """Run inference using InternVL's custom .chat() API."""
-    pixel_values = _open_image(record.image_path)
-    image_missing = pixel_values is None
+    
+    model, processor = load_local_model()
+    images_pil, image_missing = _load_images(record, max_image_pixels)
 
+    # Build prompt
     template = _load_prompt_template()
-    prompt = (
-        template
-        .replace("{text}", record.text)
-        .replace("{images}", "[Ảnh đính kèm]" if not image_missing else "[Không có ảnh]")
-        .replace("{ocr_text}", record.ocr_text or "[Không có OCR]")
-    )
+    prompt = template.replace("{text}", str(record.text or ""))
+    prompt = prompt.replace("{images}", f"Tổng số ảnh: {len(images_pil)}")
+    prompt = prompt.replace("{ocr_text}", str(getattr(record, 'ocr_text', '[Không có OCR text]')))
 
-    # Cấu hình sinh văn bản
-    generation_config = dict(
-        max_new_tokens=1024,
-        do_sample=True if temperature > 0 else False,
-        temperature=temperature if temperature > 0 else None,
-    )
+    messages = _build_messages(record.text or "", images_pil, prompt)
+
+    # Inference
+    inputs = processor.apply_chat_template(
+        messages,
+        tokenize=True,
+        add_generation_prompt=True,
+        return_dict=True,
+        return_tensors="pt"
+    ).to(model.device)
+
+    with torch.no_grad():
+        generated_ids = model.generate(
+            **inputs,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            do_sample=True if temperature > 0 else False,
+            pad_token_id=processor.tokenizer.eos_token_id,
+        )
+
+    output = processor.batch_decode(
+        generated_ids[:, inputs["input_ids"].shape[1]:],
+        skip_special_tokens=True
+    )[0]
 
     try:
-        # InternVL Chat API
-        response, _ = model.chat(
-            tokenizer, 
-            pixel_values, 
-            prompt, 
-            generation_config
-        )
-        
-        result = _validate(_extract_json(response))
-        return result.model_copy(update={"id": record.id, "image_missing": image_missing})
+        parsed = _extract_json(output)
+        result = _validate(parsed)
+        result = result.model_copy(update={
+            "id": record.id,
+            "image_missing": image_missing
+        })
+        return result
 
     except Exception as e:
-        logger.error("Inference failed for id=%d: %s", record.id, e)
+        logger.warning(f"JSON parse failed for id={record.id}, retrying...")
+        # Có thể thêm retry logic sau nếu cần
         return LLMJudgeRecord(
             id=record.id,
             label_llm1="INVALID",
-            notes=f"Error: {str(e)[:200]}",
+            notes="JSON parse error",
             parse_error=True,
-            image_missing=image_missing,
+            image_missing=image_missing
         )
 
 
 def judge_batch(
     records: List[InputRecord],
-    model_name: str,
-    temperature: float,
+    model_name: str = "OpenGVLab/InternVL3_5-8B",
+    temperature: float = 0.1,
     hf_token: Optional[str] = None,
-    device: str = "cuda",
-    load_in_4bit: bool = True,
-    max_image_pixels: int = 500_000,
+    max_image_pixels: int = 500000,
+    max_new_tokens: int = 512,
 ) -> List[LLMJudgeRecord]:
-    """Entry point for batch processing."""
-    model, tokenizer = load_local_model(model_name, device, load_in_4bit, hf_token)
     
-    results: List[LLMJudgeRecord] = []
-    for record in records:
-        res = judge_single(model, tokenizer, record, temperature)
-        results.append(res)
+    logger.info(f"Starting batch inference with {len(records)} records | Model: {model_name}")
+    
+    results = []
+    for i, record in enumerate(records):
+        result = judge_single(
+            record=record,
+            temperature=temperature,
+            max_image_pixels=max_image_pixels,
+            max_new_tokens=max_new_tokens
+        )
+        results.append(result)
+        
+        if (i + 1) % 10 == 0:
+            logger.info(f"Processed {i+1}/{len(records)} records")
+
     return results
