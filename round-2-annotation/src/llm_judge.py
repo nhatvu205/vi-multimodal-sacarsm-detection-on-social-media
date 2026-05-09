@@ -41,7 +41,7 @@ def _load_prompt_template() -> str:
 
 def load_local_model(
     model_name: str = "OpenGVLab/InternVL3_5-8B",
-    load_in_4bit: bool = False,
+    load_in_4bit: bool = True,
     hf_token: Optional[str] = None
 ):
     global _MODEL, _PROCESSOR, _LOADED_MODEL_NAME
@@ -49,39 +49,63 @@ def load_local_model(
     if _MODEL is not None and _LOADED_MODEL_NAME == model_name:
         return _MODEL, _PROCESSOR
 
-    logger.info(f"Loading InternVL3.5-8B (4bit={load_in_4bit}) ...")
+    logger.info(f"Loading InternVL3.5-8B with manual patch | 4bit={load_in_4bit}")
 
-    kwargs = {
-        "pretrained_model_name_or_path": model_name,
-        "trust_remote_code": True,
-        "device_map": "auto",
-        "low_cpu_mem_usage": True,
-    }
+    # ====================== MANUAL PATCH (giống code cũ của bạn) ======================
+    from transformers import BitsAndBytesConfig, AutoConfig
+
+    config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
 
     if load_in_4bit:
-        from transformers import BitsAndBytesConfig
-        kwargs["quantization_config"] = BitsAndBytesConfig(
+        bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_quant_type="nf4",
             bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4"
         )
+        model_kwargs = {
+            "quantization_config": bnb_config,
+            "device_map": "auto",
+            "torch_dtype": torch.bfloat16,
+        }
     else:
-        kwargs["torch_dtype"] = torch.bfloat16
+        model_kwargs = {
+            "device_map": "auto",
+            "torch_dtype": torch.bfloat16,
+        }
 
-    _MODEL = AutoModel.from_pretrained(**kwargs)
+    logger.info("Applying monkey patch for InternVL...")
+    
+    # Patch trước khi load
+    if not hasattr(AutoModel, "_model_mapping"):
+        pass  # already handled by transformers
 
-    # === PATCH QUAN TRỌNG ===
+    _MODEL = AutoModel.from_pretrained(
+        model_name,
+        config=config,
+        trust_remote_code=True,
+        low_cpu_mem_usage=True,
+        **model_kwargs
+    )
+
+    # === CRITICAL PATCHES ===
     if not hasattr(_MODEL, "all_tied_weights_keys"):
         _MODEL.all_tied_weights_keys = {}
-        logger.info("✅ Patched missing 'all_tied_weights_keys'")
+        logger.info("✅ Patched all_tied_weights_keys")
 
-    _MODEL.eval()
+    # Patch cho các submodule
+    for name, module in _MODEL.named_modules():
+        if not hasattr(module, "all_tied_weights_keys"):
+            try:
+                module.all_tied_weights_keys = {}
+            except:
+                pass
 
+    _MODEL = _MODEL.eval()
     _PROCESSOR = AutoProcessor.from_pretrained(model_name, trust_remote_code=True)
     _LOADED_MODEL_NAME = model_name
 
-    logger.info("✅ InternVL3.5-8B loaded successfully!")
+    logger.info("✅ InternVL3.5-8B loaded successfully with patches!")
     return _MODEL, _PROCESSOR
 
 
