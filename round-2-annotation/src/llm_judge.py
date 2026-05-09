@@ -1,14 +1,22 @@
 from __future__ import annotations
+
+"""
+LLM judge backed by local model inference (InternVL3.5-8B).
+Optimized for Kaggle T4 GPU (16GB VRAM) using 4-bit quantization.
+Includes patches for AttributeError and safe JSON extraction.
+"""
+
 import json
-import re
 import os
+import re
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 import torch
+import torchvision.transforms as T
 from PIL import Image
-
-from transformers import AutoModel, AutoProcessor, BitsAndBytesConfig
+from torchvision.transforms.functional import InterpolationMode
+from transformers import AutoModel, AutoTokenizer, BitsAndBytesConfig, AutoConfig
 
 from .schemas import InputRecord, LLMJudgeRecord
 from .utils_logging import get_logger
@@ -17,20 +25,17 @@ logger = get_logger(__name__)
 
 _PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "prompt.txt"
 _FEW_SHOT_PATH = Path(__file__).parent.parent / "prompts" / "few-short-examples.txt"
+_PROMPT_TEMPLATE: Optional[str] = None
 
 _MODEL = None
-_PROCESSOR = None
+_TOKENIZER = None
 _LOADED_MODEL_NAME: Optional[str] = None
 
-_REPAIR_SUFFIX = """
-Phản hồi trước của bạn không phải là JSON hợp lệ. 
-Hãy trả về đúng một đối tượng JSON theo đúng format yêu cầu, không thêm bất kỳ nội dung nào khác.
-"""
-
 # ====================== HELPERS ======================
+
 def _load_prompt_template() -> str:
     global _PROMPT_TEMPLATE
-    if '_PROMPT_TEMPLATE' not in globals():
+    if _PROMPT_TEMPLATE is None:
         prompt = _PROMPT_PATH.read_text(encoding="utf-8")
         if _FEW_SHOT_PATH.exists():
             few_shot = _FEW_SHOT_PATH.read_text(encoding="utf-8")
@@ -38,246 +43,160 @@ def _load_prompt_template() -> str:
         _PROMPT_TEMPLATE = prompt
     return _PROMPT_TEMPLATE
 
-
-def load_local_model(
-    model_name: str = "OpenGVLab/InternVL3_5-8B",
-    load_in_4bit: bool = True,
-    hf_token: Optional[str] = None
-):
-    global _MODEL, _PROCESSOR, _LOADED_MODEL_NAME
-
-    if _MODEL is not None and _LOADED_MODEL_NAME == model_name:
-        return _MODEL, _PROCESSOR
-
-    logger.info(f"Loading InternVL3.5-8B with manual patch | 4bit={load_in_4bit}")
-
-    # ====================== MANUAL PATCH (giống code cũ của bạn) ======================
-    from transformers import BitsAndBytesConfig, AutoConfig
-
-    config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
-
-    if load_in_4bit:
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_compute_dtype=torch.bfloat16,
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_quant_type="nf4"
-        )
-        model_kwargs = {
-            "quantization_config": bnb_config,
-            "device_map": "auto",
-            "torch_dtype": torch.bfloat16,
-        }
-    else:
-        model_kwargs = {
-            "device_map": "auto",
-            "torch_dtype": torch.bfloat16,
-        }
-
-    logger.info("Applying monkey patch for InternVL...")
-    
-    # Patch trước khi load
-    if not hasattr(AutoModel, "_model_mapping"):
-        pass  # already handled by transformers
-
-    _MODEL = AutoModel.from_pretrained(
-        model_name,
-        config=config,
-        trust_remote_code=True,
-        low_cpu_mem_usage=True,
-        **model_kwargs
-    )
-
-    # === CRITICAL PATCHES ===
-    if not hasattr(_MODEL, "all_tied_weights_keys"):
-        _MODEL.all_tied_weights_keys = {}
-        logger.info("✅ Patched all_tied_weights_keys")
-
-    # Patch cho các submodule
-    for name, module in _MODEL.named_modules():
-        if not hasattr(module, "all_tied_weights_keys"):
-            try:
-                module.all_tied_weights_keys = {}
-            except:
-                pass
-
-    _MODEL = _MODEL.eval()
-    _PROCESSOR = AutoProcessor.from_pretrained(model_name, trust_remote_code=True)
-    _LOADED_MODEL_NAME = model_name
-
-    logger.info("✅ InternVL3.5-8B loaded successfully with patches!")
-    return _MODEL, _PROCESSOR
-
-
-def _resize_image(img: Image.Image, max_pixels: int = 500000) -> Image.Image:
-    w, h = img.size
-    if max_pixels <= 0 or w * h <= max_pixels:
-        return img
-    scale = (max_pixels / (w * h)) ** 0.5
-    new_w = max(1, int(w * scale))
-    new_h = max(1, int(h * scale))
-    return img.resize((new_w, new_h), Image.LANCZOS)
-
-
-def _open_image(image_path: str, max_pixels: int = 500000) -> Optional[Image.Image]:
-    """Mở ảnh từ nhiều đường dẫn có thể"""
-    p = Path(image_path)
-    candidates = [p] if p.is_absolute() else [
-        p,
-        Path("/kaggle/working") / p,
-        Path.cwd() / p,
-    ]
-
-    for candidate in candidates:
-        if candidate.exists():
-            try:
-                img = Image.open(candidate).convert("RGB")
-                return _resize_image(img, max_pixels)
-            except Exception as e:
-                logger.warning(f"Cannot open image {candidate}: {e}")
-    logger.warning(f"Image not found: {image_path}")
-    return None
-
-
-def _load_images(record: InputRecord, max_pixels: int = 500000) -> Tuple[List[Image.Image], bool]:
-    """Load images và trả về flag missing"""
-    paths = []
-    if hasattr(record, 'image_paths') and record.image_paths:
-        paths = record.image_paths
-    elif hasattr(record, 'image_path') and record.image_path:
-        paths = [record.image_path]
-
-    images = [img for p in paths if (img := _open_image(p, max_pixels)) is not None]
-    image_missing = len(images) == 0 and len(paths) > 0
-    return images, image_missing
-
-
-def _build_messages(text: str, images_pil: List[Image.Image], prompt: str):
-    content = [{"type": "image", "image": img} for img in images_pil]
-    content.append({"type": "text", "text": prompt})
-    return [{"role": "user", "content": content}]
-
-
 def _extract_json(raw: str) -> dict:
+    """Extract JSON from model response, handling thinking tags and garbage text."""
     cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
     match = re.search(r"\{.*\}", cleaned, re.DOTALL)
     if match:
-        return json.loads(match.group())
-    return json.loads(cleaned)
+        try:
+            return json.loads(match.group())
+        except json.JSONDecodeError:
+            pass
+    return {}
 
+def build_transform(input_size=448):
+    """Standard InternVL image transformation."""
+    IMAGENET_MEAN = (0.485, 0.456, 0.406)
+    IMAGENET_STD = (0.229, 0.224, 0.225)
+    return T.Compose([
+        T.Lambda(lambda img: img.convert('RGB') if img.mode != 'RGB' else img),
+        T.Resize((input_size, input_size), interpolation=InterpolationMode.BICUBIC),
+        T.ToTensor(),
+        T.Normalize(IMAGENET_MEAN, IMAGENET_STD)
+    ])
 
-def _validate(data: dict) -> LLMJudgeRecord:
-    """Parse output từ InternVL theo schema Round 2"""
-    raw_label = data.get("llm_label")
-    label = "INVALID"
-    if isinstance(raw_label, int) or str(raw_label) in ("0", "1"):
-        label = int(raw_label)
-    elif raw_label == "INVALID":
-        label = "INVALID"
+def load_local_model(
+    model_name: str,
+    device: str = "cuda",
+    load_in_4bit: bool = True,
+    hf_token: Optional[str] = None,
+) -> Tuple:
+    """Load InternVL with Monkey Patch for AttributeError."""
+    global _MODEL, _TOKENIZER, _LOADED_MODEL_NAME
 
-    has_emoji = int(data.get("has_emoji", 0))
-    needs_human = int(data.get("needs_human_check", 1))
+    if _MODEL is not None and _LOADED_MODEL_NAME == model_name:
+        return _MODEL, _TOKENIZER
 
-    return LLMJudgeRecord(
-        id=-1,
-        label_llm1=label,
-        has_emoji=has_emoji,
-        needs_human_check=needs_human,
-        notes=str(data.get("notes", ""))[:500],
-        reasoning=data.get("reasoning", {}),
-        # Các field mới của Round 2
-        T=data.get("T"),
-        I=data.get("I"),
-        MM=data.get("MM"),
-        KI=data.get("KI"),
+    logger.info(f"Loading model {model_name} with patches...")
+
+    # Monkey Patch the Class to avoid AttributeError: all_tied_weights_keys
+    from transformers import dynamic_module_utils
+    config = AutoConfig.from_pretrained(model_name, trust_remote_code=True, token=hf_token)
+    model_class = dynamic_module_utils.get_class_from_dynamic_module(config.auto_map["AutoModel"], model_name)
+    
+    if not hasattr(model_class, "all_tied_weights_keys"):
+        model_class.all_tied_weights_keys = property(lambda self: {})
+
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_compute_dtype=torch.bfloat16,
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_quant_type="nf4"
     )
 
+    _TOKENIZER = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, token=hf_token)
+    _MODEL = AutoModel.from_pretrained(
+        model_name,
+        trust_remote_code=True,
+        quantization_config=bnb_config if load_in_4bit else None,
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+        token=hf_token
+    ).eval()
+    
+    _MODEL.config.max_dynamic_patch = 6 
+    _LOADED_MODEL_NAME = model_name
+    
+    return _MODEL, _TOKENIZER
 
 # ====================== INFERENCE ======================
+
 def judge_single(
+    model,
+    tokenizer,
     record: InputRecord,
-    temperature: float = 0.1,
+    temperature: float,
     max_image_pixels: int = 500000,
-    max_new_tokens: int = 512,
 ) -> LLMJudgeRecord:
+    """Single record inference using InternVL custom .chat() API."""
     
-    model, processor = load_local_model()
-    images_pil, image_missing = _load_images(record, max_image_pixels)
+    # 1. Image Processing
+    pixel_values = None
+    image_missing = True
+    if record.image_path and os.path.exists(record.image_path):
+        try:
+            img = Image.open(record.image_path).convert("RGB")
+            # Convert to Tensor for InternVL
+            transform = build_transform()
+            pixel_values = transform(img).unsqueeze(0).to(torch.bfloat16).to(model.device)
+            image_missing = False
+        except Exception as e:
+            logger.warning(f"Failed to load image {record.image_path}: {e}")
 
-    # Build prompt
+    # 2. Prompt Preparation
     template = _load_prompt_template()
-    prompt = template.replace("{text}", str(record.text or ""))
-    prompt = prompt.replace("{images}", f"Tổng số ảnh: {len(images_pil)}")
-    prompt = prompt.replace("{ocr_text}", str(getattr(record, 'ocr_text', '[Không có OCR text]')))
+    prompt = (
+        template
+        .replace("{text}", str(record.text or ""))
+        .replace("{images}", "[Ảnh đính kèm]" if not image_missing else "[Không có ảnh]")
+        .replace("{ocr_text}", str(record.ocr_text or "[Không có]"))
+    )
 
-    messages = _build_messages(record.text or "", images_pil, prompt)
-
-    # Inference
-    inputs = processor.apply_chat_template(
-        messages,
-        tokenize=True,
-        add_generation_prompt=True,
-        return_dict=True,
-        return_tensors="pt"
-    ).to(model.device)
-
-    with torch.no_grad():
-        generated_ids = model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            do_sample=True if temperature > 0 else False,
-            pad_token_id=processor.tokenizer.eos_token_id,
-        )
-
-    output = processor.batch_decode(
-        generated_ids[:, inputs["input_ids"].shape[1]:],
-        skip_special_tokens=True
-    )[0]
+    # 3. Model Inference
+    generation_config = dict(
+        max_new_tokens=1024,
+        do_sample=True if temperature > 0 else False,
+        temperature=temperature if temperature > 0 else None,
+    )
 
     try:
-        parsed = _extract_json(output)
-        result = _validate(parsed)
-        result = result.model_copy(update={
-            "id": record.id,
-            "image_missing": image_missing
-        })
-        return result
+        # Safe unpacking: model.chat behavior varies by version
+        outputs = model.chat(tokenizer, pixel_values, prompt, generation_config)
+        response = outputs[0] if isinstance(outputs, (list, tuple)) else outputs
+        
+        data = _extract_json(response)
+        
+        # Mapping results to Round 2 Schema
+        return LLMJudgeRecord(
+            id=record.id,
+            label_llm1=data.get("llm_label", "INVALID"),
+            has_emoji=int(data.get("has_emoji", 0)),
+            needs_human_check=int(data.get("needs_human_check", 1)),
+            notes=f"T:{data.get('T')} | I:{data.get('I')} | MM:{data.get('MM')} | KI:{data.get('KI')}",
+            reasoning=data.get("reasoning", {}),
+            image_missing=image_missing,
+            # Ensure custom fields exist in LLMJudgeRecord schema
+            T=data.get("T"),
+            I=data.get("I"),
+            MM=data.get("MM"),
+            KI=data.get("KI")
+        )
 
     except Exception as e:
-        logger.warning(f"JSON parse failed for id={record.id}, retrying...")
-        # Có thể thêm retry logic sau nếu cần
+        logger.error(f"Inference error for id={record.id}: {e}")
         return LLMJudgeRecord(
             id=record.id,
             label_llm1="INVALID",
-            notes="JSON parse error",
+            notes=f"Error: {str(e)[:200]}",
             parse_error=True,
             image_missing=image_missing
         )
 
-
 def judge_batch(
     records: List[InputRecord],
-    model_name: str = "OpenGVLab/InternVL3_5-8B",
-    temperature: float = 0.1,
+    model_name: str,
+    temperature: float,
     hf_token: Optional[str] = None,
+    device: str = "cuda",
+    load_in_4bit: bool = True,
     max_image_pixels: int = 500000,
-    max_new_tokens: int = 512,
 ) -> List[LLMJudgeRecord]:
-    
-    logger.info(f"Starting batch inference with {len(records)} records | Model: {model_name}")
+    """Batch entry-point for pipeline."""
+    model, tokenizer = load_local_model(model_name, device, load_in_4bit, hf_token)
     
     results = []
-    for i, record in enumerate(records):
-        result = judge_single(
-            record=record,
-            temperature=temperature,
-            max_image_pixels=max_image_pixels,
-            max_new_tokens=max_new_tokens
-        )
-        results.append(result)
+    for record in records:
+        res = judge_single(model, tokenizer, record, temperature, max_image_pixels)
+        results.append(res)
         
-        if (i + 1) % 10 == 0:
-            logger.info(f"Processed {i+1}/{len(records)} records")
-
     return results
