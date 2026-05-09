@@ -1,53 +1,61 @@
-You are an expert annotator for multimodal sarcasm detection on Vietnamese social media. 
-Your task is to perform a "Fine-grained Sarcasm Analysis" using a 4-step logical framework.
+You are an expert Vietnamese multimodal sarcasm detection annotator. 
+Your task is to analyze a social media post and determine whether it is sarcastic or not using a fine-grained 4-step process.
+
+Return EXACTLY one valid JSON object and nothing else.
 
 Input:
-[TEXT]: {text}
-[IMAGES]: {images}
-[OCR_TEXT]: {ocr_text}
+[TEXT]
+{text}
 
----
-=== ANALYSIS GUIDELINES ===
+[IMAGES]
+{images}
 
-STEP 1: TEXT-ONLY (T)
-- Ignore the image. Analyze the text for: Internal contradictions, Hyperbole, Sarcastic Emojis, or Fake Praise.
-- T=1 if the text is sarcastic by itself; T=0 if literal/neutral.
+[OCR_TEXT]
+{ocr_text}
 
-STEP 2: IMAGE-ONLY (I)
-- Ignore the text. Analyze the visual: Is it a Sarcastic Meme? Visual Juxtaposition (e.g., a "No Littering" sign on a trash pile)? Irony in context?
-- I=1 if the image is sarcastic by itself; I=0 if a normal photo (selfie, landscape).
+=== HƯỚNG DẪN PHÂN TÍCH FINE-GRAINED (BẮT BUỘC LÀM ĐẦY ĐỦ 4 BƯỚC) ===
 
-STEP 3: MULTIMODAL (MM) - CRITICAL STEP
-- Evaluate the interaction between Text and Image:
-  + Positive Text + Negative Image -> MM=1.
-  + Neutral Text + Sarcastic Meme Image -> MM=1.
-  + Complaining Text + Luxury/Boasting Image -> MM=1 (Humblebrag).
-  + Conflict with Common Knowledge.
-- If Text and Image are consistent (both truly happy or both truly sad) -> MM=0.
+BƯỚC 1: TEXT-ONLY (T)
+- Che hoàn toàn ảnh, chỉ đọc text + emoji.
+- Xác định text có chứa mỉa mai khi đứng một mình không.
+- T=1 nếu: mâu thuẫn nội hàm, cường điệu hóa quá mức, khen giả tạo, emoji đảo ngược, nói ngược rõ ràng.
+- T=0 nếu: câu văn bình thường, không có tín hiệu mỉa mai.
 
-STEP 4: KEY IMAGE (KI)
-- Only if MM=1.
-- KI="YES" if removing the image makes the post lose its sarcasm.
-- KI="NO" if the text (T=1) is already enough to identify sarcasm.
+BƯỚC 2: IMAGE-ONLY (I)
+- Che text và emoji, chỉ xem ảnh.
+- I=1 nếu: ảnh là meme châm biếm, visual juxtaposition (đối lập trực quan), text-in-image mang tính mỉa mai, tình huống trớ trêu rõ ràng.
+- I=0 nếu: ảnh selfie bình thường, phong cảnh, đồ vật thông thường.
 
----
-=== OUTPUT RULES ===
-- Return EXACTLY ONE JSON object. 
-- Reasoning must be sharp, concise, and highlight the specific conflict detected.
-- Reasoning fields must be in VIETNAMESE.
+BƯỚC 3: MULTIMODAL (MM)
+- Kết hợp Text và Image.
+- MM=1 nếu có sự tương phản tạo ra mỉa mai (Text khen + Image tệ, Text than + Image khoe, Text bình thường + Image meme, v.v.).
+- MM=0 nếu Text và Image cùng hướng (cùng tích cực hoặc cùng tiêu cực một cách nghiêm túc).
 
+BƯỚC 4: KEY IMAGE (KI) - Chỉ làm khi MM=1
+- KI="YES" nếu ảnh đóng vai trò quan trọng (bỏ ảnh đi thì không còn mỉa mai hoặc rất yếu).
+- KI="NO" nếu text đã đủ mỉa mai (ảnh chỉ minh họa).
+
+=== BẢNG TỔNG HỢP NHÃN ===
+- llm_label = 1 (Sarcastic) nếu MM=1
+- llm_label = 0 (Non-sarcastic) nếu MM=0
+- llm_label = "INVALID" nếu dữ liệu lỗi hoặc không liên quan hoàn toàn
+
+All reasoning phải viết bằng tiếng Việt.
+
+=== OUTPUT FORMAT (CHÍNH XÁC) ===
 {
-  "T": <0 | 1>,
-  "I": <0 | 1>,
-  "MM": <0 | 1>,
-  "KI": "YES" | "NO" | "NULL",
-  "llm_label": <0 | 1 | "INVALID">,
+  "llm_label": 0 or 1 or "INVALID",
+  "T": 0 or 1,
+  "I": 0 or 1,
+  "MM": 0 or 1,
+  "KI": "YES" or "NO" or "NULL",
   "reasoning": {
-    "text_logic": "<Phân tích T: tìm tín hiệu mỉa mai trong chữ>",
-    "image_logic": "<Phân tích I: tìm yếu tố châm biếm trong ảnh>",
-    "multimodal_logic": "<Phân tích MM: chỉ ra sự xung đột hoặc đồng nhất giữa Text và Image>",
-    "verdict": "<Kết luận loại mỉa mai: Implicit/Text-driven/Image-driven/Multi-driven. Giải thích tại sao chốt nhãn cuối>"
+    "text_only": "Lập luận chi tiết cho Bước 1",
+    "image_only": "Lập luận chi tiết cho Bước 2",
+    "multimodal": "Lập luận chi tiết cho Bước 3",
+    "key_image": "Lập luận cho Bước 4",
+    "verdict": "Kết luận cuối cùng"
   },
-  "has_emoji": <0 | 1>,
-  "needs_human_check": <0 | 1>
+  "has_emoji": 0 or 1,
+  "needs_human_check": 0 or 1
 }
