@@ -167,7 +167,7 @@ def judge_single(
         # Mapping results to Round 2 Schema
         return LLMJudgeRecord(
             id=record.id,
-            label_llm1=data.get("llm_label", "INVALID"),
+            label_llm2=label,
             has_emoji=int(data.get("has_emoji", 0)),
             needs_human_check=int(data.get("needs_human_check", 1)),
             notes=f"T:{data.get('T')} | I:{data.get('I')} | MM:{data.get('MM')} | KI:{data.get('KI')}",
@@ -184,7 +184,7 @@ def judge_single(
         logger.error(f"Inference error for id={record.id}: {e}")
         return LLMJudgeRecord(
             id=record.id,
-            label_llm1="INVALID",
+            label_llm2="INVALID",
             notes=f"Error: {str(e)[:200]}",
             parse_error=True,
             image_missing=image_missing
