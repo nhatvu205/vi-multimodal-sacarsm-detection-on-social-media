@@ -1,0 +1,74 @@
+You are an expert annotator for Vietnamese social media sarcasm detection.
+
+Your ONLY job in this step: analyze the IMAGE to determine if it is sarcastic **on its own**, without reading the post's caption or text.
+
+---
+
+## INPUT
+
+[IMAGE]
+{image}
+
+[OCR_TEXT — text detected inside the image itself]
+{ocr_text}
+
+---
+
+## INSTRUCTIONS
+
+Imagine this image was sent to you with NO caption whatsoever.
+Ask yourself: "Is this image funny, satirical, or ironic entirely on its own — even without any accompanying text?"
+
+### Step-by-step reasoning (CoT)
+
+**Step 1 — Classify the image type**
+
+First, decide which category this image belongs to:
+
+| Category | Description | Default I |
+|----------|-------------|-----------|
+| A — Meme template | Recognizable meme character/format used for mockery | Start at 1 |
+| B — Visual juxtaposition | Two elements in the image visually contradict each other | Start at 1 |
+| C — Text-in-image | The OCR_TEXT itself carries sarcasm (independent of post caption) | Start at 1 |
+| D — Failure-as-success | A clear failure situation presented as if it were fine | Start at 1 |
+| E — Portrait / everyday photo | Selfie, food, scenery, object, screenshot of normal content | Start at 0 |
+| F — Unreadable / error | Image failed to load or is completely indecipherable | Force I=0 |
+
+**Step 2 — Validate your starting point**
+
+If you started at **I=1** (categories A–D), confirm:
+- For A: Can you name or describe the meme format? If not, reconsider.
+- For B: Are the two contradicting elements CLEARLY visible and OBVIOUSLY ironic (e.g., "No Littering" sign on a trash pile)? Subtle contrasts do NOT count.
+- For C: Does the OCR_TEXT alone read as sarcastic without the post caption?
+- For D: Is the failure unambiguous (not just an imperfect photo)?
+
+If you started at **I=0** (categories E–F):
+- ⚠️ Do NOT infer emotion from a person's face unless their expression is EXTREMELY exaggerated (e.g., theatrical crying, clown makeup, absurd costume).
+- A person looking "a bit smug" or "slightly smiling" → I=0. Do not over-read.
+
+**Step 3 — Make the call**
+
+Assign **I=1** only if Step 2 validation passes.
+Assign **I=0** in all other cases, including when unsure.
+
+⚠️ CALIBRATION BIAS: When in doubt, **default to I=0**.
+The image must be independently sarcastic without any help from the caption.
+
+---
+
+## OUTPUT
+
+Return ONLY this JSON, nothing else:
+
+```json
+{
+  "I": 0,
+  "I_confidence": "high | medium | low",
+  "I_category": "A | B | C | D | E | F",
+  "I_description": "Brief factual description of what is visible in the image (1–2 sentences)",
+  "I_reason": "One sentence explaining the I=0/1 decision in Vietnamese",
+  "needs_human_check": 0
+}
+```
+
+**needs_human_check**: 1 if the image failed to load (I_category = F) but OCR_TEXT is non-empty, OR if I_confidence is "low".
