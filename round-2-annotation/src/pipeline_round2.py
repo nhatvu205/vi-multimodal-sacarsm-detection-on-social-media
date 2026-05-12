@@ -242,8 +242,8 @@ def run_pipeline(
     if TEST_IMAGE_LOAD and input_records:
         rec = input_records[0]
         try:
-            from .llmjudge import load_image_internvl  # Import nếu chưa có
-            pv = load_image_internvl(rec.image_path, max_num=6)
+            from .llm_judge import load_image  # ← đúng
+            pv = load_image(rec.image_path, max_num=6)
             print(f"✅ pixel_values shape: {pv.shape} (record ID: {rec.id})")
             print(f"   Image path: {rec.image_path}")
             # Đúng: torch.Size([N, 3, 448, 448]) với N=6-7
