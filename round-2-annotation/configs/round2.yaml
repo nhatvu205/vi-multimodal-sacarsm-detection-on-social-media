@@ -1,0 +1,18 @@
+# Round-2 Annotation Pipeline - InternVL3.5-8B
+random_audit_rate: 0.08
+seed: 42
+
+# Model settings
+llm_model: "OpenGVLab/InternVL3_5-8B"
+llm_provider: "local"
+llm_temperature: 0.1
+
+device: "cuda"
+load_in_4bit: true
+max_image_pixels: 500000
+max_new_tokens: 512
+batch_size: 4                 
+
+# Round 2 specific
+round_name: "round2"
+output_prefix: "round2_internvl"

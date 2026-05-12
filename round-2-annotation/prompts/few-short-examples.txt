@@ -1,0 +1,73 @@
+=== VÍ DỤ THAM KHẢO (ROUND 2 - FINE-GRAINED) ===
+
+--- VÍ DỤ 1: Sarcastic (Text khen + Ảnh tệ) ---
+Input:
+[TEXT] Cơm mẹ nấu ngon nhất thế giới luôn á
+[IMAGES] 1 ảnh: đĩa cơm cháy đen, khét lè
+[OCR_TEXT] [Không có]
+
+Output:
+{
+  "llm_label": 1,
+  "T": 0,
+  "I": 0,
+  "MM": 1,
+  "KI": "YES",
+  "reasoning": {
+    "text_only": "Text thể hiện sự khen ngợi tích cực, không có tín hiệu mỉa mai rõ ràng → T=0",
+    "image_only": "Ảnh cơm cháy đen không phải meme, không có visual mỉa mai độc lập → I=0",
+    "multimodal": "Text khen ngon nhất nhưng ảnh là cơm cháy → tương phản mạnh, tạo sarcasm → MM=1",
+    "key_image": "Nếu bỏ ảnh, câu chữ chỉ là lời khen bình thường. Ảnh là yếu tố then chốt tạo mỉa mai.",
+    "verdict": "Mỉa mai multimodal, ảnh đóng vai trò quan trọng."
+  },
+  "has_emoji": 0,
+  "needs_human_check": 0
+}
+
+--- VÍ DỤ 2: Text-driven Sarcasm ---
+Input:
+[TEXT] Hôm nay được sếp khen "làm việc chăm chỉ" vì đi muộn 2 tiếng 🤡
+[IMAGES] Không có ảnh
+[OCR_TEXT] [Không có]
+
+Output:
+{
+  "llm_label": 1,
+  "T": 1,
+  "I": 0,
+  "MM": 0,
+  "KI": "NO",
+  "reasoning": {
+    "text_only": "Emoji 🤡 + cụm 'đi muộn 2 tiếng' tạo mỉa mai rõ ràng → T=1",
+    "image_only": "Không có ảnh",
+    "multimodal": "Không có ảnh nên MM=0",
+    "key_image": "Ảnh không tồn tại",
+    "verdict": "Mỉa mai chủ yếu từ text."
+  },
+  "has_emoji": 1,
+  "needs_human_check": 0
+}
+
+--- VÍ DỤ 3: Non-sarcastic ---
+Input:
+[TEXT] Hôm nay trời mưa to, đường ngập kinh khủng
+[IMAGES] 1 ảnh: đường ngập nước, xe máy chết máy
+[OCR_TEXT] [Không có]
+
+Output:
+{
+  "llm_label": 0,
+  "T": 0,
+  "I": 0,
+  "MM": 0,
+  "KI": "NULL",
+  "reasoning": {
+    "text_only": "Text than vãn phù hợp với thực tế → T=0",
+    "image_only": "Ảnh minh họa đúng nội dung text → I=0",
+    "multimodal": "Text và ảnh cùng hướng tiêu cực, không có tương phản → MM=0",
+    "key_image": "Không áp dụng",
+    "verdict": "Bài đăng literal."
+  },
+  "has_emoji": 0,
+  "needs_human_check": 0
+}
