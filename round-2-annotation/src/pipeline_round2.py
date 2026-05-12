@@ -242,10 +242,17 @@ def run_pipeline(
     if TEST_IMAGE_LOAD and input_records:
         rec = input_records[0]
         try:
-            from .llm_judge import load_image  # ← đúng
-            pv = load_image(rec.image_path, max_num=6)
+            from .llm_judge import load_image, _pick_image_path
+            resolved_image_path = _pick_image_path(rec)
+            if resolved_image_path is None:
+                raise FileNotFoundError(
+                    f"Không resolve được ảnh cho id={rec.id} | "
+                    f"image_path={rec.image_path} | image_paths={rec.image_paths}"
+                )
+            pv = load_image(str(resolved_image_path), max_num=6)
             print(f"✅ pixel_values shape: {pv.shape} (record ID: {rec.id})")
-            print(f"   Image path: {rec.image_path}")
+            print(f"   Image path (raw): {rec.image_path}")
+            print(f"   Image path (resolved): {resolved_image_path}")
             # Đúng: torch.Size([N, 3, 448, 448]) với N=6-7
             # Sai: torch.Size([1, 3, 448, 448]) → bug path/image
         except Exception as e:

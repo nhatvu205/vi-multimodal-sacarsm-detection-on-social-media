@@ -12,7 +12,6 @@ Fixes vs previous version:
 """
 
 import json
-import os
 import re
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -138,6 +137,43 @@ def load_image(image_path: str, input_size: int = 448, max_num: int = 6) -> torc
     tiles = dynamic_preprocess(image, image_size=input_size, use_thumbnail=True, max_num=max_num)
     pixel_values = torch.stack([transform(tile) for tile in tiles])  # (N, 3, H, W)
     return pixel_values
+
+
+def _resolve_existing_image_path(image_path: str) -> Optional[Path]:
+    """
+    Resolve image path with the same strategy as Round-1:
+      1) absolute path as-is
+      2) repo_root / relative_path
+      3) cwd / relative_path
+    Return first existing path, else None.
+    """
+    p = Path(image_path)
+    if p.is_absolute():
+        return p if p.exists() else None
+
+    repo_root = Path(__file__).resolve().parents[2]
+    candidates = [repo_root / p, Path.cwd() / p]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _pick_image_path(record: InputRecord) -> Optional[Path]:
+    """
+    Pick first readable image path from image_paths or image_path.
+    """
+    paths: List[str] = []
+    if record.image_paths:
+        paths.extend(record.image_paths)
+    if record.image_path:
+        paths.append(record.image_path)
+
+    for raw_path in paths:
+        resolved = _resolve_existing_image_path(raw_path)
+        if resolved is not None:
+            return resolved
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -351,10 +387,11 @@ def judge_single(
     pixel_values: Optional[torch.Tensor] = None
     image_missing = True
 
-    if record.image_path and os.path.exists(record.image_path):
+    resolved_image_path = _pick_image_path(record)
+    if resolved_image_path is not None:
         try:
             pixel_values = (
-                load_image(record.image_path, input_size=448, max_num=max_num_tiles)
+                load_image(str(resolved_image_path), input_size=448, max_num=max_num_tiles)
                 .to(torch.bfloat16)
                 .to(model.device)
             )
@@ -364,6 +401,11 @@ def judge_single(
             )
         except Exception as e:
             logger.warning("Image load failed for id=%d: %s", record.id, e)
+    else:
+        logger.warning(
+            "All images missing for id=%d | image_path=%s | image_paths=%s",
+            record.id, record.image_path, record.image_paths
+        )
 
     try:
         # ── Turn 1: text only ──────────────────────────────────────────────
