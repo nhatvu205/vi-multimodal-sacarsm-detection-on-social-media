@@ -103,8 +103,8 @@ def dynamic_preprocess(
         aspect_ratio, target_ratios, orig_width, orig_height, image_size
     )
 
-    target_width  = image_size * target_aspect_ratio[0]
-    target_height = image_size * target_aspect_ratio[1]
+    target_width  = int(image_size * target_aspect_ratio[0])
+    target_height = int(image_size * target_aspect_ratio[1])
     blocks = target_aspect_ratio[0] * target_aspect_ratio[1]
 
     resized_img = image.resize((target_width, target_height))
