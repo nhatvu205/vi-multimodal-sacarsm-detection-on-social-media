@@ -23,10 +23,14 @@ from .utils_logging import get_logger
 
 logger = get_logger(__name__)
 
-_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "prompt.txt"
-_FEW_SHOT_PATH = Path(__file__).parent.parent / "prompts" / "few-short-examples.txt"
-_PROMPT_TEMPLATE: Optional[str] = None
+_PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
+_PROMPT_T1_PATH = _PROMPTS_DIR / "prompt_turn1_text.txt"
+_PROMPT_T2_PATH = _PROMPTS_DIR / "prompt_turn2_image.txt"
+_PROMPT_T3_PATH = _PROMPTS_DIR / "prompt_turn3_multimodal.txt"
 
+_PROMPT_T1: Optional[str] = None
+_PROMPT_T2: Optional[str] = None
+_PROMPT_T3: Optional[str] = None
 _MODEL = None
 _TOKENIZER = None
 _LOADED_MODEL_NAME: Optional[str] = None
