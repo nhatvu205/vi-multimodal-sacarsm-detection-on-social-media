@@ -1,7 +1,7 @@
 # Round-2 Annotation Pipeline - InternVL3.5-8B
 random_audit_rate: 0.08
 seed: 42
-
+prompt_dir: "prompts" 
 # Model settings
 llm_model: "OpenGVLab/InternVL3_5-8B"
 llm_provider: "local"
