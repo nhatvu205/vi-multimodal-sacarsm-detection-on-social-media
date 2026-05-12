@@ -164,6 +164,9 @@ def judge_single(
         
         data = _extract_json(response)
         
+        raw_label = data.get("llm_label", "INVALID")
+        label = int(raw_label) if str(raw_label) in ("0", "1") else "INVALID"
+
         # Mapping results to Round 2 Schema
         return LLMJudgeRecord(
             id=record.id,
