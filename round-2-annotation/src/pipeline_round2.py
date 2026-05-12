@@ -218,7 +218,7 @@ def run_pipeline(
     min_record_id: Optional[int] = None,
     no_checkpoint_load: bool = False,
 ) -> None:
-    
+    prompt_dir = Path(config_path).parent.parent / "prompts" 
     cfg = load_config(config_path)
     router_cfg = build_router_config(cfg)
 
