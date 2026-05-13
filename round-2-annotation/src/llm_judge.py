@@ -426,6 +426,9 @@ def judge_single(
         # ── Parse final output từ Turn 3 ──────────────────────────────────
         raw_label = t3.get("llm_label", "INVALID")
         label = int(raw_label) if str(raw_label) in ("0", "1") else "INVALID"
+        
+        # MM = llm_label vì Turn 3 chính là multimodal decision
+        MM_val = label if isinstance(label, int) else None
 
         # Turn 3 có thể override T và I → dùng giá trị đã override
         T_final = t3.get("T", t1.get("T"))
@@ -443,7 +446,7 @@ def judge_single(
             label_llm2=label,
             T=T_final,
             I=I_final,
-            MM=t3.get("MM"),
+            MM=t3.get("MM", MM_val),  
             KI=t3.get("KI"),
             has_emoji=int(t1.get("has_emoji", 0) or t3.get("has_emoji", 0)),
             needs_human_check=needs_human,
