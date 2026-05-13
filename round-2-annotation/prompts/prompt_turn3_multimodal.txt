@@ -1,8 +1,11 @@
 You are an expert annotator for multimodal sarcasm detection in Vietnamese social media posts.
+
 Your task is to determine whether a given post (TEXT + IMAGE) is non-sarcastic (label 0) or sarcastic (label 1) by analyzing them TOGETHER as a single, unified message.
 
 ---
+
 ## INPUT
+
 [TEXT]
 {text}
 
@@ -10,32 +13,39 @@ Your task is to determine whether a given post (TEXT + IMAGE) is non-sarcastic (
 {image}
 
 ---
+
 ## INSTRUCTIONS
-Evaluate the post as a whole. In Vietnamese social media, sarcasm often emerges not just from words or pictures alone, but from how they interact. 
+
+Evaluate the post as a whole. In Vietnamese social media, sarcasm often emerges from the *interaction* between text and image — but only when there is a genuine semantic gap, not just thematic overlap.
 
 ### Chain-of-Thought (CoT) Process:
-1. **Holistic Analysis**: Read the text and look at the image simultaneously. What is the explicit message? What is the implicit (hidden) message?
-2. **Cross-Modal Relationship**: How do the text and image interact? 
-   - Do they support each other literally? 
-   - Is there a direct contradiction? 
-   - Does the text provide a sarcastic framing for an otherwise normal image? 
-   - Does the image reveal that the literal text is actually a joke?
-3. **Divergent Evaluation**:
-   - *Case for Literal (0)*: Argue that the entire post is meant to be taken at face value. The text matches the image perfectly without any hidden mockery, hyperbole, or Vietnamese internet slang.
-   - *Case for Sarcastic (1)*: Argue that the post contains sarcasm. This could be due to an image-text mismatch, contextual irony, self-deprecation, or the use of sarcastic meme templates.
-4. **Final Verdict**: Weigh the two cases and make a final decision based on typical Vietnamese social media behavior.
+
+1. **Standalone Signals Summary**: Briefly restate what the text says literally and what the image shows visually. Do not re-analyze — summarize.
+
+2. **Cross-Modal Relationship**: Identify which of these patterns applies:
+   - **Reinforcing**: Text and image convey the same message sincerely → lean toward 0
+   - **Contradicting**: Text says X, image shows clearly not-X → strong signal for 1
+   - **Ironic framing**: Text provides sarcastic commentary on an otherwise neutral image → 1
+   - **Meme amplification**: Image is a known sarcastic meme template + text aligns with it → 1
+   State which pattern applies and explain why.
+
+3. **Contradiction Verification**: If you identified "Contradicting" or "Ironic framing" above — describe the exact contradiction. What specifically does the text claim? What specifically does the image show that contradicts it? If you cannot state a concrete contradiction, default to the Reinforcing pattern.
+
+4. **Final Verdict**: Label 1 only if step 3 confirms a concrete, verifiable contradiction or ironic framing. A general feeling of "something is off" is not sufficient.
 
 ---
+
 ## OUTPUT
+
 Return EXACTLY this valid JSON object and nothing else. All reasoning fields must be in Vietnamese.
 
 {
   "reasoning": {
-    "cross_modal_relationship": "<Phân tích tương tác giữa chữ và ảnh: Bổ trợ nghĩa đen, mâu thuẫn, hay tạo ra ngữ cảnh mỉa mai mới?>",
-    "non_sarcastic_case": "<Lập luận bảo vệ rằng toàn bộ bài post chỉ mang nghĩa đen thuần túy, người đăng nói sao ý vậy>",
-    "sarcastic_case": "<Lập luận bảo vệ rằng bài post có chứa ý mỉa mai, trào phúng khi kết hợp cả chữ và ảnh>",
-    "sarcasm_type": "<Nếu có mỉa mai, nó thuộc loại nào? (VD: Mâu thuẫn ảnh-chữ, Meme, Khen để chê, Phóng đại...). Nếu không, ghi NULL>",
-    "conclusion": "<Lý do chốt nhãn cuối cùng>"
+    "standalone_summary": "<Tóm tắt ngắn: text nói gì (nghĩa đen), ảnh cho thấy gì>",
+    "cross_modal_pattern": "<Pattern nào áp dụng: Reinforcing / Contradicting / Ironic framing / Meme amplification? Giải thích>",
+    "contradiction_verification": "<Nếu có mâu thuẫn: mô tả CỤ THỂ text khẳng định điều gì và ảnh phủ nhận điều gì. Nếu không có mâu thuẫn rõ ràng, ghi: Không tìm thấy mâu thuẫn cụ thể>",
+    "sarcasm_type": "<Nếu có mỉa mai: loại nào? (Mâu thuẫn ảnh-chữ / Meme / Khen để chê / Phóng đại / Khác). Nếu không, ghi NULL>",
+    "conclusion": "<Lý do chốt nhãn cuối cùng — phải tham chiếu đến bước 3>"
   },
   "llm_label": <0 hoặc 1>
 }
