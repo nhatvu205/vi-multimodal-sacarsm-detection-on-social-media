@@ -23,7 +23,8 @@ def load_ocr_lookup(ocr_path: str) -> Dict[str, str]:
         for item in items
         if item.get("status") == "ok" and item.get("text")
     }
-def load_input_records(path: str) -> List[InputRecord]:
+
+def load_input_records(path: str, ocr_path: str | None = None) -> List[InputRecord]:
     """Load input records from a JSON array file or JSONL file."""
     p = Path(path)
     if not p.exists():
