@@ -17,7 +17,7 @@ from .utils_logging import get_logger
 
 logger = get_logger(__name__)
 
-TEST_IMAGE_LOAD = True
+
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
@@ -218,7 +218,7 @@ def run_pipeline(
     min_record_id: Optional[int] = None,
     no_checkpoint_load: bool = False,
 ) -> None:
-    prompt_dir = Path(config_path).parent.parent / "prompts" 
+    
     cfg = load_config(config_path)
     router_cfg = build_router_config(cfg)
 
@@ -238,20 +238,7 @@ def run_pipeline(
     logger.info(f"Model: {model_name} | 4bit: {load_in_4bit} | batch_size: {batch_size}")
 
     input_records = load_input_records(input_data)
-    # TEST: Check model đọc ảnh đúng không (1 record đầu)
-    if TEST_IMAGE_LOAD and input_records:
-        rec = input_records[0]
-        try:
-            from .llm_judge import load_image  # ← đúng
-            pv = load_image(rec.image_path, max_num=6)
-            print(f"✅ pixel_values shape: {pv.shape} (record ID: {rec.id})")
-            print(f"   Image path: {rec.image_path}")
-            # Đúng: torch.Size([N, 3, 448, 448]) với N=6-7
-            # Sai: torch.Size([1, 3, 448, 448]) → bug path/image
-        except Exception as e:
-            print(f"❌ ERROR loading image {rec.image_path}: {e}")
-            print("💡 Check: file tồn tại? path đúng? ảnh corrupt?")
-            raise  # Dừng để debug
+    
     if max_records:
         input_records = input_records[:max_records]
     if min_record_id:
