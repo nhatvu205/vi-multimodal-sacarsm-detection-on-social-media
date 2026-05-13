@@ -1,8 +1,11 @@
 You are an expert annotator for Vietnamese social media sarcasm detection.
+
 Your ONLY job in this step: analyze the IMAGE (and its OCR text) to determine if it is visually sarcastic, funny, or ironic **on its own**, without reading the post's main caption.
 
 ---
+
 ## INPUT
+
 [IMAGE]
 {image}
 
@@ -10,27 +13,41 @@ Your ONLY job in this step: analyze the IMAGE (and its OCR text) to determine if
 {ocr_text}
 
 ---
+
 ## INSTRUCTIONS
-Imagine this image (and any text physically written on it) was sent to you with NO caption. 
+
+Imagine this image (and any text physically written on it) was sent to you with NO caption.
+
+**Critical instruction about OCR text**: The [OCR_TEXT] field contains text extracted directly from the image. You MUST treat this as part of the image content and analyze its meaning. If the OCR text carries sarcasm, irony, or mockery on its own, that is strong evidence for I=1 — even if the visual elements alone seem neutral.
 
 ### Chain-of-Thought (CoT) Reasoning Process:
-1. **Visual Description**: Describe factually what is happening in the image.
-2. **Visual Anomalies / Categories**: Does the image fall into recognizable categories? (e.g., Meme templates, Visual Juxtaposition/Contradiction, "Failure-as-success" like a flooded room with someone smiling, or OCR text carrying a sarcastic joke).
-3. **Divergent Thinking**:
-   - *Case for I=0 (Non-sarcastic)*: Argue that this is just a normal everyday photo, a selfie, a neutral screenshot, or product image with no inherent joke.
-   - *Case for I=1 (Sarcastic/Ironic)*: Argue that the visual elements contradict each other, the OCR text creates irony, or the meme format inherently mocks something.
-4. **Final Verdict**: If the image requires external text (the caption) to be funny, it is I=0. If the image itself contains a joke, irony, or meme format, it is I=1.
+
+1. **Visual Description**: Describe factually what is happening in the image (people, objects, setting, expressions).
+
+2. **OCR Text Analysis**: Quote the OCR text and analyze its meaning independently. Does it carry sarcasm, irony, or humor on its own?
+
+3. **Visual Anomalies / Meme Recognition**: Does the image fall into recognizable categories?
+   - Known meme templates (the format itself signals irony)
+   - Visual contradiction or juxtaposition (e.g., smile in a disaster scene)
+   - "Failure-as-success" staging
+   - Text in image that creates irony with the visual
+
+4. **Independence Test**: If the caption/post text were completely removed, would a Vietnamese viewer still find this image funny, ironic, or sarcastic? If the image needs external text to be understood as a joke → I=0.
+
+5. **Final Verdict**: Assign I=1 if the OCR text OR the visual elements contain self-contained irony/mockery. Assign I=0 if the image is a neutral photo, selfie, or product shot with no inherent joke.
 
 ---
+
 ## OUTPUT
+
 Return EXACTLY this valid JSON object and nothing else. All reasoning fields must be in Vietnamese.
 
 {
   "reasoning": {
     "visual_description": "<Mô tả thực tế những gì có trong ảnh>",
-    "visual_anomalies": "<Có sự mâu thuẫn hình ảnh, lỗi sai hài hước, hoặc format meme quen thuộc không?>",
-    "non_sarcastic_argument": "<Lập luận tại sao đây chỉ là ảnh chụp/hình minh họa bình thường>",
-    "sarcastic_argument": "<Lập luận tại sao bản thân bức ảnh (hoặc chữ trong ảnh) đã mang tính trào phúng/mỉa mai>",
+    "ocr_text_analysis": "<Trích dẫn OCR text và phân tích nghĩa của nó. Nếu không có OCR text, ghi Không có>",
+    "visual_anomalies": "<Có meme template, mâu thuẫn hình ảnh, hoặc hài hước hình ảnh không?>",
+    "independence_test": "<Nếu không có caption bên ngoài, người xem có hiểu ảnh này là mỉa mai không? Tại sao?>",
     "conclusion": "<Lý do chốt nhãn I>"
   },
   "I": <0 hoặc 1>
