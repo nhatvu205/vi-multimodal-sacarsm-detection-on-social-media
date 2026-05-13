@@ -205,7 +205,45 @@ def write_outputs(
         f"auto={len(auto_accepted)} | need_review={len(human_queue)}"
     )
 
+def build_stats(
+    all_records: List[Round1OutputRecord],
+    bad_count: int,
+    total_samples: int,
+) -> dict:
+    processed = len(all_records)
+    auto_accepted = [r for r in all_records if not getattr(r, "need_review", True)]
+    human_queue  = [r for r in all_records if getattr(r, "need_review", True)]
 
+    label_dist: Dict[str, int] = {}
+    route_dist: Dict[str, int] = {}
+    has_emoji_dist:    Dict[str, int] = {"0": 0, "1": 0, "null": 0}
+    needs_human_dist:  Dict[str, int] = {"0": 0, "1": 0, "null": 0}
+
+    for r in all_records:
+        label  = getattr(r, "label_llm2", "invalid")
+        label_dist[label] = label_dist.get(label, 0) + 1
+
+        reason = getattr(r, "route_reason", "unknown")
+        route_dist[reason] = route_dist.get(reason, 0) + 1
+
+        emoji  = getattr(r, "has_emoji", None)
+        human  = getattr(r, "needs_human_check", None)
+        has_emoji_dist[str(emoji) if emoji is not None else "null"]   += 1
+        needs_human_dist[str(human) if human is not None else "null"] += 1
+
+    return {
+        "total_samples":       total_samples,
+        "processed_samples":   processed,
+        "bad_records":         bad_count,
+        "auto_accepted_count": len(auto_accepted),
+        "need_review_count":   len(human_queue),
+        "auto_accept_rate":    round(len(auto_accepted) / processed, 4) if processed else 0,
+        "need_review_rate":    round(len(human_queue)   / processed, 4) if processed else 0,
+        "label_distribution":              label_dist,
+        "route_reason_distribution":       route_dist,
+        "has_emoji_distribution":          has_emoji_dist,
+        "needs_human_check_distribution":  needs_human_dist,
+    }
 # ---------------------------------------------------------------------------
 # Main Pipeline
 # ---------------------------------------------------------------------------
