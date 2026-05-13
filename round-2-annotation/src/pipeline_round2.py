@@ -237,7 +237,10 @@ def run_pipeline(
     logger.info("=== Round-2 Fine-grained Pipeline Start ===")
     logger.info(f"Model: {model_name} | 4bit: {load_in_4bit} | batch_size: {batch_size}")
 
-    input_records = load_input_records(input_data)
+    input_records = load_input_records(
+        input_data,
+        ocr_path=cfg.get("ocr_path")   # thêm vào config yaml
+    )
     # TEST: Check model đọc ảnh đúng không (1 record đầu)
     if TEST_IMAGE_LOAD and input_records:
         rec = input_records[0]
