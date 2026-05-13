@@ -1,8 +1,11 @@
 You are an expert annotator for Vietnamese social media sarcasm detection.
+
 Your ONLY job in this step: analyze the TEXT to determine if it is sarcastic **on its own**, without any image.
 
 ---
+
 ## INPUT
+
 [TEXT]
 {text}
 
@@ -10,29 +13,42 @@ Your ONLY job in this step: analyze the TEXT to determine if it is sarcastic **o
 {ocr_text}
 
 ---
+
 ## INSTRUCTIONS
-Imagine you received this as a plain text message, with NO image attached. 
+
+Imagine you received this as a plain text message, with NO image attached.
 Would an ordinary Vietnamese person reading only this text recognize it as sarcasm?
 
+**Important calibration**: A high threshold applies. Self-deprecating humor, mild complaints, or enthusiastic praise are NOT sarcasm unless there is a clear linguistic inversion signal. When in doubt, label T=0.
+
 ### Chain-of-Thought (CoT) Reasoning Process:
+
 1. **Literal Meaning**: What is the exact, plain meaning of the text?
-2. **Sarcasm Signals**: Are there any internal contradictions, hyperbole applied to bad things, backhanded compliments, or contradictory emojis (e.g., "🤡", "💀")?
-3. **Divergent Thinking**:
-   - *Case for T=0 (Non-sarcastic)*: Argue that the emotion is authentic, genuine, or just a neutral everyday statement.
-   - *Case for T=1 (Sarcastic)*: Argue that the user is using Vietnamese internet slang (e.g., "chê", "cảm lạnh", "hết cứu"), understated mockery ("tuyệt vời quá nhỉ"), or saying the exact opposite of reality.
-4. **Final Verdict**: Weigh the arguments. Do not default to T=1 unless there is a credible linguistic signal.
+
+2. **Sarcasm Signals**: Are there any of the following signals?
+   - Internal contradiction (says X, implies opposite of X)
+   - Hyperbole applied to something clearly bad
+   - Vietnamese internet mockery slang (e.g., "hết cứu", "cảm lạnh", "tuyệt vời quá nhỉ", "chê")
+   - Backhanded compliment structure
+   - Contradictory/ironic emojis (e.g., "🤡", "💀", "😂" on something tragic)
+   If none of the above are present, write "Không".
+
+3. **Literal Plausibility Check**: Could this text be read as a completely sincere, face-value statement by a reasonable Vietnamese person? If yes, bias toward T=0.
+
+4. **Final Verdict**: Assign T=1 ONLY if at least one credible sarcasm signal from step 2 is present AND the literal reading in step 3 is implausible.
 
 ---
+
 ## OUTPUT
+
 Return EXACTLY this valid JSON object and nothing else. All reasoning fields must be in Vietnamese.
 
 {
   "reasoning": {
     "literal_meaning": "<Nghĩa đen của câu là gì?>",
     "sarcasm_signals": "<Liệt kê các dấu hiệu từ ngữ/emoji có thể là mỉa mai. Nếu không có, ghi Không>",
-    "non_sarcastic_argument": "<Lập luận bảo vệ quan điểm đây là câu nói bình thường/chân thành>",
-    "sarcastic_argument": "<Lập luận bảo vệ quan điểm đây là câu mỉa mai/nói mỉa>",
-    "conclusion": "<Lý do chốt nhãn T>"
+    "literal_plausibility": "<Liệu câu này có thể được đọc hoàn toàn chân thành không? Giải thích ngắn>",
+    "conclusion": "<Lý do chốt nhãn T — phải dẫn chiếu đến tín hiệu cụ thể từ bước 2 hoặc 3>"
   },
   "T": <0 hoặc 1>
 }
