@@ -315,7 +315,7 @@ def main() -> None:
         input_data=args.input_data,
         config_path=args.config,
         output_dir=args.output_dir,
-        ocr_path=cfg.get("ocr_path") 
+        ocr_path=cfg.get("ocr_path"),
         hf_token=args.hf_token,
         max_records=args.max_records,
         min_record_id=args.min_record_id,
