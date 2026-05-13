@@ -6,7 +6,7 @@ prompt_dir: "prompts"
 llm_model: "OpenGVLab/InternVL3_5-8B"
 llm_provider: "local"
 llm_temperature: 0.1
-
+ocr_path: "data/bronze/ocr_images.json"
 device: "cuda"
 load_in_4bit: true
 max_image_pixels: 500000
