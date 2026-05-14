@@ -121,7 +121,7 @@ def load_local_model(
 
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=load_in_4bit,
-        bnb_4bit_compute_dtype=torch.bfloat16,
+        bnb_4bit_compute_dtype=torch.float16,
         bnb_4bit_use_double_quant=True,
         bnb_4bit_quant_type="nf4"
     ) if load_in_4bit else None
@@ -136,7 +136,7 @@ def load_local_model(
         model_name,
         trust_remote_code=True,
         quantization_config=bnb_config,
-        torch_dtype=torch.bfloat16,
+        torch_dtype=torch.float16,
         device_map="auto",
         token=token_to_use
     ).eval()
@@ -158,7 +158,7 @@ def judge_single(model, tokenizer, record, temperature, max_image_pixels=500000)
             try:
                 img = Image.open(record.image_path).convert("RGB")
                 transform = build_transform()
-                pixel_values = transform(img).unsqueeze(0).to(dtype=torch.bfloat16, device="cuda")
+                pixel_values = transform(img).unsqueeze(0).to(dtype=torch.float16, device="cuda")
                 image_missing = False
             except Exception as e:
                 logger.warning(f"Failed to load image {record.image_path}: {e}")
@@ -177,7 +177,7 @@ def judge_single(model, tokenizer, record, temperature, max_image_pixels=500000)
             temperature=temperature if temperature > 0 else None,
         )
         
-        with torch.no_grad(), torch.autocast("cuda", dtype=torch.bfloat16):
+        with torch.no_grad(), torch.autocast("cuda", dtype=torch.float16):
             outputs = model.chat(tokenizer, pixel_values, prompt, generation_config)
         response = outputs[0] if isinstance(outputs, tuple) else outputs
         
