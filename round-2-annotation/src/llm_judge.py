@@ -128,7 +128,7 @@ def judge_single(model, tokenizer, record, temperature, max_image_pixels=500000)
             try:
                 img = Image.open(record.image_path).convert("RGB")
                 transform = build_transform()
-                pixel_values = transform(img).unsqueeze(0).to(torch.bfloat16).to(model.device)
+                pixel_values = transform(img).unsqueeze(0).to(model.device)
                 image_missing = False
             except Exception as e:
                 logger.warning(f"Failed to load image {record.image_path}: {e}")
