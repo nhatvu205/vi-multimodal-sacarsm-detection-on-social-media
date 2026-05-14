@@ -119,55 +119,46 @@ def load_local_model(
 
 # ====================== INFERENCE ======================
 
-def judge_single(
-    model,
-    tokenizer,
-    record: InputRecord,
-    temperature: float,
-    max_image_pixels: int = 500000,
-) -> LLMJudgeRecord:
-    """Single record inference using InternVL custom .chat() API."""
-    
-    # 1. Image Processing
+def judge_single(model, tokenizer, record, temperature, max_image_pixels=500000):
     pixel_values = None
     image_missing = True
-    if record.image_path and os.path.exists(record.image_path):
-        try:
-            img = Image.open(record.image_path).convert("RGB")
-            # Convert to Tensor for InternVL
-            transform = build_transform()
-            pixel_values = transform(img).unsqueeze(0).to(torch.bfloat16).to(model.device)
-            image_missing = False
-        except Exception as e:
-            logger.warning(f"Failed to load image {record.image_path}: {e}")
-
-    # 2. Prompt Preparation
-    template = _load_prompt_template()
-    prompt = (
-        template
-        .replace("{text}", str(record.text or ""))
-        .replace("{images}", "[Ảnh đính kèm]" if not image_missing else "[Không có ảnh]")
-        .replace("{ocr_text}", str(record.ocr_text or "[Không có]"))
-    )
-
-    # 3. Model Inference
-    generation_config = dict(
-        max_new_tokens=1024,
-        do_sample=True if temperature > 0 else False,
-        temperature=temperature if temperature > 0 else None,
-    )
-
+    
     try:
-        # Safe unpacking: model.chat behavior varies by version
-        outputs = model.chat(tokenizer, pixel_values, prompt, generation_config)
-        response = outputs[0] if isinstance(outputs, (list, tuple)) else outputs
+        if record.image_path and os.path.exists(record.image_path):
+            try:
+                img = Image.open(record.image_path).convert("RGB")
+                transform = build_transform()
+                pixel_values = transform(img).unsqueeze(0).to(torch.bfloat16).to(model.device)
+                image_missing = False
+            except Exception as e:
+                logger.warning(f"Failed to load image {record.image_path}: {e}")
+
+        template = _load_prompt_template()
+        prompt = (
+            template
+            .replace("{text}", str(record.text or ""))
+            .replace("{images}", "[Ảnh đính kèm]" if not image_missing else "[Không có ảnh]")
+            .replace("{ocr_text}", str(record.ocr_text or "[Không có]"))
+        )
+
+        generation_config = dict(
+            max_new_tokens=2048,
+            do_sample=True if temperature > 0 else False,
+            temperature=temperature if temperature > 0 else None,
+        )
+        
+        with torch.no_grad(), torch.autocast("cuda", dtype=torch.bfloat16):
+            outputs = model.chat(tokenizer, pixel_values, prompt, generation_config)
+        response = outputs[0] if isinstance(outputs, tuple) else outputs
+        
+        logger.info("RAW RESPONSE: %s", repr(response[:500]))
         
         data = _extract_json(response)
-        
+        logger.info("EXTRACTED JSON: %s", repr(data))
+
         raw_label = data.get("llm_label", "INVALID")
         label = int(raw_label) if str(raw_label) in ("0", "1") else "INVALID"
 
-        # Mapping results to Round 2 Schema
         return LLMJudgeRecord(
             id=record.id,
             label_llm2=label,
@@ -176,7 +167,6 @@ def judge_single(
             notes=f"T:{data.get('T')} | I:{data.get('I')} | MM:{data.get('MM')} | KI:{data.get('KI')}",
             reasoning=data.get("reasoning", {}),
             image_missing=image_missing,
-            # Ensure custom fields exist in LLMJudgeRecord schema
             T=data.get("T"),
             I=data.get("I"),
             MM=data.get("MM"),
@@ -192,6 +182,12 @@ def judge_single(
             parse_error=True,
             image_missing=image_missing
         )
+    
+    finally:
+        # ✅ LUÔN giải phóng, dù thành công hay lỗi
+        if pixel_values is not None:
+            del pixel_values
+        torch.cuda.empty_cache()
 
 def judge_batch(
     records: List[InputRecord],
