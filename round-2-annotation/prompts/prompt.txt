@@ -37,20 +37,9 @@ Lưu ý: OCR_TEXT là văn bản trích xuất tự động từ ảnh, có th�
 - **1.5 Self-deprecating:** Tự chế giễu bản thân bằng cách nói ngược hoặc phóng đại.
 - **1.6 Hyperbolic:** Phóng đại quá mức theo hướng ngược thực tế để phê phán.
 - **1.7 Multimodal:** Phải kết hợp đọc cả text + ảnh + emoji + ngữ cảnh mới nhận ra.
-
-**Nhãn "INVALID":** Chỉ dùng khi dữ liệu đầu vào bị lỗi theo đúng các điều kiện sau:
-- Caption rỗng, chỉ có ký tự đặc biệt, hoặc không thành câu.
-- Ảnh không tồn tại trong input, mờ/hỏng đến mức không nhận diện được nội dung.
-- KHÔNG gán INVALID chỉ vì nội dung khó, cần suy nghĩ lâu, hoặc có nội dung nhạy cảm.
 ---
 
 ## QUY TRÌNH PHÂN TÍCH BẮT BUỘC
-
-### BƯỚC 0 — KIỂM TRA TÍNH HỢP LỆ
-Ảnh có đọc được và caption có thành câu không?
-→ Nếu thỏa điều kiện INVALID ở trên: dừng, gán "INVALID", ghi rõ lý do.
-→ Nếu hợp lệ: tiếp tục xuống Bước 1.
-
 ---
 
 ### BƯỚC 1 — PHÂN TÍCH TEXT (T)
@@ -178,7 +167,7 @@ So sánh hai lập luận từ 3B. Áp dụng tiebreaker:
 Return EXACTLY this JSON. No text before or after.
 
 {
-  "llm_label": <0 | 1 | "INVALID">,
+  "llm_label": <0 | 1 >,
   "T": <0 | 1>,
   "I": <0 | 1>,
   "MM": <0 | 1>,
@@ -201,7 +190,7 @@ Return EXACTLY this JSON. No text before or after.
       "emoji_reasoning": "<Emoji đang củng cố hay đảo ngược nghĩa — Bước 3A>",
       "MM_decision": "<Lý do chốt MM=0 hoặc MM=1; pattern khớp hoặc lý do bác bỏ — Bước 3D>"
     },
-    "sarcasm_type": "<Loại sarcasm 1.1–1.7 nếu llm_label=1; NULL nếu llm_label=0 hoặc INVALID>",
+    "sarcasm_type": "<Loại sarcasm 1.1–1.7 nếu llm_label=1; NULL nếu llm_label=0>",
     "verdict": "<Kết luận tổng hợp ngắn gọn: loại mỉa mai, nguồn tín hiệu chính, lý do chốt nhãn>"
   },
   "has_emoji": <0 | 1>,
