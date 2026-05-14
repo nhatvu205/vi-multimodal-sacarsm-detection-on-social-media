@@ -44,14 +44,44 @@ def _load_prompt_template() -> str:
     return _PROMPT_TEMPLATE
 
 def _extract_json(raw: str) -> dict:
-    """Extract JSON from model response, handling thinking tags and garbage text."""
+    """Extract last valid JSON object from model response via balanced brace matching."""
     cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
-    match = re.search(r"\{.*\}", cleaned, re.DOTALL)
-    if match:
+    cleaned = re.sub(r"```(?:json)?\s*", "", cleaned)
+    cleaned = re.sub(r"```", "", cleaned).strip()
+
+    # Balanced brace matching — finds all top-level JSON objects
+    candidates = []
+    depth = 0
+    start = None
+    for i, ch in enumerate(cleaned):
+        if ch == '{':
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+            if depth == 0 and start is not None:
+                candidates.append(cleaned[start:i + 1])
+                start = None
+
+    # Try from last to first; prefer one that has "llm_label"
+    for candidate in reversed(candidates):
         try:
-            return json.loads(match.group())
+            obj = json.loads(candidate)
+            if isinstance(obj, dict) and "llm_label" in obj:
+                return obj
         except json.JSONDecodeError:
             pass
+
+    # Fallback: any parseable dict
+    for candidate in reversed(candidates):
+        try:
+            obj = json.loads(candidate)
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            pass
+
     return {}
 
 def build_transform(input_size=448):
@@ -128,7 +158,7 @@ def judge_single(model, tokenizer, record, temperature, max_image_pixels=500000)
             try:
                 img = Image.open(record.image_path).convert("RGB")
                 transform = build_transform()
-                pixel_values = transform(img).unsqueeze(0).to(model.device)
+                pixel_values = transform(img).unsqueeze(0).to(dtype=torch.bfloat16, device="cuda")
                 image_missing = False
             except Exception as e:
                 logger.warning(f"Failed to load image {record.image_path}: {e}")
