@@ -138,6 +138,7 @@ def load_local_model(
         quantization_config=bnb_config,
         torch_dtype=torch.float16,
         device_map="auto",
+        use_flash_attn=False,
         token=token_to_use
     ).eval()
 
@@ -177,7 +178,7 @@ def judge_single(model, tokenizer, record, temperature, max_image_pixels=500000)
             temperature=temperature if temperature > 0 else None,
         )
         
-        with torch.no_grad(), torch.autocast("cuda", dtype=torch.float16):
+        with torch.no_grad():
             outputs = model.chat(tokenizer, pixel_values, prompt, generation_config)
         response = outputs[0] if isinstance(outputs, tuple) else outputs
         
