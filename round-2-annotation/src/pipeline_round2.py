@@ -214,6 +214,7 @@ def run_pipeline(
     config_path: str,
     output_dir: str,
     hf_token: Optional[str] = None,
+    ocr_path: Optional[str] = None,
     max_records: Optional[int] = None,
     min_record_id: Optional[int] = None,
     no_checkpoint_load: bool = False,
@@ -237,7 +238,7 @@ def run_pipeline(
     logger.info("=== Round-2 Fine-grained Pipeline Start ===")
     logger.info(f"Model: {model_name} | 4bit: {load_in_4bit} | batch_size: {batch_size}")
 
-    input_records = load_input_records(input_data)
+    input_records = load_input_records(input_data, ocr_path=ocr_path)
     
     if max_records:
         input_records = input_records[:max_records]
@@ -280,6 +281,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Round-2 Fine-grained Annotation Pipeline")
     parser.add_argument("--input_data", required=True)
     parser.add_argument("--config", required=True)
+    parser.add_argument("--ocr_path", default=None)
     parser.add_argument("--output_dir", required=True)
     parser.add_argument("--hf_token", default=None)
     parser.add_argument("--max_records", type=int, default=None)
@@ -292,6 +294,7 @@ def main() -> None:
         config_path=args.config,
         output_dir=args.output_dir,
         hf_token=args.hf_token,
+        ocr_path=args.ocr_path,
         max_records=args.max_records,
         min_record_id=args.min_record_id,
         no_checkpoint_load=args.no_checkpoint_load,
