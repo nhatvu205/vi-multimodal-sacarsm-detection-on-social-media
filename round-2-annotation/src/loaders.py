@@ -57,16 +57,12 @@ def load_input_records(path: str, ocr_path: str | None = None) -> List[InputReco
     if ocr_path:
         ocr_lookup = load_ocr_lookup(ocr_path)
         injected = 0
-        for rec in records:
-            if rec.ocr_text:          # record đã có sẵn OCR thì bỏ qua
+        for i, rec in enumerate(records):
+            if rec.ocr_text:
                 continue
-            # Lấy filename từ image_path
             fname = Path(rec.image_path).name if rec.image_path else None
             if fname and fname in ocr_lookup:
-                # Pydantic model cần dùng model_copy để update
-                records[records.index(rec)] = rec.model_copy(
-                    update={"ocr_text": ocr_lookup[fname]}
-                )
+                records[i] = rec.model_copy(update={"ocr_text": ocr_lookup[fname]})
                 injected += 1
         logger.info("Injected OCR text for %d/%d records", injected, len(records))
 
