@@ -17,7 +17,7 @@ from .utils_logging import get_logger
 
 logger = get_logger(__name__)
 
-TEST_IMAGE_LOAD = True
+
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
@@ -205,45 +205,7 @@ def write_outputs(
         f"auto={len(auto_accepted)} | need_review={len(human_queue)}"
     )
 
-def build_stats(
-    all_records: List[Round1OutputRecord],
-    bad_count: int,
-    total_samples: int,
-) -> dict:
-    processed = len(all_records)
-    auto_accepted = [r for r in all_records if not getattr(r, "need_review", True)]
-    human_queue  = [r for r in all_records if getattr(r, "need_review", True)]
 
-    label_dist: Dict[str, int] = {}
-    route_dist: Dict[str, int] = {}
-    has_emoji_dist:    Dict[str, int] = {"0": 0, "1": 0, "null": 0}
-    needs_human_dist:  Dict[str, int] = {"0": 0, "1": 0, "null": 0}
-
-    for r in all_records:
-        label  = getattr(r, "label_llm2", "invalid")
-        label_dist[label] = label_dist.get(label, 0) + 1
-
-        reason = getattr(r, "route_reason", "unknown")
-        route_dist[reason] = route_dist.get(reason, 0) + 1
-
-        emoji  = getattr(r, "has_emoji", None)
-        human  = getattr(r, "needs_human_check", None)
-        has_emoji_dist[str(emoji) if emoji is not None else "null"]   += 1
-        needs_human_dist[str(human) if human is not None else "null"] += 1
-
-    return {
-        "total_samples":       total_samples,
-        "processed_samples":   processed,
-        "bad_records":         bad_count,
-        "auto_accepted_count": len(auto_accepted),
-        "need_review_count":   len(human_queue),
-        "auto_accept_rate":    round(len(auto_accepted) / processed, 4) if processed else 0,
-        "need_review_rate":    round(len(human_queue)   / processed, 4) if processed else 0,
-        "label_distribution":              label_dist,
-        "route_reason_distribution":       route_dist,
-        "has_emoji_distribution":          has_emoji_dist,
-        "needs_human_check_distribution":  needs_human_dist,
-    }
 # ---------------------------------------------------------------------------
 # Main Pipeline
 # ---------------------------------------------------------------------------
@@ -251,13 +213,12 @@ def run_pipeline(
     input_data: str,
     config_path: str,
     output_dir: str,
-    ocr_path=None,
     hf_token: Optional[str] = None,
     max_records: Optional[int] = None,
     min_record_id: Optional[int] = None,
     no_checkpoint_load: bool = False,
 ) -> None:
-    prompt_dir = Path(config_path).parent.parent / "prompts" 
+    
     cfg = load_config(config_path)
     router_cfg = build_router_config(cfg)
 
@@ -276,31 +237,8 @@ def run_pipeline(
     logger.info("=== Round-2 Fine-grained Pipeline Start ===")
     logger.info(f"Model: {model_name} | 4bit: {load_in_4bit} | batch_size: {batch_size}")
 
-    input_records = load_input_records(
-        input_data,
-        ocr_path=cfg.get("ocr_path")   # thêm vào config yaml
-    )
-    # TEST: Check model đọc ảnh đúng không (1 record đầu)
-    if TEST_IMAGE_LOAD and input_records:
-        rec = input_records[0]
-        try:
-            from .llm_judge import load_image, _pick_image_path
-            resolved_image_path = _pick_image_path(rec)
-            if resolved_image_path is None:
-                raise FileNotFoundError(
-                    f"Không resolve được ảnh cho id={rec.id} | "
-                    f"image_path={rec.image_path} | image_paths={rec.image_paths}"
-                )
-            pv = load_image(str(resolved_image_path), max_num=6)
-            print(f"✅ pixel_values shape: {pv.shape} (record ID: {rec.id})")
-            print(f"   Image path (raw): {rec.image_path}")
-            print(f"   Image path (resolved): {resolved_image_path}")
-            # Đúng: torch.Size([N, 3, 448, 448]) với N=6-7
-            # Sai: torch.Size([1, 3, 448, 448]) → bug path/image
-        except Exception as e:
-            print(f"❌ ERROR loading image {rec.image_path}: {e}")
-            print("💡 Check: file tồn tại? path đúng? ảnh corrupt?")
-            raise  # Dừng để debug
+    input_records = load_input_records(input_data)
+    
     if max_records:
         input_records = input_records[:max_records]
     if min_record_id:
@@ -353,7 +291,6 @@ def main() -> None:
         input_data=args.input_data,
         config_path=args.config,
         output_dir=args.output_dir,
-        ocr_path=cfg.get("ocr_path"),
         hf_token=args.hf_token,
         max_records=args.max_records,
         min_record_id=args.min_record_id,
