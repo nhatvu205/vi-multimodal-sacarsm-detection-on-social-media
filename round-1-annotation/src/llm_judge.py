@@ -162,6 +162,10 @@ def load_async_api_client(provider: str, api_key: Optional[str] = None):
     return _ASYNC_CLIENT
 
 
+def get_openrouter_key_count(api_key: Optional[str] = None) -> int:
+    return len(_resolve_openrouter_api_keys(api_key))
+
+
 async def close_async_api_client() -> None:
     global _CLIENT, _ASYNC_CLIENT, _ACTIVE_PROVIDER
     if _ACTIVE_PROVIDER == "gemini_api" and _ASYNC_CLIENT is not None:

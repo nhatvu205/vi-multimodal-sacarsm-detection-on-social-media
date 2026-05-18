@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 import yaml
 
 from .fusion_router import RouterConfig, apply_audit_sampling, route_all
-from .llm_judge import QuotaExceededError, close_async_api_client, judge_single_async, load_async_api_client
+from .llm_judge import QuotaExceededError, close_async_api_client, get_openrouter_key_count, judge_single_async, load_async_api_client
 from .loaders import load_input_records
 from .schemas import InputRecord, LLMJudgeRecord, Round1OutputRecord
 from .utils_logging import get_logger
@@ -317,6 +317,9 @@ async def run_pipeline_async(
         _results_json_path(out_dir).name,
     )
     logger.info("ModelConfig | tag=%s | name=%s", resolved_model["tag"], resolved_model["model_name"])
+    if resolved_model["provider"] == "openrouter":
+        key_count = get_openrouter_key_count(api_key)
+        logger.info("OpenRouterKeys | active_key=1/%d | total_keys=%d", key_count, key_count)
 
     try:
         llm_results = await run_llm_with_checkpoint(
