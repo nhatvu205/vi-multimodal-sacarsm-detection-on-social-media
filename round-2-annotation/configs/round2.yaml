@@ -15,7 +15,7 @@ models:
     max_output_tokens: 4096
     concurrency: 2
 llm_temperature: 0.1
-ocr_path: data/bronze/ocr_images.json
+ocr_path: data/raw-data/ocr_images.json
 max_image_pixels: 300000
 max_output_tokens: 256
 max_retries: 3

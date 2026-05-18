@@ -2,7 +2,7 @@
   {
     "id": 2433,
     "text": "Nhỏ “chân dấu ngoặc”",
-    "image_path": "50_samples_images/post02433.jpg",
+    "image_path": "data/images/post02433.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -18,7 +18,7 @@
   {
     "id": 2544,
     "text": "Y chang tauuu",
-    "image_path": "50_samples_images/post02544.jpg",
+    "image_path": "data/images/post02544.jpg",
     "label_llm1": 1,
     "has_emoji": 0,
     "needs_human_check": 1,
@@ -34,7 +34,7 @@
   {
     "id": 2321,
     "text": "Chọn son chọn phấn là vừa xinh mà khỏi đaau đầuu \n#toocoolforschool #tcfs #swaylipvelvet Chọn son chọn phấn là vừa xinh mà khỏi đaau đầuu #toocoolforschool #tcfs #swaylipvelvet",
-    "image_path": "50_samples_images/post02321.jpg",
+    "image_path": "data/images/post02321.jpg",
     "label_llm1": 1,
     "has_emoji": 0,
     "needs_human_check": 1,
@@ -50,7 +50,7 @@
   {
     "id": 635,
     "text": "Ly Phạm có tips mà nguyên dàn chị em cứ tưởng bả đi nâng thiệt luôn á 😭\nT fomo theo tips của bả mà đứa hai lưng như t tự tin mặc áo hai dây hè này hẳn, vừa nâng ngực tốt mà k lo lộ viền hẹ he 😌 =))))))",
-    "image_path": "50_samples_images/post00635.jpg",
+    "image_path": "data/images/post00635.jpg",
     "label_llm1": 0,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -66,7 +66,7 @@
   {
     "id": 3314,
     "text": "ủaaaaa anh Hieu Lam ơi ? 😀",
-    "image_path": "50_samples_images/post03314.jpg",
+    "image_path": "data/images/post03314.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 1,
@@ -82,7 +82,7 @@
   {
     "id": 2359,
     "text": "Rớt nước mắt thiệt",
-    "image_path": "50_samples_images/post02359.jpg",
+    "image_path": "data/images/post02359.jpg",
     "label_llm1": 1,
     "has_emoji": 0,
     "needs_human_check": 0,
@@ -98,7 +98,7 @@
   {
     "id": 2751,
     "text": "Không nằm không dự đoán, phim Tài của chị Mỹ Tâm lên luôn Top1 phòng vé ngay ngày đầu chính thức công chiếu. Còn tôi vẫn chưa thấy lương tháng này về",
-    "image_path": "50_samples_images/post02751.jpg",
+    "image_path": "data/images/post02751.jpg",
     "label_llm1": 1,
     "has_emoji": 0,
     "needs_human_check": 1,
@@ -114,7 +114,7 @@
   {
     "id": 2568,
     "text": "Giiảm cho m koi hay gì á",
-    "image_path": "50_samples_images/post02568.jpg",
+    "image_path": "data/images/post02568.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 1,
@@ -130,7 +130,7 @@
   {
     "id": 928,
     "text": "phép mào của tình eo",
-    "image_path": "50_samples_images/post00928.webp",
+    "image_path": "data/images/post00928.webp",
     "label_llm1": 1,
     "has_emoji": 0,
     "needs_human_check": 0,
@@ -146,7 +146,7 @@
   {
     "id": 492,
     "text": "chào mọi người mình là Nhím ẩn danh.\nNhím bị giáo viên lãnh viên lãnh đội doạ báo cáo lên Sở và đuổi khỏi ĐTQG 3 tuần trước khi thi HSGQG vì lí do ngớ ngẩn ??\nNhím tức nên Nhím Nhất Quốc gia luôn.",
-    "image_path": "50_samples_images/post00492.jpg",
+    "image_path": "data/images/post00492.jpg",
     "label_llm1": 1,
     "has_emoji": 0,
     "needs_human_check": 1,
@@ -162,7 +162,7 @@
   {
     "id": 658,
     "text": "Chiếc quán duy nhất khiến người sồn như t sẵn sàng chờ 1 tiếng rưỡi để được ăn 🫵",
-    "image_path": "50_samples_images/post00658.jpg",
+    "image_path": "data/images/post00658.jpg",
     "label_llm1": 0,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -178,7 +178,7 @@
   {
     "id": 1952,
     "text": "Im lặng 1 cách náo nhiệt =)))))",
-    "image_path": "50_samples_images/post01952.jpg",
+    "image_path": "data/images/post01952.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -194,7 +194,7 @@
   {
     "id": 1323,
     "text": "NGL BROS!! ANH ẤY KHÔNG CHẠY KHỎI HOMELANDER! ANH ẤY CHẠY KHỎI CON NGƯỜI TRƯỚC KIA CỦA MÌNH 😭😭😭 PEAK CHAR'S DEV",
-    "image_path": "50_samples_images/post01323.jpg",
+    "image_path": "data/images/post01323.jpg",
     "label_llm1": 0,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -210,7 +210,7 @@
   {
     "id": 2049,
     "text": "Cảm giác khi tôi - người thất nghiệp nhắn tin với đứa bạn có 2 công việc trong giờ làm việc của nó:",
-    "image_path": "50_samples_images/post02049.jpg",
+    "image_path": "data/images/post02049.jpg",
     "label_llm1": 1,
     "has_emoji": 0,
     "needs_human_check": 0,
@@ -226,7 +226,7 @@
   {
     "id": 2639,
     "text": "Ông cố ơi cười rô` =))))))))",
-    "image_path": "50_samples_images/post02639.jpg",
+    "image_path": "data/images/post02639.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -242,7 +242,7 @@
   {
     "id": 3595,
     "text": "Tuyệt vời BHBar 👏🏻👏🏻👏🏻\nDự án hỗ trợ xe buýt theo chủ đề Baekhyun do BHBar tổ chức nhân dịp Baekhyun lần đầu tiên xuất hiện với tư cách nghệ sĩ solo tại lễ trao giải WIEA!🩷✨ vào ngày 25-26 sắp tới\nVid & hình ảnh của BAEKHYUNBAR",
-    "image_path": "50_samples_images/post03595.jpg",
+    "image_path": "data/images/post03595.jpg",
     "label_llm1": 0,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -258,7 +258,7 @@
   {
     "id": 143,
     "text": "Cười vl:)))",
-    "image_path": "50_samples_images/post00143.webp",
+    "image_path": "data/images/post00143.webp",
     "label_llm1": 1,
     "has_emoji": 0,
     "needs_human_check": 1,
@@ -274,7 +274,7 @@
   {
     "id": 402,
     "text": "Có cốt đô yếu nhậu àm chấn thiệt sự",
-    "image_path": "50_samples_images/post00402.webp",
+    "image_path": "data/images/post00402.webp",
     "label_llm1": 1,
     "has_emoji": 0,
     "needs_human_check": 0,
@@ -290,7 +290,7 @@
   {
     "id": 32,
     "text": "Mẹ oii con lạy mẹee",
-    "image_path": "50_samples_images/post00032.webp",
+    "image_path": "data/images/post00032.webp",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -306,7 +306,7 @@
   {
     "id": 2843,
     "text": "Tôi cố gắng giữ sự tích cực của mình khi nhìn bảng lương và nhìn bảng nợ:",
-    "image_path": "50_samples_images/post02843.jpg",
+    "image_path": "data/images/post02843.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -322,7 +322,7 @@
   {
     "id": 1007,
     "text": "oh thank god for moon joy",
-    "image_path": "50_samples_images/post01007.jpg",
+    "image_path": "data/images/post01007.jpg",
     "label_llm1": 1,
     "has_emoji": 0,
     "needs_human_check": 0,
@@ -338,7 +338,7 @@
   {
     "id": 368,
     "text": "có v th mà t cười được nửa tiếng r :)))))))))) \"bái tre\" (tự phong) lớn hơn mẹ ẻm 1 tuổi 😇",
-    "image_path": "50_samples_images/post00368.webp",
+    "image_path": "data/images/post00368.webp",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -354,7 +354,7 @@
   {
     "id": 2825,
     "text": "Tôi, ngày đầu tiên đi làm lại sau lễ:",
-    "image_path": "50_samples_images/post02825.jpg",
+    "image_path": "data/images/post02825.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -370,7 +370,7 @@
   {
     "id": 2430,
     "text": "Ra đường nể mỗi Shopee",
-    "image_path": "50_samples_images/post02430.jpg",
+    "image_path": "data/images/post02430.jpg",
     "label_llm1": 1,
     "has_emoji": 0,
     "needs_human_check": 0,
@@ -386,7 +386,7 @@
   {
     "id": 2845,
     "text": "Định luật nào cấm người nghèo nhịn countdown, pháp luật nào cấm người chưa có lương đi ngắm pháo \nTích cực cmt, đề xuất hoạt động, biết đâu bất ngờ trúng được slot Góc Nghỉ Tết KitKat, hên hên còn trúng Góc nghỉ được ngồi cạnh kế bên Ninh - Dương, được các anh đút cho ăn thì sao hí hí\n#KitKat #TachGocTetTa #NghixahoixoiKitKat Định luật nào cấm người nghèo nhịn countdown, pháp luật nào cấm người chưa có lương đi ngắm pháo Tích cực cmt, đề xuất hoạt động, biết đâu bất ngờ trúng được slot Góc Nghỉ Tết KitKat, hên hên còn trúng Góc nghỉ được ngồi cạnh kế bên Ninh - Dương, được các anh đút cho ăn thì sao hí hí #KitKat #TachGocTetTa #NghixahoixoiKitKat",
-    "image_path": "50_samples_images/post02845.jpg",
+    "image_path": "data/images/post02845.jpg",
     "label_llm1": 1,
     "has_emoji": 0,
     "needs_human_check": 0,
@@ -402,7 +402,7 @@
   {
     "id": 3359,
     "text": "Chào mọi người, mình là Châu và mình thích làm bánh",
-    "image_path": "50_samples_images/post03359.jpg",
+    "image_path": "data/images/post03359.jpg",
     "label_llm1": 0,
     "has_emoji": 0,
     "needs_human_check": 0,
@@ -418,7 +418,7 @@
   {
     "id": 1013,
     "text": "He's still waiting btw",
-    "image_path": "50_samples_images/post01013.jpg",
+    "image_path": "data/images/post01013.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -434,7 +434,7 @@
   {
     "id": 444,
     "text": "Bố làm bộ đội\nCon thi quốc phòng kiểu:",
-    "image_path": "50_samples_images/post00444.jpg",
+    "image_path": "data/images/post00444.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -450,7 +450,7 @@
   {
     "id": 1093,
     "text": "Một lòng một dạ với bố cục 3 tấm 🫶",
-    "image_path": "50_samples_images/post01093.jpg",
+    "image_path": "data/images/post01093.jpg",
     "label_llm1": 0,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -466,7 +466,7 @@
   {
     "id": 3049,
     "text": "Fan bày kế cho dì khuấy đảo truyền thông đêm chung kết MW nè mấy bay, kể mà mời được kẹo Kera từ trong tò ra trao giải người đẹp nhân ái cái là bùng nổ truyền thông lắm đây nè",
-    "image_path": "50_samples_images/post03049.jpg",
+    "image_path": "data/images/post03049.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -482,7 +482,7 @@
   {
     "id": 1067,
     "text": "Khi mọi người nghĩ họ thật sự hiểu tôi ☺️☺️☺️",
-    "image_path": "50_samples_images/post01067.jpg",
+    "image_path": "data/images/post01067.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -498,7 +498,7 @@
   {
     "id": 1590,
     "text": "Đây là một câu chuyện có thật.",
-    "image_path": "50_samples_images/post01590.jpg",
+    "image_path": "data/images/post01590.jpg",
     "label_llm1": 0,
     "has_emoji": 0,
     "needs_human_check": 0,
@@ -514,7 +514,7 @@
   {
     "id": 1282,
     "text": "Lí do AI k thể thay thế con người, đặc biệt là người Việt Nam =))",
-    "image_path": "50_samples_images/post01282.jpg",
+    "image_path": "data/images/post01282.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -530,7 +530,7 @@
   {
     "id": 3427,
     "text": "cuộc sống của ng học tiếng:",
-    "image_path": "50_samples_images/post03427.jpg",
+    "image_path": "data/images/post03427.jpg",
     "label_llm1": 1,
     "has_emoji": 0,
     "needs_human_check": 0,
@@ -546,7 +546,7 @@
   {
     "id": 2458,
     "text": "Ôi a ơi e mà có chút tiiền xem :)))",
-    "image_path": "50_samples_images/post02458.jpg",
+    "image_path": "data/images/post02458.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -562,7 +562,7 @@
   {
     "id": 131,
     "text": "ê viết vậy k thấy ngại hả? hỏi thật đấy chị Trúc\ncòn ai nhớ story này k haha\nthấy bảo xây căn nhà sắp xong (cụ thể là 2 năm chưa xong)",
-    "image_path": "50_samples_images/post00131.jpg",
+    "image_path": "data/images/post00131.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -578,7 +578,7 @@
   {
     "id": 3060,
     "text": "Cái fomr rất giống Vm mu , nhìn vm nhớ tới mụ dun ss vương miệng chị châu quá 😂",
-    "image_path": "50_samples_images/post03060.jpg",
+    "image_path": "data/images/post03060.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 1,
@@ -594,7 +594,7 @@
   {
     "id": 425,
     "text": "Bạch Lưu Dương chia sẻ tip dưỡng da để có 1 lớp nền căng bóng mướt mượt\nNhìn da bả trộm vía dễ sợ😚",
-    "image_path": "50_samples_images/post00425.jpg",
+    "image_path": "data/images/post00425.jpg",
     "label_llm1": 0,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -610,7 +610,7 @@
   {
     "id": 1306,
     "text": "mặc dù sau drama t quan tâm cổ nên có đi xem hết các concept cổ từng chụp, nhưng mà giờ xem lại vẫn kiểu wow á:)) càng tìm hiểu cổ càng thấy thú vị vl thề",
-    "image_path": "50_samples_images/post01306.jpg",
+    "image_path": "data/images/post01306.jpg",
     "label_llm1": 0,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -626,7 +626,7 @@
   {
     "id": 616,
     "text": "🙅‍♂️: \"anh gọi em được hong\"\nHe said:",
-    "image_path": "50_samples_images/post00616.jpg",
+    "image_path": "data/images/post00616.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 1,
@@ -642,7 +642,7 @@
   {
     "id": 1293,
     "text": "từ một bài post về hanni phạm đã mở ra một cuộc thánh chiến wow hanni ơi bà chx flop đâu\nĐêm đó thật dài..",
-    "image_path": "50_samples_images/post01293.jpg",
+    "image_path": "data/images/post01293.jpg",
     "label_llm1": 1,
     "has_emoji": 0,
     "needs_human_check": 1,
@@ -658,7 +658,7 @@
   {
     "id": 2706,
     "text": "Kiếm trai gặp kiếm cơm =)))))))",
-    "image_path": "50_samples_images/post02706.jpg",
+    "image_path": "data/images/post02706.jpg",
     "label_llm1": 1,
     "has_emoji": null,
     "needs_human_check": null,
@@ -676,7 +676,7 @@
   {
     "id": 109,
     "text": "Đặt đôi giầy từ Nhật Bản về\nXong cái Made in VietNam!",
-    "image_path": "50_samples_images/post00109.jpg",
+    "image_path": "data/images/post00109.jpg",
     "label_llm1": 1,
     "has_emoji": 0,
     "needs_human_check": 0,
@@ -692,7 +692,7 @@
   {
     "id": 1961,
     "text": "Kẻ ph á trend =))))))))",
-    "image_path": "50_samples_images/post01961.jpg",
+    "image_path": "data/images/post01961.jpg",
     "label_llm1": 1,
     "has_emoji": 0,
     "needs_human_check": 0,
@@ -708,7 +708,7 @@
   {
     "id": 2901,
     "text": "mấy th ít tiền nói nhiều kinh khủng",
-    "image_path": "50_samples_images/post02901.jpg",
+    "image_path": "data/images/post02901.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -724,7 +724,7 @@
   {
     "id": 845,
     "text": "tài chính dưới 1tr cụ thể là… 89k là có thể ăn cơm chảo gang hot hit này rùi saooo, bên Steak Deli này rấc biết chiều lòng khách đấy nhé☺️",
-    "image_path": "50_samples_images/post00845.jpg",
+    "image_path": "data/images/post00845.jpg",
     "label_llm1": 0,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -740,7 +740,7 @@
   {
     "id": 2223,
     "text": "Thì ra có chuyển kiếp thành quạt cũng ko thoát cảnh này =))))",
-    "image_path": "50_samples_images/post02223.jpg",
+    "image_path": "data/images/post02223.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -756,7 +756,7 @@
   {
     "id": 1025,
     "text": "That’s a block.",
-    "image_path": "50_samples_images/post01025.jpg",
+    "image_path": "data/images/post01025.jpg",
     "label_llm1": 1,
     "has_emoji": 0,
     "needs_human_check": 0,
@@ -772,7 +772,7 @@
   {
     "id": 116,
     "text": "Cũng là vạ miệng nhưng ngày đó, mấy ai tha thứ cho phụ nữ 😞",
-    "image_path": "50_samples_images/post00116.jpg",
+    "image_path": "data/images/post00116.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 0,
@@ -788,7 +788,7 @@
   {
     "id": 1125,
     "text": "=)))) nyc gặp nhau th có cgi buồn cười ?\nthiệc sự là nhiều z lun hả? có lộn hong z",
-    "image_path": "50_samples_images/post01125.jpg",
+    "image_path": "data/images/post01125.jpg",
     "label_llm1": 1,
     "has_emoji": 1,
     "needs_human_check": 0,

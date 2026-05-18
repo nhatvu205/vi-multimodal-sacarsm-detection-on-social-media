@@ -19,7 +19,7 @@ from .utils_logging import get_logger
 
 logger = get_logger(__name__)
 
-DEFAULT_INPUT_DATA = "data/bronze/raw_data.json"
+DEFAULT_INPUT_DATA = "data/raw-data/raw_data.json"
 RESULTS_FILENAME = "round1_results.jsonl"
 RESULTS_JSON_FILENAME = "round1_results.json"
 DEFAULT_CONCURRENCY = 4

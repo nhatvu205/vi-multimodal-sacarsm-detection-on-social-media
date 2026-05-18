@@ -22,7 +22,7 @@ OPENROUTER_API_KEY=your_openrouter_key
 ```
 
 ## Input / Output
-- Input mặc định: `data/bronze/raw_data.json`
+- Input mặc định: `data/raw-data/raw_data.json`
 - Output checkpoint: `output_dir/round1_results.jsonl`
 - Output JSON dễ đọc: `output_dir/round1_results.json`
 

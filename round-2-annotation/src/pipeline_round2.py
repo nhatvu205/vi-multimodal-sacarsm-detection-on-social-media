@@ -17,8 +17,8 @@ from .utils_logging import get_logger
 
 logger = get_logger(__name__)
 
-DEFAULT_INPUT_DATA = "data/bronze/raw_data.json"
-DEFAULT_OCR_PATH = "data/bronze/ocr_images.json"
+DEFAULT_INPUT_DATA = "data/raw-data/raw_data.json"
+DEFAULT_OCR_PATH = "data/raw-data/ocr_images.json"
 RESULTS_FILENAME = "round2_results.jsonl"
 RESULTS_JSON_FILENAME = "round2_results.json"
 DEFAULT_CONCURRENCY = 4
