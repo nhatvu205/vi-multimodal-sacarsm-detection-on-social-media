@@ -107,12 +107,24 @@ def _import_pil_image() -> Any:
     return Image
 
 
+def _split_api_keys(raw_value: str) -> List[str]:
+    normalized = raw_value.replace("\n", ",").replace(";", ",")
+    return [part.strip() for part in normalized.split(",") if part.strip()]
+
+
+def _resolve_openrouter_api_keys(api_key: Optional[str] = None) -> List[str]:
+    raw_value = api_key or os.environ.get("OPENROUTER_API_KEYS") or os.environ.get("OPENROUTER_API_KEY")
+    if not raw_value:
+        raise ValueError("OpenRouter API key list not found. Set OPENROUTER_API_KEYS / OPENROUTER_API_KEY or pass --api_key.")
+    keys = _split_api_keys(raw_value)
+    if not keys:
+        raise ValueError("OpenRouter API key list is empty.")
+    return keys
+
+
 def _resolve_api_key(provider: str, api_key: Optional[str] = None) -> str:
     if provider == "openrouter":
-        resolved = api_key or os.environ.get("OPENROUTER_API_KEY")
-        if not resolved:
-            raise ValueError("OpenRouter API key not found. Set OPENROUTER_API_KEY or pass --api_key.")
-        return resolved
+        return _resolve_openrouter_api_keys(api_key)[0]
 
     resolved = api_key or os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not resolved:
@@ -123,8 +135,14 @@ def _resolve_api_key(provider: str, api_key: Optional[str] = None) -> str:
 def load_api_client(provider: str, api_key: Optional[str] = None):
     global _CLIENT, _ASYNC_CLIENT, _ACTIVE_PROVIDER
     if provider == "openrouter":
-        resolved_key = _resolve_api_key(provider, api_key)
-        _CLIENT = {"provider": provider, "api_key": resolved_key}
+        resolved_keys = _resolve_openrouter_api_keys(api_key)
+        _CLIENT = {
+            "provider": provider,
+            "api_keys": resolved_keys,
+            "active_key_index": 0,
+            "exhausted_key_indices": set(),
+            "lock": None,
+        }
         _ASYNC_CLIENT = _CLIENT
         _ACTIVE_PROVIDER = provider
         return _CLIENT
@@ -139,6 +157,8 @@ def load_api_client(provider: str, api_key: Optional[str] = None):
 
 def load_async_api_client(provider: str, api_key: Optional[str] = None):
     load_api_client(provider, api_key)
+    if provider == "openrouter" and _ASYNC_CLIENT is not None and _ASYNC_CLIENT.get("lock") is None:
+        _ASYNC_CLIENT["lock"] = asyncio.Lock()
     return _ASYNC_CLIENT
 
 
@@ -284,6 +304,31 @@ def _is_quota_exceeded_error(exc: Exception) -> bool:
     return any(marker in msg for marker in _QUOTA_EXCEEDED_ERROR_MARKERS)
 
 
+async def _get_openrouter_key_state(async_client: Dict[str, Any]) -> tuple[str, int, int]:
+    lock = async_client["lock"]
+    async with lock:
+        key_index = int(async_client["active_key_index"])
+        api_keys = async_client["api_keys"]
+        return api_keys[key_index], key_index, len(api_keys)
+
+
+async def _rotate_openrouter_api_key(async_client: Dict[str, Any]) -> tuple[bool, int, int, int]:
+    lock = async_client["lock"]
+    async with lock:
+        current_index = int(async_client["active_key_index"])
+        exhausted = async_client["exhausted_key_indices"]
+        exhausted.add(current_index)
+        api_keys = async_client["api_keys"]
+        total = len(api_keys)
+
+        for candidate_index in range(total):
+            if candidate_index not in exhausted:
+                async_client["active_key_index"] = candidate_index
+                return True, current_index, candidate_index, total
+
+        return False, current_index, current_index, total
+
+
 def _compute_retry_delay_seconds(base_delay_seconds: float, attempt: int, max_delay_seconds: float) -> float:
     exponential = base_delay_seconds * (2 ** max(0, attempt - 1))
     capped = min(exponential, max_delay_seconds)
@@ -379,14 +424,15 @@ def _openrouter_request(api_key: str, payload: dict[str, Any]) -> str:
 
 
 async def _call_openrouter_api_async(
-    async_client: Dict[str, str],
+    async_client: Dict[str, Any],
     model_config: Dict[str, Any],
     messages: list[dict[str, Any]],
     temperature: float,
     max_output_tokens: int,
 ) -> str:
     payload = _build_openrouter_payload(model_config, messages, temperature, max_output_tokens)
-    return await asyncio.to_thread(_openrouter_request, async_client["api_key"], payload)
+    api_key, _, _ = await _get_openrouter_key_state(async_client)
+    return await asyncio.to_thread(_openrouter_request, api_key, payload)
 
 
 async def _judge_once_async(
@@ -439,11 +485,26 @@ async def judge_single_async(
 ) -> LLMJudgeRecord:
     last_error = "Unknown error"
     image_missing = _load_images(record, max_image_pixels)[1]
+    attempt = 1
 
-    for attempt in range(1, max_retries + 1):
+    while attempt <= max_retries:
         try:
             return await _judge_once_async(async_client, model_config, record, temperature, max_image_pixels, max_output_tokens)
         except Exception as exc:
+            if model_config.get("provider") == "openrouter" and _is_quota_exceeded_error(exc):
+                rotated, from_index, to_index, total_keys = await _rotate_openrouter_api_key(async_client)
+                if rotated:
+                    logger.warning(
+                        "RotateKey | id=%d | model=%s | from_key=%d/%d | to_key=%d/%d | reason=quota_exceeded",
+                        record.id,
+                        model_config.get("tag", model_config.get("model_name", "unknown")),
+                        from_index + 1,
+                        total_keys,
+                        to_index + 1,
+                        total_keys,
+                    )
+                    continue
+                raise QuotaExceededError(f"All OpenRouter API keys exhausted: {str(exc)[:220]}") from exc
             if _is_quota_exceeded_error(exc):
                 raise QuotaExceededError(str(exc)[:300]) from exc
             last_error = str(exc)[:200]
@@ -460,6 +521,7 @@ async def judge_single_async(
                     str(exc)[:120],
                 )
                 await asyncio.sleep(delay_seconds)
+                attempt += 1
                 continue
             break
 

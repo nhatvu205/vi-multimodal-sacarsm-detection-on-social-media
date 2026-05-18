@@ -18,6 +18,8 @@ Tạo `.env` ở repo root hoặc trong `round-1-annotation/`:
 
 ```env
 GEMINI_API_KEY=your_gemini_key
+OPENROUTER_API_KEYS=key_1,key_2,key_3
+# fallback nếu chỉ có 1 key:
 OPENROUTER_API_KEY=your_openrouter_key
 ```
 

@@ -97,8 +97,17 @@ def load_checkpoint(output_dir: Path) -> Dict[int, LLMJudgeRecord]:
         if not line:
             continue
         try:
-            rec = Round1OutputRecord(**json.loads(line))
-            cached[rec.id] = _llm_from_result_record(rec)
+            payload = json.loads(line)
+            cached[payload["id"]] = LLMJudgeRecord(
+                id=payload["id"],
+                label_llm1=payload["label_llm1"],
+                has_emoji=payload.get("has_emoji"),
+                needs_human_check=payload.get("needs_human_check"),
+                notes=payload.get("notes", ""),
+                reasoning=payload.get("reasoning") or {},
+                parse_error=bool(payload.get("parse_error", False)),
+                image_missing=bool(payload.get("image_missing", False)),
+            )
         except Exception:
             pass
 
