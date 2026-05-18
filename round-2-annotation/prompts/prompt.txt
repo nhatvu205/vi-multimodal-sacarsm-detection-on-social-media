@@ -1,17 +1,8 @@
-You are an annotator for multimodal sarcasm detection in Vietnamese social media posts.
+Bạn là chuyên gia gán nhãn mỉa mai đa phương thức tiếng Việt.
 
-Your task is to determine whether a given post is non-sarcastic (label 0) or sarcastic (label 1),
-by analyzing three modalities: text, image, and emoji (not every post contains emoji).
+⚠️ "INVALID" chỉ dùng khi dữ liệu HOÀN TOÀN không đọc được (ảnh lỗi hoàn toàn VÀ text rỗng). Nếu có BẤT KỲ nội dung nào, gán 0 hoặc 1.
 
-Reason through ALL checks in order. Do not skip any step, even if the answer seems obvious.
-Return exactly one valid JSON object and nothing else — no explanation, no markdown, no text outside the JSON.
-All reasoning fields must be written in Vietnamese.
-All JSON keys and enum values must be in English exactly as shown in the output schema.
-
----
-
-## INPUT
-
+Input:
 [TEXT]
 {text}
 
@@ -21,178 +12,147 @@ All JSON keys and enum values must be in English exactly as shown in the output 
 [OCR_TEXT]
 {ocr_text}
 
-Lưu ý: OCR_TEXT là văn bản trích xuất tự động từ ảnh, có thể chứa lỗi nhận dạng (sai chính tả, thiếu dấu, ghép từ sai). Chỉ dùng OCR_TEXT làm tham khảo bổ sung để hiểu chữ trong ảnh — KHÔNG dùng làm bằng chứng chính.
+===================================================================
+PHÂN TÍCH BẮT BUỘC — LÀM ĐẦY ĐỦ 4 BƯỚC THEO THỨ TỰ
+===================================================================
 
----
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BƯỚC 1: PHÂN TÍCH TEXT-ONLY (T)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Hãy tưởng tượng bạn KHÔNG nhìn thấy ảnh. Chỉ đọc [TEXT] và [OCR_TEXT].
 
-## ĐỊNH NGHĨA NHÃN
+Câu hỏi: "Nếu chỉ đọc chữ này, người Việt bình thường có nhận ra đây là mỉa mai không?"
 
-**Nhãn 0 — Non-sarcastic:** Text, ảnh, emoji nhất quán và cùng chiều; người đọc bình thường hiểu theo nghĩa đen là đúng ý định người đăng.
+GÁN T=1 nếu text có ÍT NHẤT MỘT trong các dấu hiệu SAU:
+  ① Mâu thuẫn nội hàm rõ ràng: Trong cùng câu có từ ngữ đối lập hoặc logic không khớp
+     Ví dụ: "Đi muộn được sếp khen, vui quá là vui" → khen + tình huống xấu
+  ② Cường điệu hóa về điều bình thường/tiêu cực:
+     Ví dụ: "Đỉnh nóc kịch trần", "Tuyệt tác nhân loại", "Hết nước chấm"
+  ③ Khen ngợi giả tạo cho tình huống hiển nhiên là tệ:
+     Ví dụ: "Ngập đường thật là thuận tiện", "Tắc đường 3 tiếng, trải nghiệm tuyệt vời"
+  ④ Emoji đảo ngược: Câu tích cực + emoji tiêu cực, hoặc ngược lại
+     Ví dụ: "Giỏi thật sự 🤡", "Thành công rồi 💀", "Hạnh phúc ghê 😭"
+  ⑤ Nói ngược rõ ràng (Verbal irony)
+     Ví dụ: "Thật là ngày tuyệt vời" sau khi liệt kê toàn tai họa
+  ⑥ Self-deprecating humor có đối lập ngầm: Người viết tự chế giễu bản thân bằng cách
+     đặt mình vào tình huống tương phản với người/thứ khác
+     Ví dụ: "Phim của chị X lên Top1, còn tôi chưa thấy lương về"
+             "Tôi - người thất nghiệp - nhắn tin với đứa bạn có 2 công việc"
+             "mấy th ít tiền nói nhiều kinh khủng" (tự nhận/ám chỉ thân phận)
 
-**Nhãn 1 — Sarcastic:** Người đăng nói/thể hiện một điều nhưng ý thật là khác — dù dấu hiệu có thể tinh tế hoặc đòi hỏi hiểu ngữ cảnh văn hóa. Thường rơi vào một trong các nhóm:
-- **1.1 Verbal:** Text nói ngược hoàn toàn với ý muốn truyền đạt.
-- **1.2 Image-Text Conflict:** Text và ảnh mâu thuẫn trực tiếp.
-- **1.3 Emoji-Text Conflict:** Emoji mang cảm xúc trái chiều, đảo ngược nội dung text.
-- **1.4 Contextual:** Text bình thường nhưng mỉa mai chỉ hiểu được khi biết ngữ cảnh thực tế hoặc template văn hóa phổ biến.
-- **1.5 Self-deprecating:** Tự chế giễu bản thân bằng cách nói ngược hoặc phóng đại.
-- **1.6 Hyperbolic:** Phóng đại quá mức theo hướng ngược thực tế để phê phán.
-- **1.7 Multimodal:** Phải kết hợp đọc cả text + ảnh + emoji + ngữ cảnh mới nhận ra.
----
+GÁN T=0 nếu:
+  - Câu trung tính, câu hỏi thông thường, lời chào hỏi
+  - Cảm xúc thật (buồn thật, vui thật) không có dấu hiệu đảo ngược
+  - Những từ như "Hay quá", "Alo", "Cạn lời", "Ừ" → T=0 vì quá mơ hồ
+  - Caption mô tả ảnh đơn giản, không có bình luận ngầm
 
-## QUY TRÌNH PHÂN TÍCH BẮT BUỘC
----
+→ Ghi rõ: T = [0 hoặc 1] và dấu hiệu cụ thể (nếu T=1, ghi rõ dấu hiệu nào trong ①-⑥).
 
-### BƯỚC 1 — PHÂN TÍCH TEXT (T)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BƯỚC 2: PHÂN TÍCH IMAGE-ONLY (I)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Hãy tưởng tượng bạn KHÔNG đọc chữ. Chỉ quan sát ảnh.
 
-**Mục tiêu:** Xác định xem phần chữ có chứa mỉa mai khi đứng độc lập, KHÔNG nhìn ảnh.
+Câu hỏi: "Bức ảnh này tự nó có hài hước, châm biếm, hoặc trớ trêu không — dù không có chữ đi kèm?"
 
-**1A — MÔ TẢ NGHĨA ĐEN:**
-Đọc text theo nghĩa đen. Câu này đang nói gì một cách thuần túy?
+⚠️ ANCHOR TEST — PHẢI ĐẶT CÂU HỎI NÀY TRƯỚC KHI GÁN I=1:
+  "Nếu tôi gửi ảnh này cho người lạ, không kèm text, họ có cười hoặc thấy châm biếm ngay không?"
+  → Nếu KHÔNG (họ chỉ thấy ảnh bình thường) → I=0, dù ảnh có vẻ "sang chảnh" hay "cổ điển"
+  → Chỉ I=1 nếu CÓ — ảnh tự nó buồn cười/châm biếm độc lập với text
 
-**1B — TÌM TÍN HIỆU MỈA MAI:**
-Kiểm tra từng dấu hiệu sau, ghi cụ thể nếu có hoặc "Không" nếu vắng:
-- ① Mâu thuẫn nội hàm: Cùng câu có từ đối lập hoặc logic không khớp (khen + tình huống xấu, vui + hoàn cảnh tệ).
-- ② Cường điệu hóa (Hyperbole): Dùng từ cực đoan cho việc bình thường/tiêu cực ("Đỉnh nóc kịch trần", "Hết nước chấm", "Tuyệt tác nhân loại", "Siêu phẩm").
-- ③ Khen ngợi giả tạo: Dùng tính từ rất tốt cho tình huống hiển nhiên là tệ ("Ngập đường thật tiện đi lại", "Tắc 3 tiếng, trải nghiệm tuyệt vời").
-- ④ Emoji đảo ngược: Câu tích cực + emoji tiêu cực/mỉa mai, hoặc ngược lại ("Giỏi thật 🤡", "Thành công rồi 💀").
-- ⑤ Nói ngược rõ ràng (Verbal irony): Dùng từ tốt để chỉ điều xấu một cách hiển nhiên.
-- ⑥ Slang mỉa mai phổ biến trong tiếng Việt ("hết cứu", "cảm lạnh", "tuyệt vời quá nhỉ").
+GÁN I=1 chỉ khi ảnh thuộc MỘT trong các loại RÕ RÀNG sau:
+  ① Meme template đã biết: Ảnh/biểu cảm nổi tiếng được dùng để chế giễu
+  ② Đối lập trực quan tự nhiên trong ảnh: Hai yếu tố TRONG CÙNG ẢNH mâu thuẫn nhau
+     Ví dụ: Biển "Cấm đổ rác" trên đống rác; Xe cứu hỏa đang cháy; Hai chiếc quạt — 1 đứng 1 ngã
+     ⛔ KHÔNG tính: Ảnh "sang trọng" hay "cổ điển" — những thứ này chỉ mỉa mai KHI KẾT HỢP với text
+  ③ Text trong ảnh (OCR) tự nó mang tính mỉa mai, bất kể text bài đăng
+  ④ Tình huống thất bại được trình bày như thành công (trong ảnh, không cần text)
+  ⑤ Biểu cảm/cử chỉ cực kỳ phóng đại, rõ ràng là meme/reaction
 
-**1C — QUYẾT ĐỊNH T:**
+GÁN I=0 nếu:
+  - Ảnh selfie, chân dung, phong cảnh, đồ ăn, đồ vật bình thường
+  - Ảnh "đẹp", "sang trọng", "cổ điển", "nghiêm túc" — tự nó không hài hước
+  - Không đọc được ảnh / ảnh lỗi → I=0
+  - ⚠️ KHÔNG suy diễn: "ảnh này + text kia = mỉa mai" — đó là việc của Bước 3, không phải Bước 2
 
-Ngưỡng gán T=1: Nếu **ít nhất một** tín hiệu từ 1B hiện diện VÀ nghĩa đen của câu trở nên bất hợp lý hoặc buồn cười khi đọc thẳng → **T=1**.
+→ Ghi rõ: I = [0 hoặc 1]. Nếu I=1, mô tả ĐẶC ĐIỂM TỰ THÂN của ảnh tạo ra sự hài hước/châm biếm.
 
-Ngưỡng gán T=0:
-- Không tìm thấy tín hiệu nào từ 1B.
-- Hoặc tín hiệu rất yếu, mơ hồ, và nghĩa đen vẫn hoàn toàn hợp lý.
-- Câu hỏi thông thường, lời chào, câu mô tả trung tính → T=0.
-- Từ như "Hay quá", "Alo", "Cạn lời", "Ừ" → T=0 vì quá mơ hồ.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BƯỚC 3: PHÂN TÍCH MULTIMODAL (MM)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Kết hợp Bước 1 và Bước 2.
 
-**⚠️ Lưu ý calibration:** Không yêu cầu tín hiệu phải cực đoan. Khen ngợi nhiệt tình dành cho tình huống rõ ràng là xấu là đủ để T=1 — không cần phóng đại thêm. Nếu một người Việt bình thường đọc câu này mà "nhếch miệng cười" hoặc cảm thấy "nói ngược" → T=1.
+Câu hỏi: "Khi nhìn ảnh VÀ đọc chữ cùng lúc, chúng có tạo ra sự tương phản MỦA MAI RÕ RÀNG không?"
 
-→ **Ghi: T = [0 hoặc 1]** và lý do dẫn đến quyết định đó (dấu hiệu nào từ 1B, hoặc lý do không có dấu hiệu nào).
+⚠️ NGƯỠNG RÕ RÀNG: Sự tương phản phải đủ rõ để người Việt bình thường đọc post này và
+   NGAY LẬP TỨC nhận ra "ý này đang mỉa". Nếu phải giải thích dài dòng để thấy mỉa mai,
+   thì KHÔNG đủ ngưỡng → MM=0.
 
----
+GÁN MM=1 nếu có pattern sau (PHẢI RÕ RÀNG, không phải suy diễn):
+  PATTERN A — Text tích cực/khen + Ảnh tiêu cực/thất bại thấy ngay:
+              "Cơm ngon nhất" → ảnh đĩa cơm cháy đen rõ ràng
+              ⛔ KHÔNG TÍNH: "Text khen dưỡng da" + "ảnh người đẹp bình thường" → không đủ tương phản
+  PATTERN B — Text than thở/khiêm tốn + Ảnh khoe khoang rõ ràng (Humblebrag):
+              "Khổ thân" → ảnh đang ngồi cà phê view đẹp rõ ràng
+  PATTERN C — Text bình thường/trung tính + Ảnh là meme/reaction rõ ràng có nghĩa châm biếm:
+              "Ừ bạn đúng" → ảnh meme nhân vật rolling eyes
+              ⛔ KHÔNG TÍNH: Text bình thường + ảnh "sang chảnh" chỉ vì màu sắc hoặc phong cách
+  PATTERN D — Mỉa mai ngầm định: cả hai đi ngược sự thật hiển nhiên mà người Việt biết rõ:
+              "Không khí Hà Nội trong lành" → ảnh bầu trời xám bụi mịn thực tế
+  PATTERN E — Cả Text lẫn Ảnh đều mỉa mai cùng một chủ thể
 
-### BƯỚC 2 — PHÂN TÍCH IMAGE (I)
+  Điều kiện bổ sung: Nếu T=1 (text đã mỉa mai rõ) → MM=1 mặc định, trừ khi ảnh PHẢN BÁC hoàn toàn tính mỉa mai của text.
 
-**Mục tiêu:** Xác định bức ảnh có tự thân chứa đựng mỉa mai, KHÔNG đọc caption.
+GÁN MM=0 nếu:
+  - Text và ảnh cùng hướng tích cực thật sự
+  - Text và ảnh cùng tiêu cực nghiêm túc
+  - Chỉ có "khác biệt nhỏ về tông" giữa text và ảnh, không đủ tương phản rõ ràng
+  - ⚠️ Không "ép" pattern: Nếu phải tưởng tượng nhiều bước để thấy mỉa mai, là MM=0
 
-**2A — MÔ TẢ THỰC TẾ:**
-Mô tả những gì thực sự có trong ảnh: người, vật, bối cảnh, biểu cảm, hành động.
+→ Ghi rõ: MM = [0 hoặc 1], nêu pattern khớp (A/B/C/D/E) hoặc lý do MM=0.
 
-**2B — PHÂN TÍCH OCR:**
-Trích dẫn OCR text nếu có. Nếu chữ trong ảnh tự thân mang mỉa mai hay châm biếm → ghi nhận.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BƯỚC 4: KEY IMAGE (KI) — Chỉ khi MM=1
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Câu hỏi: "Nếu xóa ảnh đi, bài post này còn mỉa mai không?"
 
-**2C — PHÂN TÍCH ANOMALY:**
-Kiểm tra xem ảnh có thuộc một trong các loại sau không:
-- ① Meme template quen thuộc (nhân vật/biểu cảm nổi tiếng được dùng để chế giễu).
-- ② Đối lập trực quan: Hai yếu tố trong ảnh mâu thuẫn nhau (biển "Cấm đổ rác" trên đống rác; xe cứu hỏa đang cháy).
-- ③ Chữ trong ảnh mang tính mỉa mai (dựa vào OCR).
-- ④ Tình huống thất bại được trình bày như thành công.
-- ⑤ Biểu cảm/cử chỉ cực kỳ phóng đại hoặc không phù hợp hoàn cảnh.
+GÁN KI="YES": Bỏ ảnh thì text trở thành lời nói thẳng, mất mỉa mai (T=0 mà MM=1)
+GÁN KI="NO" : Text đã mỉa mai rõ dù không có ảnh (T=1)
+GÁN KI="NULL": MM=0
 
-**2D — INDEPENDENCE TEST (đã mở rộng):**
-Hỏi: "Nếu gửi bức ảnh này cho một người Việt bình thường mà không kèm caption, họ có hiểu là buồn cười, châm biếm, hoặc trớ trêu không?"
-- **I=1** nếu: ảnh tự nó hài/mỉa mai; hoặc ảnh là meme/reaction image mà người Việt quen — ngay cả khi cần "văn hóa meme" để hiểu (đây là contextual knowledge, không phải external text từ caption).
-- **I=0** nếu: ảnh là ảnh thông thường (selfie, đồ ăn, phong cảnh, đồ vật), không có dấu hiệu hài hước nào ngay cả khi biết văn hóa meme Việt.
-- **I=0** nếu: ảnh cần đọc caption mới hiểu là joke — tức caption mới là nguồn tạo ra sự hài hước, không phải bản thân ảnh.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BẢNG ĐỐI CHIẾU NHÃN TỔNG HỢP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+T=0, I=0, MM=1 → Implicit Sarcasm      → llm_label=1
+T=1, I=0, MM=1 → Text-driven Sarcasm   → llm_label=1
+T=0, I=1, MM=1 → Image-driven Sarcasm  → llm_label=1
+T=1, I=1, MM=1 → Multi-driven Sarcasm  → llm_label=1
+T=*, I=*, MM=0 → Non-sarcastic         → llm_label=0
+llm_label="INVALID" CHỈ KHI: text rỗng/null VÀ ảnh không load VÀ OCR trống.
 
-→ **Ghi: I = [0 hoặc 1]** và mô tả ngắn lý do.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HƯỚNG DẪN CÁC TRƯỜNG CÒN LẠI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+has_emoji        : 1 nếu [TEXT] chứa ≥1 emoji, 0 nếu không
+needs_human_check: 1 nếu ảnh lỗi nhưng text còn / borderline rõ / T và MM mâu thuẫn khó giải thích
+                   0 nếu phân tích rõ ràng
 
----
-
-### BƯỚC 3 — PHÂN TÍCH MULTIMODAL (MM)
-
-**Mục tiêu:** Xác định sự kết hợp Text + Image + Emoji có tạo ra mỉa mai không. Đây là bước quan trọng nhất.
-
-**3A — ĐỌC KẾT HỢP:**
-Kết nối nghĩa từ Bước 1 và Bước 2. Văn bản đang nói gì? Ảnh đang cho thấy gì? Chúng hỗ trợ hay mâu thuẫn nhau?
-
-**3B — DEVIL'S ADVOCATE (bắt buộc):**
-Trước khi quyết định, hãy xây dựng cả hai lập luận với trọng lượng ngang nhau:
-
-- **Lập luận Non-Sarcastic:** Lý giải tại sao bài đăng này hoàn toàn nghĩa đen — text và ảnh nhất quán, tình huống bình thường, không có tín hiệu mâu thuẫn nào.
-- **Lập luận Sarcastic:** Lý giải tại sao bài đăng này có mỉa mai — conflict nào xuất hiện, phóng đại ở đâu, pattern nào khớp trong danh sách dưới đây.
-
-**3C — KIỂM TRA PATTERN:**
-Đối chiếu với các pattern sau:
-- **Pattern A — Text tích cực + Ảnh tiêu cực/thất bại:** "Cơm mẹ nấu ngon nhất" + ảnh đĩa cơm cháy đen → MM=1.
-- **Pattern B — Text than vãn/khiêm tốn + Ảnh sang chảnh/khoe khoang (Humblebrag):** "Khổ thân mình" + ảnh đang đi du lịch sang chảnh → MM=1.
-- **Pattern C — Text bình thường + Ảnh meme hoặc châm biếm:** "Ừ bạn đúng" + ảnh meme rolling eyes → MM=1.
-- **Pattern D — Cả hai trông bình thường nhưng đi ngược sự thật hiển nhiên (Implicit/Contextual):** "Không khí Hà Nội trong lành" + ảnh bầu trời xám bụi mịn → MM=1.
-- **Pattern E — Cả text lẫn ảnh cùng mỉa mai một chủ thể:** MM=1.
-
-Gán MM=0 nếu:
-- Text và ảnh cùng hướng tích cực thật sự.
-- Text và ảnh cùng tiêu cực nghiêm túc (buồn thật + ảnh khóc thật).
-- Không có pattern nào khớp sau khi xem xét cả hai lập luận.
-
-**3D — QUYẾT ĐỊNH MM:**
-
-So sánh hai lập luận từ 3B. Áp dụng tiebreaker:
-- Nếu lập luận Sarcastic mạnh hơn hoặc ngang bằng VÀ bài đăng dùng tín hiệu/format mỉa mai trong văn hóa Việt → **MM=1**.
-- Nếu lập luận Non-Sarcastic áp đảo và không có pattern nào khớp → **MM=0**.
-- KHÔNG dùng "không có ngữ cảnh bổ sung" làm lý do tự động gán MM=0 — Contextual sarcasm (Pattern D) hợp lệ kể cả khi chỉ dựa vào văn hóa chung.
-
-→ **Ghi: MM = [0 hoặc 1]**, nêu pattern nào khớp (A/B/C/D/E) hoặc lý do MM=0.
-
----
-
-### BƯỚC 4 — KEY IMAGE (KI)
-
-**Điều kiện:** Chỉ thực hiện khi MM=1.
-
-- **KI = "YES":** Nếu bỏ ảnh đi, câu chữ trở thành nghĩa đen, không còn mỉa mai (T=0 mà MM=1). Ảnh là "bằng chứng" bác bỏ lời nói. Sự mỉa mai chỉ nảy sinh khi nhìn thấy tương phản text-ảnh.
-- **KI = "NO":** Text ở Bước 1 đã đủ mỉa mai (T=1). Ảnh chỉ minh họa thêm, không có ảnh vẫn hiểu là mỉa mai.
-- **KI = "NULL":** MM=0.
-
----
-
-### BƯỚC 5 — NHÃN TỔNG HỢP
-
-| T | I | MM | llm_label | Loại |
-|---|---|----|-----------|------|
-| 0 | 0 | 1  | 1         | Implicit Sarcasm |
-| 1 | 0 | 1  | 1         | Text-driven Sarcasm |
-| 0 | 1 | 1  | 1         | Image-driven Sarcasm |
-| 1 | 1 | 1  | 1         | Multi-driven Sarcasm |
-| * | * | 0  | 0         | Non-sarcastic |
-
-
----
-
-## OUTPUT FORMAT
-
-Return EXACTLY this JSON. No text before or after.
-
+===================================================================
+OUTPUT — TRẢ VỀ ĐÚNG MỘT JSON, KHÔNG CÓ GÌ KHÁC
+===================================================================
 {
-  "llm_label": <0 | 1 >,
-  "T": <0 | 1>,
-  "I": <0 | 1>,
-  "MM": <0 | 1>,
-  "KI": <"YES" | "NO" | "NULL">,
+  "llm_label": 0 or 1 or "INVALID",
+  "T": 0 or 1,
+  "I": 0 or 1,
+  "MM": 0 or 1,
+  "KI": "YES" or "NO" or "NULL",
   "reasoning": {
-    "text_analysis": {
-      "literal_meaning": "<Nghĩa đen của text là gì — Bước 1A>",
-      "sarcasm_signals": "<Liệt kê tín hiệu tìm thấy từ Bước 1B, hoặc 'Không' nếu vắng>",
-      "T_decision": "<Lý do chốt T=0 hoặc T=1 — Bước 1C>"
-    },
-    "image_analysis": {
-      "visual_description": "<Mô tả thực tế ảnh — Bước 2A>",
-      "ocr_analysis": "<Phân tích OCR text nếu có, hoặc 'Không có' — Bước 2B>",
-      "anomaly_check": "<Có meme/đối lập/anomaly không — Bước 2C>",
-      "I_decision": "<Lý do chốt I=0 hoặc I=1 — Bước 2D>"
-    },
-    "multimodal_analysis": {
-      "non_sarcastic_case": "<Lập luận mạnh nhất rằng bài đăng hoàn toàn nghĩa đen — Bước 3B>",
-      "sarcastic_case": "<Lập luận mạnh nhất rằng bài đăng có mỉa mai; pattern nào khớp — Bước 3B/3C>",
-      "emoji_reasoning": "<Emoji đang củng cố hay đảo ngược nghĩa — Bước 3A>",
-      "MM_decision": "<Lý do chốt MM=0 hoặc MM=1; pattern khớp hoặc lý do bác bỏ — Bước 3D>"
-    },
-    "sarcasm_type": "<Loại sarcasm 1.1–1.7 nếu llm_label=1; NULL nếu llm_label=0>",
-    "verdict": "<Kết luận tổng hợp ngắn gọn: loại mỉa mai, nguồn tín hiệu chính, lý do chốt nhãn>"
+    "text_only": "Bước 1: [dấu hiệu cụ thể ①-⑥ hoặc lý do T=0]",
+    "image_only": "Bước 2: [kết quả anchor test + mô tả đặc điểm tự thân ảnh, hoặc lý do I=0]",
+    "multimodal": "Bước 3: [pattern A/B/C/D/E khớp + giải thích tương phản RÕ RÀNG, hoặc lý do MM=0]",
+    "key_image": "Bước 4: [lý do KI=YES/NO/NULL]",
+    "verdict": "Kết luận: [loại mỉa mai] vì [lý do tổng hợp ngắn gọn]"
   },
-  "has_emoji": <0 | 1>,
-  "needs_human_check": <0 | 1>
+  "has_emoji": 0 or 1,
+  "needs_human_check": 0 or 1
 }

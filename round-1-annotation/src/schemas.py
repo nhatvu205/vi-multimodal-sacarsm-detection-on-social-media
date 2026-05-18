@@ -22,15 +22,15 @@ class InputRecord(BaseModel):
 
 class LLMJudgeRecord(BaseModel):
     """
-    Structured output of the LLM judge using the current prompt schema.
+    Structured output of the LLM judge.
 
-    label_llm1        : 0 (non-sarcastic), 1 (sarcastic), or "INVALID"
+    label_llm1        : 0 (non-sarcastic), 1 (sarcastic), -1 (failed after retries), or "INVALID"
     has_emoji         : 1 nếu bài đăng có emoji, 0 nếu không
-    needs_human_check : 0 nếu LLM tự tin, 1 nếu cần human kiểm chứng (dùng để routing)
+    needs_human_check : 0 nếu LLM tự tin, 1 nếu cần human kiểm chứng
     notes             : free-form notes from the model
     reasoning         : full nested reasoning dict from the model response
-    parse_error       : True when the model output could not be parsed (routing hint)
-    image_missing     : True when expected images were not found on disk (routing hint)
+    parse_error       : True when the model output could not be parsed / request failed
+    image_missing     : True when expected images were not found on disk
     """
 
     id: int
@@ -62,4 +62,6 @@ class Round1OutputRecord(BaseModel):
         "missing_image",
         "audit_sampled",
     ]
+    parse_error: bool = False
+    image_missing: bool = False
     timestamp_utc: str

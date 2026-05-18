@@ -16,7 +16,7 @@ htmlcov/
 
 # Pipeline outputs (generated, not source)
 round-1-annotation/outputs/
-outputs/
+# outputs/
 
 # Jupyter checkpoints
 .ipynb_checkpoints/
@@ -41,3 +41,4 @@ pyvenv.cfg
 images/
 data_collection/
 50_samples_images/
+annotator-agreement/
