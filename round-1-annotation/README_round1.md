@@ -7,12 +7,11 @@ Pipeline Round-1 chạy local terminal trong `round-1-annotation/`.
 - `nemotron` → `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` qua OpenRouter, bật reasoning
 
 ## Chuẩn bị môi trường
-
+Tạo venv trước khi chạy: python -m venv .venv
 ```bash
-cd /mnt/e/uit/nam-3/ki-2/social-media-mining
 source .venv/bin/activate
 cd round-1-annotation
-pip install -r requirements.txt
+pip install -r requirements.txt # chỉ cần cài 1 lần khi tạo .venv
 ```
 
 Tạo `.env` ở repo root hoặc trong `round-1-annotation/`:
