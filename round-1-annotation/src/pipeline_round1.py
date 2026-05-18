@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-"""Round-1 weak annotation pipeline (LLM-as-a-judge via Gemma API)."""
+"""Round-1 weak annotation pipeline."""
 
 import argparse
 import asyncio
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
 
@@ -20,7 +20,9 @@ logger = get_logger(__name__)
 
 DEFAULT_INPUT_DATA = "data/bronze/raw_data.json"
 RESULTS_FILENAME = "round1_results.jsonl"
+RESULTS_JSON_FILENAME = "round1_results.json"
 DEFAULT_CONCURRENCY = 4
+SUPPORTED_MODELS = ("gemma", "nemotron")
 
 
 def load_config(path: str) -> dict:
@@ -35,8 +37,34 @@ def build_router_config(cfg: dict) -> RouterConfig:
     )
 
 
+def resolve_model_config(cfg: dict, model_tag: Optional[str] = None) -> Dict[str, Any]:
+    configured_models = cfg.get("models") or {}
+    resolved_tag = model_tag or cfg.get("default_model") or "gemma"
+    if resolved_tag not in configured_models:
+        available = ", ".join(sorted(configured_models)) or ", ".join(SUPPORTED_MODELS)
+        raise ValueError(f"Unsupported model tag '{resolved_tag}'. Available: {available}")
+
+    model_cfg = configured_models[resolved_tag] or {}
+    provider = model_cfg.get("provider")
+    model_name = model_cfg.get("model_name")
+    if not provider or not model_name:
+        raise ValueError(f"Model config for '{resolved_tag}' must define provider and model_name.")
+
+    return {
+        "tag": resolved_tag,
+        "provider": str(provider),
+        "model_name": str(model_name),
+        "reasoning": dict(model_cfg.get("reasoning") or {}),
+        "max_output_tokens": int(model_cfg.get("max_output_tokens")) if model_cfg.get("max_output_tokens") is not None else None,
+    }
+
+
 def _results_path(output_dir: Path) -> Path:
     return output_dir / RESULTS_FILENAME
+
+
+def _results_json_path(output_dir: Path) -> Path:
+    return output_dir / RESULTS_JSON_FILENAME
 
 
 def _llm_from_result_record(rec: Round1OutputRecord) -> LLMJudgeRecord:
@@ -74,10 +102,14 @@ def load_checkpoint(output_dir: Path) -> Dict[int, LLMJudgeRecord]:
 
 
 def write_results(output_dir: Path, records: List[Round1OutputRecord]) -> None:
-    path = _results_path(output_dir)
-    with path.open("w", encoding="utf-8") as f:
+    jsonl_path = _results_path(output_dir)
+    with jsonl_path.open("w", encoding="utf-8") as f:
         for rec in records:
             f.write(rec.model_dump_json() + "\n")
+
+    json_path = _results_json_path(output_dir)
+    payload = [rec.model_dump(mode="json") for rec in records]
+    json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def select_records_for_run(
@@ -132,7 +164,7 @@ def _save_checkpoint_results(
 
 async def run_llm_with_checkpoint(
     records: List[InputRecord],
-    model_name: str,
+    model_config: Dict[str, Any],
     temperature: float,
     output_dir: Path,
     router_cfg: RouterConfig,
@@ -154,7 +186,7 @@ async def run_llm_with_checkpoint(
     if not remaining:
         return [results_by_id[record.id] for record in records if record.id in results_by_id]
 
-    async_client = load_async_api_client(api_key)
+    async_client = load_async_api_client(model_config["provider"], api_key)
     semaphore = asyncio.Semaphore(max(1, concurrency))
     checkpoint_every = max(1, checkpoint_every)
     completed_since_save = 0
@@ -164,7 +196,7 @@ async def run_llm_with_checkpoint(
         async with semaphore:
             return await judge_single_async(
                 async_client,
-                model_name,
+                model_config,
                 record,
                 temperature,
                 max_image_pixels,
@@ -183,22 +215,16 @@ async def run_llm_with_checkpoint(
             completed_total += 1
             completed_since_save += 1
 
-            logger.info(
-                "Progress | %d/%d | id=%d | label=%s",
-                completed_total,
-                len(records),
-                result.id,
-                result.label_llm1,
-            )
+            logger.info("Progress | %d/%d | id=%d | label=%s", completed_total, len(records), result.id, result.label_llm1)
 
             if completed_since_save >= checkpoint_every:
                 _save_checkpoint_results(output_dir, records, results_by_id, router_cfg)
                 completed_since_save = 0
-                logger.info("Checkpoint | saved=%d | file=%s", completed_total, _results_path(output_dir).name)
+                logger.info("Checkpoint | saved=%d | files=%s,%s", completed_total, _results_path(output_dir).name, _results_json_path(output_dir).name)
 
         if completed_since_save > 0:
             _save_checkpoint_results(output_dir, records, results_by_id, router_cfg)
-            logger.info("Checkpoint | saved=%d | file=%s", completed_total, _results_path(output_dir).name)
+            logger.info("Checkpoint | saved=%d | files=%s,%s", completed_total, _results_path(output_dir).name, _results_json_path(output_dir).name)
     finally:
         await close_async_api_client()
 
@@ -216,13 +242,14 @@ async def run_pipeline_async(
     no_checkpoint_load: bool = False,
     test_mode: bool = False,
     test_size: int = 5,
+    model_tag: Optional[str] = None,
 ) -> None:
     cfg = load_config(config_path)
     router_cfg = build_router_config(cfg)
-    model_name = cfg.get("llm_model", "gemma-4-31b-it")
+    resolved_model = resolve_model_config(cfg, model_tag)
     temperature = float(cfg.get("llm_temperature", 0.1))
     max_image_pixels = int(cfg.get("max_image_pixels", 300_000))
-    max_output_tokens = int(cfg.get("max_output_tokens", 256))
+    max_output_tokens = int(resolved_model.get("max_output_tokens") or cfg.get("max_output_tokens", 256))
     max_retries = int(cfg.get("max_retries", 3))
     retry_delay_seconds = int(cfg.get("retry_delay_seconds", 5))
     max_retry_delay_seconds = int(cfg.get("max_retry_delay_seconds", 20))
@@ -234,31 +261,31 @@ async def run_pipeline_async(
     out_dir.mkdir(parents=True, exist_ok=True)
     if no_checkpoint_load:
         _results_path(out_dir).unlink(missing_ok=True)
+        _results_json_path(out_dir).unlink(missing_ok=True)
 
     input_records = load_input_records(input_data)
     if max_records is not None:
         input_records = input_records[:max_records]
     if min_record_id is not None:
         input_records = [record for record in input_records if record.id >= min_record_id]
-    input_records = select_records_for_run(
-        input_records,
-        test_mode=test_mode,
-        test_size=test_size,
-        seed=seed,
-    )
+    input_records = select_records_for_run(input_records, test_mode=test_mode, test_size=test_size, seed=seed)
 
     logger.info(
-        "Start | input=%d | test=%s | concurrency=%d | checkpoint_every=%d | output=%s",
+        "Start | input=%d | test=%s | from_id=%s | model=%s | provider=%s | concurrency=%d | checkpoint_every=%d | output=%s",
         len(input_records),
         test_mode,
+        min_record_id if min_record_id is not None else "start",
+        resolved_model["tag"],
+        resolved_model["provider"],
         concurrency,
         checkpoint_every,
-        _results_path(out_dir).name,
+        _results_json_path(out_dir).name,
     )
+    logger.info("ModelConfig | tag=%s | name=%s", resolved_model["tag"], resolved_model["model_name"])
 
     llm_results = await run_llm_with_checkpoint(
         input_records,
-        model_name,
+        resolved_model,
         temperature,
         out_dir,
         router_cfg,
@@ -289,19 +316,17 @@ async def run_pipeline_async(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Round-1 weak annotation pipeline (Gemma API)")
-    parser.add_argument(
-        "--input_data",
-        default=DEFAULT_INPUT_DATA,
-        help=f"Path to input JSON array or JSONL (default: {DEFAULT_INPUT_DATA})",
-    )
+    parser = argparse.ArgumentParser(description="Round-1 weak annotation pipeline")
+    parser.add_argument("--input_data", default=DEFAULT_INPUT_DATA, help=f"Path to input JSON array or JSONL (default: {DEFAULT_INPUT_DATA})")
     parser.add_argument("--config", required=True, help="Path to configs/round1.yaml")
     parser.add_argument("--output_dir", required=True, help="Directory to write outputs")
-    parser.add_argument("--api_key", default=None, help="Gemini API key")
+    parser.add_argument("--api_key", default=None, help="API key for the selected provider")
+    parser.add_argument("--model", choices=SUPPORTED_MODELS, default=None, help="VLM tag to use: gemma or nemotron")
     parser.add_argument("--max_records", type=int, default=None, help="Limit to first N records")
     parser.add_argument("--test_mode", action="store_true", help="Run on the first 5 filtered records")
     parser.add_argument("--test_size", type=int, default=5, help="Leading records to take in test mode")
     parser.add_argument("--min-record-id", type=int, default=None, help="Keep only rows with id>=N")
+    parser.add_argument("--from", dest="min_record_id", type=int, help="Alias of --min-record-id; run records with id>=N")
     parser.add_argument("--no-checkpoint-load", action="store_true", help="Ignore previous round1_results.jsonl")
     args = parser.parse_args()
 
@@ -316,6 +341,7 @@ def main() -> None:
             no_checkpoint_load=args.no_checkpoint_load,
             test_mode=args.test_mode,
             test_size=args.test_size,
+            model_tag=args.model,
         )
     )
 

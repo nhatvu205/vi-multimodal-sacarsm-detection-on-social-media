@@ -1,14 +1,18 @@
 from __future__ import annotations
 
-"""LLM judge backed by Gemma 4 via the Gemini API."""
+"""LLM judge for round-1."""
 
 import asyncio
+import base64
+import io
 import json
 import os
 import random
 import re
+import urllib.error
+import urllib.request
 from pathlib import Path
-from typing import Any, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from dotenv import load_dotenv
 
@@ -33,7 +37,11 @@ _RETRYABLE_ERROR_MARKERS = (
     "timed out",
     "connection reset",
     "temporarily overloaded",
+    "rate limit",
+    "too many requests",
 )
+
+_OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
 def _load_env_file() -> None:
@@ -49,6 +57,7 @@ _PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "prompt.txt"
 _PROMPT_TEMPLATE: Optional[str] = None
 _CLIENT = None
 _ASYNC_CLIENT = None
+_ACTIVE_PROVIDER: Optional[str] = None
 
 _REPAIR_SUFFIX = (
     "\n\nPhản hồi trước của bạn không phải JSON hợp lệ. "
@@ -69,9 +78,7 @@ def _import_google_genai() -> tuple[Any, Any]:
         from google import genai
         from google.genai import types
     except ImportError as exc:
-        raise ImportError(
-            "Missing dependency 'google-genai'. Install requirements.txt before running the pipeline."
-        ) from exc
+        raise ImportError("Missing dependency 'google-genai'. Install requirements before running the pipeline.") from exc
     return genai, types
 
 
@@ -79,41 +86,54 @@ def _import_pil_image() -> Any:
     try:
         from PIL import Image
     except ImportError as exc:
-        raise ImportError(
-            "Missing dependency 'Pillow'. Install requirements.txt before running the pipeline."
-        ) from exc
+        raise ImportError("Missing dependency 'Pillow'. Install requirements before running the pipeline.") from exc
     return Image
 
 
-def _resolve_api_key(api_key: Optional[str] = None) -> str:
+def _resolve_api_key(provider: str, api_key: Optional[str] = None) -> str:
+    if provider == "openrouter":
+        resolved = api_key or os.environ.get("OPENROUTER_API_KEY")
+        if not resolved:
+            raise ValueError("OpenRouter API key not found. Set OPENROUTER_API_KEY or pass --api_key.")
+        return resolved
+
     resolved = api_key or os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not resolved:
         raise ValueError("Gemini API key not found. Set GEMINI_API_KEY / GOOGLE_API_KEY or pass --api_key.")
     return resolved
 
 
-def load_api_client(api_key: Optional[str] = None):
-    global _CLIENT, _ASYNC_CLIENT
-    if _CLIENT is None:
+def load_api_client(provider: str, api_key: Optional[str] = None):
+    global _CLIENT, _ASYNC_CLIENT, _ACTIVE_PROVIDER
+    if provider == "openrouter":
+        resolved_key = _resolve_api_key(provider, api_key)
+        _CLIENT = {"provider": provider, "api_key": resolved_key}
+        _ASYNC_CLIENT = _CLIENT
+        _ACTIVE_PROVIDER = provider
+        return _CLIENT
+
+    if _CLIENT is None or _ACTIVE_PROVIDER != provider:
         genai, _ = _import_google_genai()
-        _CLIENT = genai.Client(api_key=_resolve_api_key(api_key))
+        _CLIENT = genai.Client(api_key=_resolve_api_key(provider, api_key))
         _ASYNC_CLIENT = _CLIENT.aio
+        _ACTIVE_PROVIDER = provider
     return _CLIENT
 
 
-def load_async_api_client(api_key: Optional[str] = None):
-    load_api_client(api_key)
+def load_async_api_client(provider: str, api_key: Optional[str] = None):
+    load_api_client(provider, api_key)
     return _ASYNC_CLIENT
 
 
 async def close_async_api_client() -> None:
-    global _CLIENT, _ASYNC_CLIENT
-    if _ASYNC_CLIENT is not None:
+    global _CLIENT, _ASYNC_CLIENT, _ACTIVE_PROVIDER
+    if _ACTIVE_PROVIDER == "gemini_api" and _ASYNC_CLIENT is not None:
         await _ASYNC_CLIENT.aclose()
-    if _CLIENT is not None:
+    if _ACTIVE_PROVIDER == "gemini_api" and _CLIENT is not None:
         _CLIENT.close()
     _ASYNC_CLIENT = None
     _CLIENT = None
+    _ACTIVE_PROVIDER = None
 
 
 def _resize_image(img: Image.Image, max_pixels: int) -> Image.Image:
@@ -128,10 +148,9 @@ def _resize_image(img: Image.Image, max_pixels: int) -> Image.Image:
     return img.resize((new_w, new_h), resampling.LANCZOS)
 
 
-def _open_image(image_path: str, max_pixels: int = 1_048_576) -> Optional[Image.Image]:
+def _open_image(image_path: str, max_pixels: int = 300_000) -> Optional[Image.Image]:
     Image = _import_pil_image()
     p = Path(image_path)
-
     if p.is_absolute():
         candidates = [p]
     else:
@@ -148,37 +167,49 @@ def _open_image(image_path: str, max_pixels: int = 1_048_576) -> Optional[Image.
     return None
 
 
-def _load_images(record: InputRecord, max_pixels: int = 1_048_576) -> tuple[List[Image.Image], bool]:
+def _load_images(record: InputRecord, max_pixels: int = 300_000) -> tuple[List[Image.Image], bool]:
     paths: List[str] = []
     if record.image_paths:
         paths = record.image_paths
     elif record.image_path:
         paths = [record.image_path]
-
     if not paths:
         return [], False
-
     images_pil = [img for p in paths for img in [_open_image(p, max_pixels)] if img is not None]
     return images_pil, len(images_pil) == 0
 
 
-def _build_contents(text: str, images_pil: List[Image.Image], ocr_text: Optional[str] = None) -> list[Any]:
+def _build_prompt(text: str, image_count: int, ocr_text: Optional[str] = None) -> str:
     template = _load_prompt_template()
-    if images_pil:
+    if image_count:
         images_placeholder = (
-            f"[{len(images_pil)} ảnh đính kèm — xem ảnh trong nội dung tin nhắn]"
-            if len(images_pil) > 1 else "[Xem ảnh đính kèm]"
+            f"[{image_count} ảnh đính kèm — xem ảnh trong nội dung tin nhắn]"
+            if image_count > 1 else "[Xem ảnh đính kèm]"
         )
     else:
         images_placeholder = "[Không có ảnh hoặc ảnh không đọc được]"
     ocr_placeholder = ocr_text.strip() if ocr_text and ocr_text.strip() else "[Không có OCR text]"
-    prompt = (
-        template
-        .replace("{text}", text)
-        .replace("{images}", images_placeholder)
-        .replace("{ocr_text}", ocr_placeholder)
-    )
+    return template.replace("{text}", text).replace("{images}", images_placeholder).replace("{ocr_text}", ocr_placeholder)
+
+
+def _build_gemini_contents(text: str, images_pil: List[Image.Image], ocr_text: Optional[str] = None) -> list[Any]:
+    prompt = _build_prompt(text, len(images_pil), ocr_text)
     return [*images_pil, prompt]
+
+
+def _image_to_data_url(image: Image.Image) -> str:
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", quality=90)
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:image/jpeg;base64,{encoded}"
+
+
+def _build_openrouter_messages(text: str, images_pil: List[Image.Image], ocr_text: Optional[str] = None) -> list[dict[str, Any]]:
+    prompt = _build_prompt(text, len(images_pil), ocr_text)
+    content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
+    for image in images_pil:
+        content.append({"type": "image_url", "image_url": {"url": _image_to_data_url(image)}})
+    return [{"role": "user", "content": content}]
 
 
 def _extract_json(raw: str) -> dict:
@@ -262,23 +293,112 @@ async def _call_gemini_api_async(
     raise ValueError("Empty response from Gemini API.")
 
 
+def _build_openrouter_payload(
+    model_config: Dict[str, Any],
+    messages: list[dict[str, Any]],
+    temperature: float,
+    max_output_tokens: int,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "model": model_config["model_name"],
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_output_tokens,
+    }
+    reasoning = dict(model_config.get("reasoning") or {})
+    if reasoning:
+        payload["reasoning"] = reasoning
+    return payload
+
+
+def _extract_openrouter_text(response_json: dict[str, Any]) -> str:
+    choices = response_json.get("choices") or []
+    if not choices:
+        raise ValueError("Empty response from OpenRouter API.")
+    message = (choices[0] or {}).get("message") or {}
+    content = message.get("content")
+    if isinstance(content, str) and content.strip():
+        return content
+    if isinstance(content, list):
+        texts = [part.get("text", "") for part in content if isinstance(part, dict) and part.get("type") == "text"]
+        merged = "".join(texts).strip()
+        if merged:
+            return merged
+    raise ValueError("OpenRouter response did not contain text content.")
+
+
+def _openrouter_request(api_key: str, payload: dict[str, Any]) -> str:
+    request = urllib.request.Request(
+        _OPENROUTER_API_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/openai/codex",
+            "X-Title": "social-media-mining-round1",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=180) as response:
+            body = response.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(f"OpenRouter HTTP {exc.code}: {body[:300]}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"OpenRouter connection error: {exc}") from exc
+
+    try:
+        response_json = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"OpenRouter returned non-JSON body: {body[:300]}") from exc
+    return _extract_openrouter_text(response_json)
+
+
+async def _call_openrouter_api_async(
+    async_client: Dict[str, str],
+    model_config: Dict[str, Any],
+    messages: list[dict[str, Any]],
+    temperature: float,
+    max_output_tokens: int,
+) -> str:
+    payload = _build_openrouter_payload(model_config, messages, temperature, max_output_tokens)
+    return await asyncio.to_thread(_openrouter_request, async_client["api_key"], payload)
+
+
 async def _judge_once_async(
     async_client,
-    model_name: str,
+    model_config: Dict[str, Any],
     record: InputRecord,
     temperature: float,
     max_image_pixels: int,
     max_output_tokens: int,
 ) -> LLMJudgeRecord:
+    provider = model_config["provider"]
     images_pil, image_missing = _load_images(record, max_image_pixels)
-    contents = _build_contents(record.text, images_pil, record.ocr_text)
-    raw = await _call_gemini_api_async(async_client, model_name, contents, temperature, max_output_tokens)
+
+    if provider == "openrouter":
+        messages = _build_openrouter_messages(record.text, images_pil, record.ocr_text)
+        raw = await _call_openrouter_api_async(async_client, model_config, messages, temperature, max_output_tokens)
+    else:
+        contents = _build_gemini_contents(record.text, images_pil, record.ocr_text)
+        raw = await _call_gemini_api_async(async_client, model_config["model_name"], contents, temperature, max_output_tokens)
 
     try:
         result = _validate(_extract_json(raw))
     except (json.JSONDecodeError, ValueError, KeyError):
         repair_prompt = raw + _REPAIR_SUFFIX
-        raw2 = await _call_gemini_api_async(async_client, model_name, [repair_prompt], temperature, max_output_tokens)
+        if provider == "openrouter":
+            raw2 = await _call_openrouter_api_async(
+                async_client,
+                model_config,
+                [{"role": "user", "content": [{"type": "text", "text": repair_prompt}]}],
+                temperature,
+                max_output_tokens,
+            )
+        else:
+            raw2 = await _call_gemini_api_async(async_client, model_config["model_name"], [repair_prompt], temperature, max_output_tokens)
         result = _validate(_extract_json(raw2))
 
     return result.model_copy(update={"id": record.id, "image_missing": image_missing})
@@ -286,7 +406,7 @@ async def _judge_once_async(
 
 async def judge_single_async(
     async_client,
-    model_name: str,
+    model_config: Dict[str, Any],
     record: InputRecord,
     temperature: float,
     max_image_pixels: int = 300_000,
@@ -300,26 +420,16 @@ async def judge_single_async(
 
     for attempt in range(1, max_retries + 1):
         try:
-            return await _judge_once_async(
-                async_client,
-                model_name,
-                record,
-                temperature,
-                max_image_pixels,
-                max_output_tokens,
-            )
+            return await _judge_once_async(async_client, model_config, record, temperature, max_image_pixels, max_output_tokens)
         except Exception as exc:
             last_error = str(exc)[:200]
             should_retry = attempt < max_retries and _is_retryable_error(exc)
             if should_retry:
-                delay_seconds = _compute_retry_delay_seconds(
-                    retry_delay_seconds,
-                    attempt,
-                    max_retry_delay_seconds,
-                )
+                delay_seconds = _compute_retry_delay_seconds(retry_delay_seconds, attempt, max_retry_delay_seconds)
                 logger.warning(
-                    "Retry | id=%d | attempt=%d/%d | wait=%.1fs | reason=%s",
+                    "Retry | id=%d | model=%s | attempt=%d/%d | wait=%.1fs | reason=%s",
                     record.id,
+                    model_config.get("tag", model_config.get("model_name", "unknown")),
                     attempt,
                     max_retries,
                     delay_seconds,

@@ -11,7 +11,6 @@ def get_logger(name: str, level: int = logging.INFO, log_file: Optional[str] = N
         return logger
 
     logger.setLevel(level)
-
     fmt = logging.Formatter(
         fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%SZ",

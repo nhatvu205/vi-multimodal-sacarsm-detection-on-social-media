@@ -1,4 +1,4 @@
-from src.pipeline_round1 import resolve_model_config, select_records_for_run
+from src.pipeline_round2 import resolve_model_config, select_records_for_run
 from src.schemas import InputRecord
 
 

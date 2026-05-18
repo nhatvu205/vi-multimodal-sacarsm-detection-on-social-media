@@ -1,18 +1,23 @@
-# Round-2 Annotation Pipeline - InternVL3.5-8B
 random_audit_rate: 0.08
 seed: 42
-prompt_dir: "prompts" 
-# Model settings
-llm_model: "OpenGVLab/InternVL3_5-8B"
-llm_provider: "local"
+default_model: gemma
+models:
+  gemma:
+    provider: gemini_api
+    model_name: gemma-4-31b-it
+  nemotron:
+    provider: openrouter
+    model_name: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+    reasoning:
+      enabled: true
+      exclude: true
+    max_output_tokens: 4096
 llm_temperature: 0.1
-ocr_path: "data/bronze/ocr_images.json"
-device: "cuda"
-load_in_4bit: true
-max_image_pixels: 500000
-max_new_tokens: 512
-batch_size: 4                 
-
-# Round 2 specific
-round_name: "round2"
-output_prefix: "round2_internvl"
+ocr_path: data/bronze/ocr_images.json
+max_image_pixels: 300000
+max_output_tokens: 256
+max_retries: 3
+retry_delay_seconds: 5
+max_retry_delay_seconds: 20
+concurrency: 4
+checkpoint_every: 10
