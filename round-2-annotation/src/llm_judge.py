@@ -42,6 +42,23 @@ _RETRYABLE_ERROR_MARKERS = (
 _OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
+class QuotaExceededError(RuntimeError):
+    pass
+
+
+_QUOTA_EXCEEDED_ERROR_MARKERS = (
+    "quota exceeded",
+    "exceeded your current quota",
+    "insufficient credits",
+    "payment required",
+    "credit balance",
+    "limit_remaining",
+    "free-models-per-day",
+    "resource_exhausted",
+    "quota",
+)
+
+
 def _load_env_file() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     round2_root = Path(__file__).resolve().parents[1]
@@ -272,6 +289,11 @@ def _is_retryable_error(exc: Exception) -> bool:
     return any(marker in msg for marker in _RETRYABLE_ERROR_MARKERS)
 
 
+def _is_quota_exceeded_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return any(marker in msg for marker in _QUOTA_EXCEEDED_ERROR_MARKERS)
+
+
 def _compute_retry_delay_seconds(base_delay_seconds: float, attempt: int, max_delay_seconds: float) -> float:
     exponential = base_delay_seconds * (2 ** max(0, attempt - 1))
     capped = min(exponential, max_delay_seconds)
@@ -432,6 +454,8 @@ async def judge_single_async(
         try:
             return await _judge_once_async(async_client, model_config, record, temperature, max_image_pixels, max_output_tokens)
         except Exception as exc:
+            if _is_quota_exceeded_error(exc):
+                raise QuotaExceededError(str(exc)[:300]) from exc
             last_error = str(exc)[:200]
             should_retry = attempt < max_retries and _is_retryable_error(exc)
             if should_retry:

@@ -5,13 +5,14 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
 
 from .fusion_router import RouterConfig, apply_audit_sampling, route_all
-from .llm_judge import close_async_api_client, judge_single_async, load_async_api_client
+from .llm_judge import QuotaExceededError, close_async_api_client, judge_single_async, load_async_api_client
 from .loaders import load_input_records
 from .schemas import InputRecord, LLMJudgeRecord, Round1OutputRecord
 from .utils_logging import get_logger
@@ -56,6 +57,7 @@ def resolve_model_config(cfg: dict, model_tag: Optional[str] = None) -> Dict[str
         "model_name": str(model_name),
         "reasoning": dict(model_cfg.get("reasoning") or {}),
         "max_output_tokens": int(model_cfg.get("max_output_tokens")) if model_cfg.get("max_output_tokens") is not None else None,
+        "concurrency": int(model_cfg.get("concurrency")) if model_cfg.get("concurrency") is not None else None,
     }
 
 
@@ -66,6 +68,10 @@ def _results_path(output_dir: Path) -> Path:
 def _results_json_path(output_dir: Path) -> Path:
     return output_dir / RESULTS_JSON_FILENAME
 
+
+
+def _format_elapsed(start_time: float) -> str:
+    return f"{time.monotonic() - start_time:.1f}s"
 
 def _llm_from_result_record(rec: Round1OutputRecord) -> LLMJudgeRecord:
     return LLMJudgeRecord(
@@ -162,6 +168,14 @@ def _save_checkpoint_results(
     write_results(output_dir, routed)
 
 
+async def _cancel_pending_tasks(tasks: List[asyncio.Task]) -> None:
+    pending = [task for task in tasks if not task.done()]
+    for task in pending:
+        task.cancel()
+    if pending:
+        await asyncio.gather(*pending, return_exceptions=True)
+
+
 async def run_llm_with_checkpoint(
     records: List[InputRecord],
     model_config: Dict[str, Any],
@@ -178,6 +192,7 @@ async def run_llm_with_checkpoint(
     checkpoint_every: int = 10,
     *,
     load_checkpoint_file: bool = True,
+    started_at: Optional[float] = None,
 ) -> List[LLMJudgeRecord]:
     cached = load_checkpoint(output_dir) if load_checkpoint_file else {}
     results_by_id: Dict[int, LLMJudgeRecord] = {record.id: cached[record.id] for record in records if record.id in cached}
@@ -186,6 +201,7 @@ async def run_llm_with_checkpoint(
     if not remaining:
         return [results_by_id[record.id] for record in records if record.id in results_by_id]
 
+    started_at = started_at or time.monotonic()
     async_client = load_async_api_client(model_config["provider"], api_key)
     semaphore = asyncio.Semaphore(max(1, concurrency))
     checkpoint_every = max(1, checkpoint_every)
@@ -210,21 +226,30 @@ async def run_llm_with_checkpoint(
 
     try:
         for finished in asyncio.as_completed(tasks):
-            result = await finished
+            try:
+                result = await finished
+            except QuotaExceededError as exc:
+                await _cancel_pending_tasks(tasks)
+                if results_by_id:
+                    _save_checkpoint_results(output_dir, records, results_by_id, router_cfg)
+                    logger.info("Checkpoint | saved=%d | elapsed=%s | files=%s,%s", completed_total, _format_elapsed(started_at), _results_path(output_dir).name, _results_json_path(output_dir).name)
+                logger.error("Stop | reason=quota_exceeded | saved=%d | elapsed=%s | error=%s", completed_total, _format_elapsed(started_at), str(exc)[:200])
+                raise
+
             results_by_id[result.id] = result
             completed_total += 1
             completed_since_save += 1
 
-            logger.info("Progress | %d/%d | id=%d | label=%s", completed_total, len(records), result.id, result.label_llm1)
+            logger.info("Progress | %d/%d | id=%d | label=%s | elapsed=%s", completed_total, len(records), result.id, result.label_llm1, _format_elapsed(started_at))
 
             if completed_since_save >= checkpoint_every:
                 _save_checkpoint_results(output_dir, records, results_by_id, router_cfg)
                 completed_since_save = 0
-                logger.info("Checkpoint | saved=%d | files=%s,%s", completed_total, _results_path(output_dir).name, _results_json_path(output_dir).name)
+                logger.info("Checkpoint | saved=%d | elapsed=%s | files=%s,%s", completed_total, _format_elapsed(started_at), _results_path(output_dir).name, _results_json_path(output_dir).name)
 
         if completed_since_save > 0:
             _save_checkpoint_results(output_dir, records, results_by_id, router_cfg)
-            logger.info("Checkpoint | saved=%d | files=%s,%s", completed_total, _results_path(output_dir).name, _results_json_path(output_dir).name)
+            logger.info("Checkpoint | saved=%d | elapsed=%s | files=%s,%s", completed_total, _format_elapsed(started_at), _results_path(output_dir).name, _results_json_path(output_dir).name)
     finally:
         await close_async_api_client()
 
@@ -253,10 +278,11 @@ async def run_pipeline_async(
     max_retries = int(cfg.get("max_retries", 3))
     retry_delay_seconds = int(cfg.get("retry_delay_seconds", 5))
     max_retry_delay_seconds = int(cfg.get("max_retry_delay_seconds", 20))
-    concurrency = int(cfg.get("concurrency", DEFAULT_CONCURRENCY))
+    concurrency = int(resolved_model.get("concurrency") or cfg.get("concurrency", DEFAULT_CONCURRENCY))
     checkpoint_every = int(cfg.get("checkpoint_every", 10))
     seed = int(cfg.get("seed", 42))
 
+    pipeline_started_at = time.monotonic()
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     if no_checkpoint_load:
@@ -283,22 +309,27 @@ async def run_pipeline_async(
     )
     logger.info("ModelConfig | tag=%s | name=%s", resolved_model["tag"], resolved_model["model_name"])
 
-    llm_results = await run_llm_with_checkpoint(
-        input_records,
-        resolved_model,
-        temperature,
-        out_dir,
-        router_cfg,
-        api_key,
-        max_image_pixels,
-        max_output_tokens,
-        max_retries,
-        retry_delay_seconds,
-        max_retry_delay_seconds,
-        concurrency,
-        checkpoint_every,
-        load_checkpoint_file=not no_checkpoint_load,
-    )
+    try:
+        llm_results = await run_llm_with_checkpoint(
+            input_records,
+            resolved_model,
+            temperature,
+            out_dir,
+            router_cfg,
+            api_key,
+            max_image_pixels,
+            max_output_tokens,
+            max_retries,
+            retry_delay_seconds,
+            max_retry_delay_seconds,
+            concurrency,
+            checkpoint_every,
+            load_checkpoint_file=not no_checkpoint_load,
+            started_at=pipeline_started_at,
+        )
+    except QuotaExceededError:
+        logger.error("Stopped pipeline due to quota exceeded | elapsed=%s | checkpoint_files=%s,%s", _format_elapsed(pipeline_started_at), _results_path(out_dir).name, _results_json_path(out_dir).name)
+        return
 
     routed = route_all(input_records, llm_results, router_cfg)
     routed, audit_count = apply_audit_sampling(routed, router_cfg.random_audit_rate, router_cfg.seed)
@@ -306,12 +337,13 @@ async def run_pipeline_async(
 
     stats = build_stats(routed, len(input_records))
     logger.info(
-        "Done | processed=%d | auto=%d | review=%d | invalid=%d | audit=%d",
+        "Done | processed=%d | auto=%d | review=%d | invalid=%d | audit=%d | elapsed=%s",
         stats["processed_samples"],
         stats["auto_accepted_count"],
         stats["need_review_count"],
         stats["label_distribution"].get("invalid", 0),
         audit_count,
+        _format_elapsed(pipeline_started_at),
     )
 
 

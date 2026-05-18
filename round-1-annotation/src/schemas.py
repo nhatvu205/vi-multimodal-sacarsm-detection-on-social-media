@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class InputRecord(BaseModel):
@@ -44,16 +44,17 @@ class LLMJudgeRecord(BaseModel):
 
 
 class Round1OutputRecord(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
     id: int
     text: str
     image_path: str
     label_llm1: Union[int, Literal["INVALID"]]
     has_emoji: Optional[int]
-    needs_human_check: Optional[int]
+    needs_human_check: Optional[int] = Field(default=None, exclude=True)
     notes: str
     reasoning: Dict[str, Any]
     round1_label: Literal["sarcastic", "non_sarcastic", "invalid"]
-    need_review: bool
+    need_review: bool = Field(exclude=True)
     route_reason: Literal[
         "high_conf",
         "low_conf",
@@ -61,7 +62,7 @@ class Round1OutputRecord(BaseModel):
         "invalid_json",
         "missing_image",
         "audit_sampled",
-    ]
+    ] = Field(exclude=True)
     parse_error: bool = False
     image_missing: bool = False
     timestamp_utc: str

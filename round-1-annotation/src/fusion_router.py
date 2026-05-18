@@ -44,12 +44,12 @@ def route_single(
     elif label in ("INVALID", -1):
         need_review = True
         route_reason = "uncertain"
-    elif needs_human_check == 0:
-        need_review = False
-        route_reason = "high_conf"
-    else:
+    elif needs_human_check == 1:
         need_review = True
         route_reason = "low_conf"
+    else:
+        need_review = False
+        route_reason = "high_conf"
 
     return Round1OutputRecord(
         id=llm_rec.id,

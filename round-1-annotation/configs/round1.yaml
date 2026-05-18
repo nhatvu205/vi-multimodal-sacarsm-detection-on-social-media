@@ -5,6 +5,7 @@ models:
   gemma:
     provider: gemini_api
     model_name: gemma-4-31b-it
+    concurrency: 4
   nemotron:
     provider: openrouter
     model_name: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
@@ -12,6 +13,7 @@ models:
       enabled: true
       exclude: true
     max_output_tokens: 4096
+    concurrency: 2
 llm_temperature: 0.1
 max_image_pixels: 300000
 max_output_tokens: 256
