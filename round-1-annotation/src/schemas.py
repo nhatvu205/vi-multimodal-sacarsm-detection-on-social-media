@@ -48,6 +48,7 @@ class Round1OutputRecord(BaseModel):
     id: int
     text: str
     image_path: str
+    ocr_text: Optional[str] = None
     label_llm1: Union[int, Literal["INVALID"]]
     has_emoji: Optional[int]
     needs_human_check: Optional[int] = Field(default=None, exclude=True)

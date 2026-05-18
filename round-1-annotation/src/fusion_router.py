@@ -22,6 +22,7 @@ def route_single(
     cfg: RouterConfig,
     text: str,
     image_path: str,
+    ocr_text: Optional[str] = None,
     route_reason_override: Optional[str] = None,
 ) -> Round1OutputRecord:
     label = llm_rec.label_llm1
@@ -55,6 +56,7 @@ def route_single(
         id=llm_rec.id,
         text=text,
         image_path=image_path,
+        ocr_text=ocr_text,
         label_llm1=label,
         has_emoji=llm_rec.has_emoji,
         needs_human_check=needs_human_check,
@@ -116,6 +118,6 @@ def route_all(
         elif llm_rec.parse_error:
             override = "invalid_json"
 
-        routed.append(route_single(llm_rec, cfg, inp.text, inp.image_path, override))
+        routed.append(route_single(llm_rec, cfg, inp.text, inp.image_path, inp.ocr_text, override))
 
     return routed
