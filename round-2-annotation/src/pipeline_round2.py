@@ -17,14 +17,10 @@ from .utils_logging import get_logger
 
 logger = get_logger(__name__)
 
-DEFAULT_INPUT_DATA = "data/raw-data/raw_data.json"
-DEFAULT_OCR_PATH = "data/raw-data/ocr_images.json"
-RESULTS_FILENAME = "round2_results.jsonl"
-RESULTS_JSON_FILENAME = "round2_results.json"
-DEFAULT_CONCURRENCY = 4
-SUPPORTED_MODELS = ("gemma", "nemotron")
 
-
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
 def load_config(path: str) -> dict:
     with open(path, encoding="utf-8") as f:
         return yaml.safe_load(f)
@@ -284,6 +280,7 @@ async def run_pipeline_async(
     test_size: int = 5,
     model_tag: Optional[str] = None,
 ) -> None:
+    
     cfg = load_config(config_path)
     router_cfg = build_router_config(cfg)
     resolved_model = resolve_model_config(cfg, model_tag)
@@ -305,9 +302,12 @@ async def run_pipeline_async(
         _results_path(out_dir).unlink(missing_ok=True)
         _results_json_path(out_dir).unlink(missing_ok=True)
 
-    resolved_ocr_path = ocr_path or cfg_ocr_path or DEFAULT_OCR_PATH
-    input_records = load_input_records(input_data, ocr_path=resolved_ocr_path)
-    if max_records is not None:
+    logger.info("=== Round-2 Fine-grained Pipeline Start ===")
+    logger.info(f"Model: {model_name} | 4bit: {load_in_4bit} | batch_size: {batch_size}")
+
+    input_records = load_input_records(input_data)
+    
+    if max_records:
         input_records = input_records[:max_records]
     if min_record_id is not None:
         input_records = [record for record in input_records if record.id >= min_record_id]
