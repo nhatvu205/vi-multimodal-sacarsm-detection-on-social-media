@@ -514,9 +514,12 @@ async def _judge_once_async(
     temperature: float,
     max_image_pixels: int,
     max_output_tokens: int,
+    images_pil: Optional[List[Image.Image]] = None,
+    image_missing: Optional[bool] = None,
 ) -> LLMJudgeRecord:
     provider = model_config["provider"]
-    images_pil, image_missing = _load_images(record, max_image_pixels)
+    if images_pil is None or image_missing is None:
+        images_pil, image_missing = _load_images(record, max_image_pixels)
 
     if provider == "openrouter":
         messages = _build_openrouter_messages(record.text, images_pil, record.ocr_text)
@@ -557,12 +560,21 @@ async def judge_single_async(
     max_retry_delay_seconds: int = 20,
 ) -> LLMJudgeRecord:
     last_error = "Unknown error"
-    image_missing = _load_images(record, max_image_pixels)[1]
+    images_pil, image_missing = _load_images(record, max_image_pixels)
     attempt = 1
 
     while attempt <= max_retries:
         try:
-            return await _judge_once_async(async_client, model_config, record, temperature, max_image_pixels, max_output_tokens)
+            return await _judge_once_async(
+                async_client,
+                model_config,
+                record,
+                temperature,
+                max_image_pixels,
+                max_output_tokens,
+                images_pil=images_pil,
+                image_missing=image_missing,
+            )
         except Exception as exc:
             provider = model_config.get("provider")
             if provider in ("openrouter", "gemini_api") and _is_quota_exceeded_error(exc):

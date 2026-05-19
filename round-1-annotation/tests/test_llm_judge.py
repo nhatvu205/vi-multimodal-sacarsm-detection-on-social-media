@@ -109,7 +109,7 @@ def test_load_async_api_client_supports_multiple_gemini_keys(monkeypatch):
 def test_judge_single_async_rotates_gemini_key_on_quota(monkeypatch):
     monkeypatch.setattr("src.llm_judge._load_images", lambda record, max_pixels: ([], False))
 
-    async def fake_judge_once(async_client, model_config, record, temperature, max_image_pixels, max_output_tokens):
+    async def fake_judge_once(async_client, model_config, record, temperature, max_image_pixels, max_output_tokens, images_pil=None, image_missing=None):
         if async_client["active_key_index"] == 0:
             raise RuntimeError("RESOURCE_EXHAUSTED: quota exceeded")
         return LLMJudgeRecord(id=record.id, label_llm1=1)
@@ -132,3 +132,29 @@ def test_judge_single_async_rotates_gemini_key_on_quota(monkeypatch):
     )
 
     assert result.label_llm1 == 1
+
+
+def test_judge_single_async_loads_images_once(monkeypatch):
+    calls = {"load_images": 0}
+
+    def fake_load_images(record, max_pixels):
+        calls["load_images"] += 1
+        return [], False
+
+    async def fake_judge_once(async_client, model_config, record, temperature, max_image_pixels, max_output_tokens, images_pil=None, image_missing=None):
+        return LLMJudgeRecord(id=record.id, label_llm1=0)
+
+    monkeypatch.setattr("src.llm_judge._load_images", fake_load_images)
+    monkeypatch.setattr("src.llm_judge._judge_once_async", fake_judge_once)
+
+    result = asyncio.run(
+        judge_single_async(
+            async_client={"lock": asyncio.Lock()},
+            model_config={"provider": "gemini_api", "tag": "gemma"},
+            record=InputRecord(id=1, text="caption", image_path="img.jpg"),
+            temperature=0.1,
+        )
+    )
+
+    assert result.label_llm1 == 0
+    assert calls["load_images"] == 1

@@ -116,6 +116,16 @@ def load_checkpoint(output_dir: Path) -> Dict[int, LLMJudgeRecord]:
     return cached
 
 
+def select_failed_records_for_rerun(
+    records: List[InputRecord],
+    cached: Dict[int, LLMJudgeRecord],
+) -> List[InputRecord]:
+    return [
+        record for record in records
+        if (cached_rec := cached.get(record.id)) is not None and cached_rec.label_llm1 == -1
+    ]
+
+
 def write_results(output_dir: Path, records: List[Round1OutputRecord]) -> None:
     jsonl_path = _results_path(output_dir)
     with jsonl_path.open("w", encoding="utf-8") as f:
@@ -201,6 +211,8 @@ async def run_llm_with_checkpoint(
     checkpoint_every: int = 10,
     *,
     load_checkpoint_file: bool = True,
+    checkpoint_records: Optional[List[InputRecord]] = None,
+    checkpoint_base_results_by_id: Optional[Dict[int, LLMJudgeRecord]] = None,
     started_at: Optional[float] = None,
 ) -> List[LLMJudgeRecord]:
     cached = load_checkpoint(output_dir) if load_checkpoint_file else {}
@@ -252,12 +264,26 @@ async def run_llm_with_checkpoint(
             logger.info("Progress | %d/%d | id=%d | label=%s | elapsed=%s", completed_total, len(records), result.id, result.label_llm1, _format_elapsed(started_at))
 
             if completed_since_save >= checkpoint_every:
-                _save_checkpoint_results(output_dir, records, results_by_id, router_cfg)
+                checkpoint_results = dict(checkpoint_base_results_by_id or {})
+                checkpoint_results.update(results_by_id)
+                _save_checkpoint_results(
+                    output_dir,
+                    checkpoint_records or records,
+                    checkpoint_results,
+                    router_cfg,
+                )
                 completed_since_save = 0
                 logger.info("Checkpoint | saved=%d | elapsed=%s | files=%s,%s", completed_total, _format_elapsed(started_at), _results_path(output_dir).name, _results_json_path(output_dir).name)
 
         if completed_since_save > 0:
-            _save_checkpoint_results(output_dir, records, results_by_id, router_cfg)
+            checkpoint_results = dict(checkpoint_base_results_by_id or {})
+            checkpoint_results.update(results_by_id)
+            _save_checkpoint_results(
+                output_dir,
+                checkpoint_records or records,
+                checkpoint_results,
+                router_cfg,
+            )
             logger.info("Checkpoint | saved=%d | elapsed=%s | files=%s,%s", completed_total, _format_elapsed(started_at), _results_path(output_dir).name, _results_json_path(output_dir).name)
     finally:
         await close_async_api_client()
@@ -274,6 +300,7 @@ async def run_pipeline_async(
     *,
     min_record_id: Optional[int] = None,
     no_checkpoint_load: bool = False,
+    rerun_minus_one: bool = False,
     test_mode: bool = False,
     test_size: int = 5,
     model_tag: Optional[str] = None,
@@ -294,6 +321,8 @@ async def run_pipeline_async(
     pipeline_started_at = time.monotonic()
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    if rerun_minus_one and no_checkpoint_load:
+        raise ValueError("--rerun-minus-one cannot be used with --no-checkpoint-load.")
     if no_checkpoint_load:
         _results_path(out_dir).unlink(missing_ok=True)
         _results_json_path(out_dir).unlink(missing_ok=True)
@@ -305,9 +334,23 @@ async def run_pipeline_async(
         input_records = [record for record in input_records if record.id >= min_record_id]
     input_records = select_records_for_run(input_records, test_mode=test_mode, test_size=test_size, seed=seed)
 
+    cached_results = load_checkpoint(out_dir) if rerun_minus_one else {}
+    records_for_run = input_records
+    if rerun_minus_one:
+        records_for_run = select_failed_records_for_rerun(input_records, cached_results)
+        logger.info(
+            "RerunMinusOne | candidates=%d | selected=%d | output=%s",
+            len(input_records),
+            len(records_for_run),
+            _results_json_path(out_dir).name,
+        )
+        if not records_for_run:
+            logger.info("Done | processed=0 | auto=0 | review=0 | invalid=0 | audit=0 | elapsed=%s", _format_elapsed(pipeline_started_at))
+            return
+
     logger.info(
         "Start | input=%d | test=%s | from_id=%s | model=%s | provider=%s | concurrency=%d | checkpoint_every=%d | output=%s",
-        len(input_records),
+        len(records_for_run),
         test_mode,
         min_record_id if min_record_id is not None else "start",
         resolved_model["tag"],
@@ -326,7 +369,7 @@ async def run_pipeline_async(
 
     try:
         llm_results = await run_llm_with_checkpoint(
-            input_records,
+            records_for_run,
             resolved_model,
             temperature,
             out_dir,
@@ -339,18 +382,27 @@ async def run_pipeline_async(
             max_retry_delay_seconds,
             concurrency,
             checkpoint_every,
-            load_checkpoint_file=not no_checkpoint_load,
+            load_checkpoint_file=not no_checkpoint_load and not rerun_minus_one,
+            checkpoint_records=input_records if rerun_minus_one else None,
+            checkpoint_base_results_by_id=cached_results if rerun_minus_one else None,
             started_at=pipeline_started_at,
         )
     except QuotaExceededError:
         logger.error("Stopped pipeline due to quota exceeded | elapsed=%s | checkpoint_files=%s,%s", _format_elapsed(pipeline_started_at), _results_path(out_dir).name, _results_json_path(out_dir).name)
         return
 
-    routed = route_all(input_records, llm_results, router_cfg)
+    if rerun_minus_one:
+        merged_results = dict(cached_results)
+        merged_results.update({result.id: result for result in llm_results})
+        completed_inputs = [record for record in input_records if record.id in merged_results]
+        completed_results = [merged_results[record.id] for record in completed_inputs]
+        routed = route_all(completed_inputs, completed_results, router_cfg)
+    else:
+        routed = route_all(input_records, llm_results, router_cfg)
     routed, audit_count = apply_audit_sampling(routed, router_cfg.random_audit_rate, router_cfg.seed)
     write_results(out_dir, routed)
 
-    stats = build_stats(routed, len(input_records))
+    stats = build_stats(routed, len(input_records) if rerun_minus_one else len(records_for_run))
     logger.info(
         "Done | processed=%d | auto=%d | review=%d | invalid=%d | audit=%d | elapsed=%s",
         stats["processed_samples"],
@@ -374,6 +426,7 @@ def main() -> None:
     parser.add_argument("--test_size", type=int, default=5, help="Leading records to take in test mode")
     parser.add_argument("--min-record-id", type=int, default=None, help="Keep only rows with id>=N")
     parser.add_argument("--from", dest="min_record_id", type=int, help="Alias of --min-record-id; run records with id>=N")
+    parser.add_argument("--rerun-minus-one", action="store_true", help="Rerun only records with label_llm1 = -1 from the existing checkpoint and update the same output files")
     parser.add_argument("--no-checkpoint-load", action="store_true", help="Ignore previous round1_results.jsonl")
     args = parser.parse_args()
 
@@ -386,6 +439,7 @@ def main() -> None:
             max_records=args.max_records,
             min_record_id=args.min_record_id,
             no_checkpoint_load=args.no_checkpoint_load,
+            rerun_minus_one=args.rerun_minus_one,
             test_mode=args.test_mode,
             test_size=args.test_size,
             model_tag=args.model,
