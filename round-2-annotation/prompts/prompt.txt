@@ -1,7 +1,14 @@
-'''You are an expert Vietnamese multimodal sarcasm detection annotator.
-Your task is to analyze a Vietnamese social media post (text + image) and determine whether it is sarcastic.
+You are an annotator for Vietnamese multimodal sarcasm detection.
 
-⚠️ QUAN TRỌNG: "INVALID" chỉ dùng khi dữ liệu HOÀN TOÀN không thể đọc được (ảnh lỗi hoàn toàn VÀ text rỗng). Nếu có BẤT KỲ nội dung nào để phân tích, hãy gán 0 hoặc 1. Không được dùng INVALID vì không chắc chắn.
+Your goal is to label the post carefully and conservatively.
+Do not assume sarcasm unless there is clear evidence.
+Do not let one modality dominate unless the evidence is explicit.
+Return exactly one valid JSON object and nothing else.
+Write reasoning values in Vietnamese.
+
+Important validity rule:
+- Use "INVALID" only when the input is effectively unusable: text is empty or meaningless AND the image is low-quality/missing
+- If any usable evidence exists, choose 0 or 1.
 
 Input:
 [TEXT]
@@ -13,113 +20,79 @@ Input:
 [OCR_TEXT]
 {ocr_text}
 
-===================================================================
-PHÂN TÍCH BẮT BUỘC — LÀM ĐẦY ĐỦ 4 BƯỚC THEO THỨ TỰ
-===================================================================
+Use OCR only as supporting evidence because OCR may contain recognition errors.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-BƯỚC 1: PHÂN TÍCH TEXT-ONLY (T)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Hãy tưởng tượng bạn KHÔNG nhìn thấy ảnh. Chỉ đọc phần [TEXT] và [OCR_TEXT].
+Task
+Evaluate the post in 4 steps:
 
-Câu hỏi cần trả lời: "Nếu chỉ đọc chữ này, người bình thường có nhận ra đây là lời mỉa mai không?"
+Step 1 — Text-only (T)
+Ignore the image. Read only TEXT.
+Question: Would an ordinary Vietnamese reader detect sarcasm from the words alone?
 
-GÁN T=1 nếu text có ÍT NHẤT MỘT trong các dấu hiệu sau:
-  ① Mâu thuẫn nội hàm: Trong cùng câu có từ ngữ đối lập hoặc logic không khớp
-     Ví dụ: "Đi muộn được sếp khen, vui quá là vui" → khen + tình huống xấu = mâu thuẫn
-  ② Cường điệu hóa (Hyperbole) về điều bình thường/tiêu cực:
-     Ví dụ: "Đỉnh nóc kịch trần", "Tuyệt tác nhân loại", "Hết nước chấm", "Siêu phẩm"
-  ③ Khen ngợi giả tạo cho tình huống hiển nhiên là tệ:
-     Ví dụ: "Ngập đường thật là thuận tiện đi lại", "Tắc đường 3 tiếng, trải nghiệm tuyệt vời"
-  ④ Emoji đảo ngược: Câu tích cực + emoji tiêu cực/mỉa mai, hoặc ngược lại
-     Ví dụ: "Giỏi thật sự 🤡", "Thành công rồi 💀", "Hạnh phúc ghê 😭"
-  ⑤ Nói ngược rõ ràng (Verbal irony): Dùng từ tốt để chỉ điều xấu một cách hiển nhiên
-     Ví dụ: "Thật là một ngày tuyệt vời" sau khi liệt kê toàn tai họa
+Set T=1 only if there is clear textual sarcasm such as:
+- verbal irony / saying the opposite of the intended meaning
+- fake praise for an obviously bad situation
+- strong hyperbole used critically
+- positive statement + obviously mocking emoji, or the reverse
+- self-mocking contrast
 
-GÁN T=0 nếu:
-  - Câu trung tính, câu hỏi thông thường, lời chào hỏi
-  - Cảm xúc thật (buồn thật, vui thật, tức thật) không có dấu hiệu đảo ngược
-  - Câu mô tả đơn giản không có tín hiệu mỉa mai
-  - Những từ như "Hay quá", "Alo", "Cạn lời", "Ừ" → T=0 vì quá mơ hồ
+Vietnamese examples:
+- "Đi muộn được sếp khen, vui quá là vui"
+- "Tắc đường 3 tiếng, trải nghiệm tuyệt vời"
+- "Giỏi thật sự 🤡"
 
-→ Ghi rõ: T = [0 hoặc 1] và lý do cụ thể dẫn đến quyết định đó.
+Set T=0 if the text is literal, merely emotional, vague, or too ambiguous.
+Examples: "Alo", "Hay quá", "Cạn lời" by itself is not enough.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-BƯỚC 2: PHÂN TÍCH IMAGE-ONLY (I)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Hãy tưởng tượng bạn KHÔNG đọc chữ. Chỉ quan sát hình ảnh.
+Step 2 — Image-only (I)
+Ignore the text. Look only at the image.
+Question: Would the image itself look sarcastic, mocking, ironic, or obviously humorous without any caption?
 
-Câu hỏi cần trả lời: "Bức ảnh này tự nó có hài hước, châm biếm, hoặc trớ trêu không — dù không có chữ đi kèm?"
+Set I=1 only if the image alone provides clear evidence, for example:
+- a known meme/reaction template
+- a visual contradiction inside the image itself
+- ironic text inside the image itself
+- an obviously failed situation presented as success
 
-GÁN I=1 nếu ảnh thuộc MỘT trong các loại:
-  ① Meme template: Ảnh nhân vật/biểu cảm nổi tiếng được dùng để chế giễu
-  ② Đối lập trực quan (Visual juxtaposition): Hai yếu tố trong ảnh mâu thuẫn nhau
-     Ví dụ: Biển "Cấm đổ rác" đặt trên đống rác; Xe cứu hỏa đang cháy
-  ③ Chữ trong ảnh (Text-in-image) mang tính mỉa mai (dựa vào OCR_TEXT)
-  ④ Tình huống thất bại được trình bày như thành công
-  ⑤ Biểu cảm/cử chỉ cực kỳ phóng đại hoặc không phù hợp hoàn cảnh
+Set I=0 for ordinary selfies, portraits, scenery, food, objects, luxury aesthetics, or serious photos without explicit irony.
+Do not infer sarcasm from style alone.
 
-GÁN I=0 nếu:
-  - Ảnh selfie, chân dung, phong cảnh, đồ ăn, đồ vật bình thường
-  - Không đọc được ảnh / ảnh lỗi → I=0 (KHÔNG phải INVALID)
-  - ⚠️ Không suy diễn cảm xúc người trong ảnh nếu không có dấu hiệu lố bịch RÕ RÀNG
+Step 3 — Multimodal relation (MM)
+Now combine text and image.
+Question: Does their combination create a clear sarcastic contrast for a normal Vietnamese reader?
 
-→ Ghi rõ: I = [0 hoặc 1] và mô tả ngắn những gì bạn thấy trong ảnh.
+Set MM=1 only when the contrast is clear, such as:
+- praising text + clearly bad image
+- complaining/humble text + clearly boastful image
+- neutral text + clearly mocking meme image
+- both modalities jointly imply irony against common knowledge
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-BƯỚC 3: PHÂN TÍCH MULTIMODAL (MM)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Kết hợp Bước 1 và Bước 2. Đây là bước QUAN TRỌNG NHẤT.
+Set MM=0 if:
+- they support the same literal meaning
+- they are both sincerely positive or sincerely negative
+- the contrast is weak, speculative, or requires too much imagination
 
-Câu hỏi: "Khi nhìn ảnh VÀ đọc chữ cùng lúc, chúng có tạo ra sự tương phản hoặc mỉa mai không?"
+Important anti-bias rule:
+- T=1 does NOT automatically imply MM=1
+- I=1 does NOT automatically imply MM=1
+- decide MM only from the combined relation
 
-GÁN MM=1 nếu có BẤT KỲ pattern nào sau đây:
-  PATTERN A — Text khen/tích cực + Ảnh tiêu cực/thất bại:
-              "Cơm ngon nhất" → ảnh đĩa cơm cháy đen
-  PATTERN B — Text than thở/khiêm tốn + Ảnh sang chảnh/khoe khoang (Humblebrag):
-              "Khổ thân mình" → ảnh đang ngồi cà phê view đẹp
-  PATTERN C — Text bình thường/trung tính + Ảnh meme hoặc châm biếm:
-              "Ừ bạn đúng" → ảnh meme nhân vật rolling eyes
-  PATTERN D — Mỉa mai ngầm định: cả hai trông bình thường nhưng đi ngược sự thật hiển nhiên:
-              "Không khí Hà Nội trong lành" → ảnh bầu trời xám bụi mịn
-  PATTERN E — Cả Text lẫn Ảnh đều mỉa mai cùng một chủ thể
+Step 4 — Key image (KI)
+Only decide whether the image is necessary for the sarcastic reading.
+- KI="YES" if removing the image would remove the sarcastic interpretation
+- KI="NO" if the text alone is already sarcastic enough
+- KI="NULL" if MM=0
 
-GÁN MM=0 nếu:
-  - Text và ảnh cùng hướng tích cực thật sự
-  - Text và ảnh cùng tiêu cực nghiêm túc (buồn thật + ảnh khóc thật)
-  - ⚠️ Nếu không chắc: hỏi "Người Việt bình thường đọc post này có hiểu là đang nói mỉa không?" → Có thì MM=1
+Final label
+- llm_label = 1 if MM=1
+- llm_label = 0 if MM=0
+- llm_label = "INVALID" only under the strict validity rule above
 
-→ Ghi rõ: MM = [0 hoặc 1], nêu pattern nào khớp (A/B/C/D/E) hoặc lý do MM=0.
+Other fields
+- has_emoji = 1 if TEXT contains emoji, else 0
+- needs_human_check = 1 only if the case is genuinely borderline or input quality is partially degraded
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-BƯỚC 4: KEY IMAGE (KI) — Chỉ thực hiện khi MM=1
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Câu hỏi: "Nếu xóa ảnh đi, bài post này còn mỉa mai không?"
-
-GÁN KI="YES": Bỏ ảnh thì chữ trở thành lời nói thẳng, không còn mỉa mai (T=0 mà MM=1)
-GÁN KI="NO" : Text đã đủ mỉa mai dù không có ảnh (T=1)
-GÁN KI="NULL": MM=0
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-BẢNG ĐỐI CHIẾU NHÃN TỔNG HỢP
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-T=0, I=0, MM=1 → Implicit Sarcasm      → llm_label=1
-T=1, I=0, MM=1 → Text-driven Sarcasm   → llm_label=1
-T=0, I=1, MM=1 → Image-driven Sarcasm  → llm_label=1
-T=1, I=1, MM=1 → Multi-driven Sarcasm  → llm_label=1
-T=*, I=*, MM=0 → Non-sarcastic         → llm_label=0
-llm_label="INVALID" CHỈ KHI: text rỗng/null VÀ ảnh không load được VÀ OCR trống.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-HƯỚNG DẪN CÁC TRƯỜNG CÒN LẠI
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-has_emoji       : 1 nếu [TEXT] chứa ít nhất một emoji, 0 nếu không
-needs_human_check: 1 nếu ảnh lỗi nhưng text còn / borderline case / T=1 mà MM=0
-                   0 nếu phân tích rõ ràng
-
-===================================================================
-OUTPUT — TRẢ VỀ ĐÚNG MỘT JSON, KHÔNG CÓ GÌ KHÁC
-===================================================================
+Return exactly this JSON schema:
 {
   "llm_label": 0 or 1 or "INVALID",
   "T": 0 or 1,
@@ -127,12 +100,12 @@ OUTPUT — TRẢ VỀ ĐÚNG MỘT JSON, KHÔNG CÓ GÌ KHÁC
   "MM": 0 or 1,
   "KI": "YES" or "NO" or "NULL",
   "reasoning": {
-    "text_only": "Phân tích Bước 1: [nêu dấu hiệu cụ thể tìm thấy hoặc lý do T=0]",
-    "image_only": "Phân tích Bước 2: [mô tả ảnh và lý do I=0/1]",
-    "multimodal": "Phân tích Bước 3: [pattern nào khớp hoặc lý do MM=0]",
-    "key_image": "Phân tích Bước 4: [lý do KI=YES/NO/NULL]",
-    "verdict": "Kết luận: [loại mỉa mai] vì [lý do tổng hợp ngắn gọn]"
+    "text_only": "Short evidence for T",
+    "image_only": "Short evidence for I",
+    "multimodal": "Short evidence for MM",
+    "key_image": "Short evidence for KI",
+    "verdict": "Short final explanation"
   },
   "has_emoji": 0 or 1,
   "needs_human_check": 0 or 1
-}'''
+}

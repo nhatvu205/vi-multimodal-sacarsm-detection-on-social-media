@@ -8,15 +8,17 @@ Includes patches for AttributeError and safe JSON extraction.
 
 import json
 import os
+import random
 import re
+import urllib.error
+import urllib.request
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-import torch
-import torchvision.transforms as T
-from PIL import Image
-from torchvision.transforms.functional import InterpolationMode
-from transformers import AutoModel, AutoTokenizer, BitsAndBytesConfig, AutoConfig
+from dotenv import load_dotenv
+
+if TYPE_CHECKING:
+    from PIL import Image
 
 from .schemas import InputRecord, LLMJudgeRecord
 from .utils_logging import get_logger

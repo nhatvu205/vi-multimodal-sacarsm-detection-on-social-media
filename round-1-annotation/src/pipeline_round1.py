@@ -1,62 +1,30 @@
 from __future__ import annotations
 
-"""
-Round-1 weak annotation pipeline (LLM-as-a-judge via local model inference).
-
-Requires a CUDA GPU. Designed to run on Kaggle (free T4/P100 GPU).
-
-Optional env var for downloading the model from HuggingFace Hub:
-    export HF_TOKEN="hf_..."
-
-Usage:
-    python -m src.pipeline_round1 \
-        --input_data ../data/data-sample.json \
-        --config configs/round1.yaml \
-        --output_dir outputs/
-
-Outputs written during inference (crash-safe):
-    ``.checkpoint_llm.jsonl``
-        Raw LLM judge structs; entire file rewritten after every batch (resume).
-
-    ``round1_progress.jsonl``
-        One JSON object per finished row (same slim fields as ``round1_all.json``),
-        **appended after each batch**. If the session dies, download this file:
-        it contains all work completed up to the last batch. The final
-        ``round1_all.json`` at the end of a full run still adds audit sampling
-        and splits; slim fields are unchanged by audit.
-
-``--no-checkpoint-load``
-    Do not read ``.checkpoint_llm.jsonl`` at startup (e.g. Kaggle disk wiped).
-    Still writes both files after each batch. Truncates ``round1_progress.jsonl``
-    at run start so you do not mix with an old session.
-
-``--min-record-id N``
-    Keep only input rows whose ``id >= N``, then run the pipeline on that slice.
-    Use this to continue in a **new** session without re-running GPU on ids
-    below ``N`` (you already saved those rows in a previous export, or you
-    deliberately split the dataset). Does **not** read old ids from the JSON
-    file; it just filters whatever is in ``--input_data``.
-"""
+"""Round-1 weak annotation pipeline."""
 
 import argparse
+import asyncio
 import json
+import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
 
-from .fusion_router import RouterConfig, apply_audit_sampling, route_all, route_single
-from .llm_judge import judge_batch
+from .fusion_router import RouterConfig, apply_audit_sampling, route_all
+from .llm_judge import QuotaExceededError, close_async_api_client, get_gemini_key_count, get_openrouter_key_count, judge_single_async, load_async_api_client
 from .loaders import load_input_records
 from .schemas import InputRecord, LLMJudgeRecord, Round1OutputRecord
 from .utils_logging import get_logger
 
 logger = get_logger(__name__)
 
+DEFAULT_INPUT_DATA = "data/raw-data/raw_data.json"
+RESULTS_FILENAME = "round1_results.jsonl"
+RESULTS_JSON_FILENAME = "round1_results.json"
+DEFAULT_CONCURRENCY = 4
+SUPPORTED_MODELS = ("gemma", "nemotron")
 
-# ---------------------------------------------------------------------------
-# Config
-# ---------------------------------------------------------------------------
 
 def load_config(path: str) -> dict:
     with open(path, encoding="utf-8") as f:
@@ -70,119 +38,121 @@ def build_router_config(cfg: dict) -> RouterConfig:
     )
 
 
-# ---------------------------------------------------------------------------
-# Checkpoint
-# ---------------------------------------------------------------------------
+def resolve_model_config(cfg: dict, model_tag: Optional[str] = None) -> Dict[str, Any]:
+    configured_models = cfg.get("models") or {}
+    resolved_tag = model_tag or cfg.get("default_model") or "gemma"
+    if resolved_tag not in configured_models:
+        available = ", ".join(sorted(configured_models)) or ", ".join(SUPPORTED_MODELS)
+        raise ValueError(f"Unsupported model tag '{resolved_tag}'. Available: {available}")
 
-def _checkpoint_path(output_dir: Path) -> Path:
-    return output_dir / ".checkpoint_llm.jsonl"
+    model_cfg = configured_models[resolved_tag] or {}
+    provider = model_cfg.get("provider")
+    model_name = model_cfg.get("model_name")
+    if not provider or not model_name:
+        raise ValueError(f"Model config for '{resolved_tag}' must define provider and model_name.")
+
+    return {
+        "tag": resolved_tag,
+        "provider": str(provider),
+        "model_name": str(model_name),
+        "reasoning": dict(model_cfg.get("reasoning") or {}),
+        "max_output_tokens": int(model_cfg.get("max_output_tokens")) if model_cfg.get("max_output_tokens") is not None else None,
+        "concurrency": int(model_cfg.get("concurrency")) if model_cfg.get("concurrency") is not None else None,
+    }
 
 
-def _progress_jsonl_path(output_dir: Path) -> Path:
-    return output_dir / "round1_progress.jsonl"
+def _results_path(output_dir: Path) -> Path:
+    return output_dir / RESULTS_FILENAME
+
+
+def _results_json_path(output_dir: Path) -> Path:
+    return output_dir / RESULTS_JSON_FILENAME
+
+
+
+def _format_elapsed(start_time: float) -> str:
+    return f"{time.monotonic() - start_time:.1f}s"
+
+def _llm_from_result_record(rec: Round1OutputRecord) -> LLMJudgeRecord:
+    return LLMJudgeRecord(
+        id=rec.id,
+        label_llm1=rec.label_llm1,
+        has_emoji=rec.has_emoji,
+        needs_human_check=rec.needs_human_check,
+        notes=rec.notes,
+        reasoning=rec.reasoning,
+        parse_error=rec.parse_error,
+        image_missing=rec.image_missing,
+    )
 
 
 def load_checkpoint(output_dir: Path) -> Dict[int, LLMJudgeRecord]:
-    cp = _checkpoint_path(output_dir)
-    if not cp.exists():
+    path = _results_path(output_dir)
+    if not path.exists():
         return {}
+
     cached: Dict[int, LLMJudgeRecord] = {}
-    for line in cp.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line:
             continue
         try:
-            rec = LLMJudgeRecord(**json.loads(line))
-            cached[rec.id] = rec
+            payload = json.loads(line)
+            cached[payload["id"]] = LLMJudgeRecord(
+                id=payload["id"],
+                label_llm1=payload["label_llm1"],
+                has_emoji=payload.get("has_emoji"),
+                needs_human_check=payload.get("needs_human_check"),
+                notes=payload.get("notes", ""),
+                reasoning=payload.get("reasoning") or {},
+                parse_error=bool(payload.get("parse_error", False)),
+                image_missing=bool(payload.get("image_missing", False)),
+            )
         except Exception:
             pass
-    logger.info("Loaded %d cached LLM results from checkpoint", len(cached))
+
+    if cached:
+        logger.info("Resume | cached=%d | file=%s", len(cached), path.name)
     return cached
 
 
-def save_checkpoint(output_dir: Path, records: List[LLMJudgeRecord]) -> None:
-    cp = _checkpoint_path(output_dir)
-    with cp.open("w", encoding="utf-8") as f:
+def select_failed_records_for_rerun(
+    records: List[InputRecord],
+    cached: Dict[int, LLMJudgeRecord],
+) -> List[InputRecord]:
+    return [
+        record for record in records
+        if (cached_rec := cached.get(record.id)) is not None and cached_rec.label_llm1 == -1
+    ]
+
+
+def write_results(output_dir: Path, records: List[Round1OutputRecord]) -> None:
+    jsonl_path = _results_path(output_dir)
+    with jsonl_path.open("w", encoding="utf-8") as f:
         for rec in records:
             f.write(rec.model_dump_json() + "\n")
 
-
-# ---------------------------------------------------------------------------
-# LLM runner with checkpoint + progress
-# ---------------------------------------------------------------------------
-
-def _iter_batches(items: list, batch_size: int):
-    for i in range(0, len(items), batch_size):
-        yield items[i : i + batch_size]
+    json_path = _results_json_path(output_dir)
+    payload = [rec.model_dump(mode="json") for rec in records]
+    json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def run_llm_with_checkpoint(
+def select_records_for_run(
     records: List[InputRecord],
-    model_name: str,
-    temperature: float,
-    batch_size: int,
-    output_dir: Path,
-    router_cfg: RouterConfig,
-    input_by_id: Dict[int, InputRecord],
-    hf_token: Optional[str] = None,
-    device: str = "cuda",
-    load_in_4bit: bool = False,
-    max_image_pixels: int = 1_048_576,
     *,
-    load_checkpoint_file: bool = True,
-) -> List[LLMJudgeRecord]:
-    if load_checkpoint_file:
-        cached = load_checkpoint(output_dir)
-    else:
-        cached = {}
-        logger.info(
-            "Checkpoint load disabled (--no-checkpoint-load); "
-            "starting inference without resume file."
-        )
-    remaining = [r for r in records if r.id not in cached]
-    all_results: List[LLMJudgeRecord] = [cached[r.id] for r in records if r.id in cached]
-
-    if not remaining:
-        logger.info("All %d records found in checkpoint, skipping inference", len(records))
-        return all_results
-
-    logger.info(
-        "Running LLM on %d records (%d already cached)", len(remaining), len(cached)
-    )
-
-    n_batches = (len(remaining) + batch_size - 1) // batch_size
-    for batch_idx, batch in enumerate(_iter_batches(remaining, batch_size), start=1):
-        batch_results = judge_batch(
-            batch, model_name, temperature, hf_token, device, load_in_4bit,
-            max_image_pixels,
-        )
-        all_results.extend(batch_results)
-        save_checkpoint(output_dir, all_results)
-        _append_round1_progress_jsonl(
-            output_dir, batch_results, input_by_id, router_cfg
-        )
-        logger.info(
-            "Appended %d rows to %s",
-            len(batch_results),
-            _progress_jsonl_path(output_dir).name,
-        )
-        logger.info(
-            "Batch %d/%d done | records in batch: %d | total completed: %d/%d",
-            batch_idx, n_batches, len(batch), len(all_results), len(records),
-        )
-
-    return all_results
+    test_mode: bool,
+    test_size: int,
+    seed: int,
+) -> List[InputRecord]:
+    del seed
+    if not test_mode:
+        return records
+    if len(records) <= test_size:
+        return records
+    return records[:test_size]
 
 
-# ---------------------------------------------------------------------------
-# Statistics
-# ---------------------------------------------------------------------------
-
-def build_stats(
-    all_records: List[Round1OutputRecord],
-    bad_count: int,
-    total_samples: int,
-) -> dict:
+def build_stats(all_records: List[Round1OutputRecord], total_samples: int) -> dict:
     processed = len(all_records)
     auto_accepted = [r for r in all_records if not r.need_review]
     human_queue = [r for r in all_records if r.need_review]
@@ -195,258 +165,285 @@ def build_stats(
     for r in all_records:
         route_dist[r.route_reason] = route_dist.get(r.route_reason, 0) + 1
 
-    has_emoji_dist: dict = {0: 0, 1: 0, "null": 0}
-    needs_human_check_dist: dict = {0: 0, 1: 0, "null": 0}
-    for r in all_records:
-        has_emoji_dist[r.has_emoji if r.has_emoji is not None else "null"] += 1
-        needs_human_check_dist[r.needs_human_check if r.needs_human_check is not None else "null"] += 1
-
     return {
         "total_samples": total_samples,
         "processed_samples": processed,
-        "bad_records": bad_count,
         "auto_accepted_count": len(auto_accepted),
         "need_review_count": len(human_queue),
-        "auto_accept_rate": round(len(auto_accepted) / processed, 4) if processed else 0,
-        "need_review_rate": round(len(human_queue) / processed, 4) if processed else 0,
         "label_distribution": label_dist,
         "route_reason_distribution": route_dist,
-        "has_emoji_distribution": {str(k): v for k, v in has_emoji_dist.items()},
-        "needs_human_check_distribution": {str(k): v for k, v in needs_human_check_dist.items()},
     }
 
 
-# ---------------------------------------------------------------------------
-# Output writers
-# ---------------------------------------------------------------------------
-
-def _slim_round1_public_dict(rec: Round1OutputRecord) -> dict:
-    """
-    Final JSON exports only these fields (routing/metadata stripped from disk).
-    ``timestamp`` replaces internal ``timestamp_utc`` key name for the artifact.
-    """
-    return {
-        "id": rec.id,
-        "text": rec.text,
-        "image_path": rec.image_path,
-        "label_llm1": rec.label_llm1,
-        "has_emoji": rec.has_emoji,
-        "needs_human_check": rec.needs_human_check,
-        "reasoning": rec.reasoning,
-        "timestamp": rec.timestamp_utc,
-    }
-
-
-def _append_round1_progress_jsonl(
+def _save_checkpoint_results(
     output_dir: Path,
-    batch_llm: List[LLMJudgeRecord],
-    input_by_id: Dict[int, InputRecord],
+    input_records: List[InputRecord],
+    llm_results_by_id: Dict[int, LLMJudgeRecord],
     router_cfg: RouterConfig,
 ) -> None:
-    """Append slim public schema: one JSON object per line for this batch."""
-    path = _progress_jsonl_path(output_dir)
-    with path.open("a", encoding="utf-8") as f:
-        for llm_rec in batch_llm:
-            inp = input_by_id.get(llm_rec.id)
-            if inp is None:
-                continue
-            override = None
-            if llm_rec.image_missing:
-                override = "missing_image"
-            elif llm_rec.parse_error:
-                override = "invalid_json"
-            routed = route_single(
-                llm_rec, router_cfg, inp.text, inp.image_path, override
-            )
-            f.write(
-                json.dumps(_slim_round1_public_dict(routed), ensure_ascii=False)
-                + "\n"
-            )
+    completed_inputs = [record for record in input_records if record.id in llm_results_by_id]
+    completed_results = [llm_results_by_id[record.id] for record in completed_inputs]
+    routed = route_all(completed_inputs, completed_results, router_cfg)
+    write_results(output_dir, routed)
 
 
-def _write_round1_json(path: Path, records: List[Round1OutputRecord]) -> None:
-    """Write Round-1 labeled rows as JSON array with public slim schema."""
-    data = [_slim_round1_public_dict(r) for r in records]
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+async def _cancel_pending_tasks(tasks: List[asyncio.Task]) -> None:
+    pending = [task for task in tasks if not task.done()]
+    for task in pending:
+        task.cancel()
+    if pending:
+        await asyncio.gather(*pending, return_exceptions=True)
 
 
-def _write_json(path: Path, records: list) -> None:
-    """Write arbitrary serializable rows (e.g. bad_records)."""
-    data = []
-    for rec in records:
-        if isinstance(rec, Round1OutputRecord):
-            data.append(rec.model_dump())
-        else:
-            data.append(rec)
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-
-def write_outputs(
+async def run_llm_with_checkpoint(
+    records: List[InputRecord],
+    model_config: Dict[str, Any],
+    temperature: float,
     output_dir: Path,
-    all_records: List[Round1OutputRecord],
-    bad_records: list,
-    stats: dict,
-) -> None:
-    output_dir.mkdir(parents=True, exist_ok=True)
+    router_cfg: RouterConfig,
+    api_key: Optional[str] = None,
+    max_image_pixels: int = 300_000,
+    max_output_tokens: int = 256,
+    max_retries: int = 3,
+    retry_delay_seconds: int = 5,
+    max_retry_delay_seconds: int = 20,
+    concurrency: int = DEFAULT_CONCURRENCY,
+    checkpoint_every: int = 10,
+    *,
+    load_checkpoint_file: bool = True,
+    checkpoint_records: Optional[List[InputRecord]] = None,
+    checkpoint_base_results_by_id: Optional[Dict[int, LLMJudgeRecord]] = None,
+    started_at: Optional[float] = None,
+) -> List[LLMJudgeRecord]:
+    cached = load_checkpoint(output_dir) if load_checkpoint_file else {}
+    results_by_id: Dict[int, LLMJudgeRecord] = {record.id: cached[record.id] for record in records if record.id in cached}
+    remaining = [record for record in records if record.id not in results_by_id]
 
-    auto_accepted = [r for r in all_records if not r.need_review]
-    human_queue = [r for r in all_records if r.need_review]
+    if not remaining:
+        return [results_by_id[record.id] for record in records if record.id in results_by_id]
 
-    _write_round1_json(output_dir / "round1_all.json", all_records)
-    _write_round1_json(output_dir / "round1_auto_accepted.json", auto_accepted)
-    _write_round1_json(output_dir / "round1_human_queue.json", human_queue)
-    _write_json(output_dir / "bad_records.json", bad_records)
+    started_at = started_at or time.monotonic()
+    async_client = load_async_api_client(model_config["provider"], api_key)
+    semaphore = asyncio.Semaphore(max(1, concurrency))
+    checkpoint_every = max(1, checkpoint_every)
+    completed_since_save = 0
+    completed_total = len(results_by_id)
 
-    (output_dir / "round1_stats.json").write_text(
-        json.dumps(stats, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    async def _run_one(record: InputRecord) -> LLMJudgeRecord:
+        async with semaphore:
+            return await judge_single_async(
+                async_client,
+                model_config,
+                record,
+                temperature,
+                max_image_pixels,
+                max_output_tokens,
+                max_retries,
+                retry_delay_seconds,
+                max_retry_delay_seconds,
+            )
 
-    logger.info(
-        "Outputs written to %s | all=%d | auto=%d | need_review=%d | bad=%d | "
-        "incremental rows in round1_progress.jsonl (during run)",
-        output_dir, len(all_records), len(auto_accepted), len(human_queue), len(bad_records),
-    )
+    tasks = [asyncio.create_task(_run_one(record)) for record in remaining]
+
+    try:
+        for finished in asyncio.as_completed(tasks):
+            try:
+                result = await finished
+            except QuotaExceededError as exc:
+                await _cancel_pending_tasks(tasks)
+                if results_by_id:
+                    _save_checkpoint_results(output_dir, records, results_by_id, router_cfg)
+                    logger.info("Checkpoint | saved=%d | elapsed=%s | files=%s,%s", completed_total, _format_elapsed(started_at), _results_path(output_dir).name, _results_json_path(output_dir).name)
+                logger.error("Stop | reason=quota_exceeded | saved=%d | elapsed=%s | error=%s", completed_total, _format_elapsed(started_at), str(exc)[:200])
+                raise
+
+            results_by_id[result.id] = result
+            completed_total += 1
+            completed_since_save += 1
+
+            logger.info("Progress | %d/%d | id=%d | label=%s | elapsed=%s", completed_total, len(records), result.id, result.label_llm1, _format_elapsed(started_at))
+
+            if completed_since_save >= checkpoint_every:
+                checkpoint_results = dict(checkpoint_base_results_by_id or {})
+                checkpoint_results.update(results_by_id)
+                _save_checkpoint_results(
+                    output_dir,
+                    checkpoint_records or records,
+                    checkpoint_results,
+                    router_cfg,
+                )
+                completed_since_save = 0
+                logger.info("Checkpoint | saved=%d | elapsed=%s | files=%s,%s", completed_total, _format_elapsed(started_at), _results_path(output_dir).name, _results_json_path(output_dir).name)
+
+        if completed_since_save > 0:
+            checkpoint_results = dict(checkpoint_base_results_by_id or {})
+            checkpoint_results.update(results_by_id)
+            _save_checkpoint_results(
+                output_dir,
+                checkpoint_records or records,
+                checkpoint_results,
+                router_cfg,
+            )
+            logger.info("Checkpoint | saved=%d | elapsed=%s | files=%s,%s", completed_total, _format_elapsed(started_at), _results_path(output_dir).name, _results_json_path(output_dir).name)
+    finally:
+        await close_async_api_client()
+
+    return [results_by_id[record.id] for record in records if record.id in results_by_id]
 
 
-# ---------------------------------------------------------------------------
-# Main pipeline
-# ---------------------------------------------------------------------------
-
-def run_pipeline(
-    input_data: str,
+async def run_pipeline_async(
     config_path: str,
     output_dir: str,
-    hf_token: Optional[str] = None,
+    input_data: str = DEFAULT_INPUT_DATA,
+    api_key: Optional[str] = None,
     max_records: Optional[int] = None,
     *,
     min_record_id: Optional[int] = None,
     no_checkpoint_load: bool = False,
+    rerun_minus_one: bool = False,
+    test_mode: bool = False,
+    test_size: int = 5,
+    model_tag: Optional[str] = None,
 ) -> None:
     cfg = load_config(config_path)
     router_cfg = build_router_config(cfg)
-    model_name = cfg.get("llm_model", "Qwen/Qwen2.5-VL-7B-Instruct")
+    resolved_model = resolve_model_config(cfg, model_tag)
     temperature = float(cfg.get("llm_temperature", 0.1))
-    batch_size = int(cfg.get("batch_size", 8))
-    device = cfg.get("device", "cuda")
-    load_in_4bit = bool(cfg.get("load_in_4bit", False))
-    max_image_pixels = int(cfg.get("max_image_pixels", 1_048_576))
+    max_image_pixels = int(cfg.get("max_image_pixels", 300_000))
+    max_output_tokens = int(resolved_model.get("max_output_tokens") or cfg.get("max_output_tokens", 256))
+    max_retries = int(cfg.get("max_retries", 3))
+    retry_delay_seconds = int(cfg.get("retry_delay_seconds", 5))
+    max_retry_delay_seconds = int(cfg.get("max_retry_delay_seconds", 20))
+    concurrency = int(resolved_model.get("concurrency") or cfg.get("concurrency", DEFAULT_CONCURRENCY))
+    checkpoint_every = int(cfg.get("checkpoint_every", 10))
+    seed = int(cfg.get("seed", 42))
 
+    pipeline_started_at = time.monotonic()
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-
-    progress_path = _progress_jsonl_path(out_dir)
+    if rerun_minus_one and no_checkpoint_load:
+        raise ValueError("--rerun-minus-one cannot be used with --no-checkpoint-load.")
     if no_checkpoint_load:
-        progress_path.unlink(missing_ok=True)
-        logger.info(
-            "Truncated %s (fresh run with --no-checkpoint-load)",
-            progress_path.name,
-        )
-
-    logger.info("=== Round-1 Pipeline Start ===")
-    logger.info(
-        "Model: %s | device: %s | 4bit: %s | max_img_px: %s",
-        model_name, device, load_in_4bit,
-        max_image_pixels if max_image_pixels > 0 else "unlimited",
-    )
-    logger.info("RouterConfig: %s", router_cfg)
+        _results_path(out_dir).unlink(missing_ok=True)
+        _results_json_path(out_dir).unlink(missing_ok=True)
 
     input_records = load_input_records(input_data)
     if max_records is not None:
         input_records = input_records[:max_records]
-        logger.info("TEST MODE: limiting to first %d records", max_records)
     if min_record_id is not None:
-        before = len(input_records)
-        input_records = [r for r in input_records if r.id >= min_record_id]
+        input_records = [record for record in input_records if record.id >= min_record_id]
+    input_records = select_records_for_run(input_records, test_mode=test_mode, test_size=test_size, seed=seed)
+
+    cached_results = load_checkpoint(out_dir) if rerun_minus_one else {}
+    records_for_run = input_records
+    if rerun_minus_one:
+        records_for_run = select_failed_records_for_rerun(input_records, cached_results)
         logger.info(
-            "min_record_id=%s: kept %d / %d rows (id >= %s)",
-            min_record_id,
+            "RerunMinusOne | candidates=%d | selected=%d | output=%s",
             len(input_records),
-            before,
-            min_record_id,
+            len(records_for_run),
+            _results_json_path(out_dir).name,
         )
-    total_samples = len(input_records)
-    input_by_id = {r.id: r for r in input_records}
+        if not records_for_run:
+            logger.info("Done | processed=0 | auto=0 | review=0 | invalid=0 | audit=0 | elapsed=%s", _format_elapsed(pipeline_started_at))
+            return
 
-    llm_results = run_llm_with_checkpoint(
-        input_records,
-        model_name,
-        temperature,
-        batch_size,
-        out_dir,
-        router_cfg,
-        input_by_id,
-        hf_token,
-        device,
-        load_in_4bit,
-        max_image_pixels,
-        load_checkpoint_file=not no_checkpoint_load,
-    )
-
-    routed = route_all(input_records, llm_results, router_cfg)
-    routed, _ = apply_audit_sampling(routed, router_cfg.random_audit_rate, router_cfg.seed)
-
-    bad_count = total_samples - len(routed)
-    stats = build_stats(routed, bad_count, total_samples)
-    write_outputs(out_dir, routed, [], stats)
-
-    logger.info("=== Round-1 Pipeline Complete ===")
     logger.info(
-        "auto_accept_rate=%.2f | need_review_rate=%.2f | labels=%s",
-        stats["auto_accept_rate"],
-        stats["need_review_rate"],
-        stats["label_distribution"],
+        "Start | input=%d | test=%s | from_id=%s | model=%s | provider=%s | concurrency=%d | checkpoint_every=%d | output=%s",
+        len(records_for_run),
+        test_mode,
+        min_record_id if min_record_id is not None else "start",
+        resolved_model["tag"],
+        resolved_model["provider"],
+        concurrency,
+        checkpoint_every,
+        _results_json_path(out_dir).name,
+    )
+    logger.info("ModelConfig | tag=%s | name=%s", resolved_model["tag"], resolved_model["model_name"])
+    if resolved_model["provider"] == "openrouter":
+        key_count = get_openrouter_key_count(api_key)
+        logger.info("OpenRouterKeys | active_key=1/%d | total_keys=%d", key_count, key_count)
+    elif resolved_model["provider"] == "gemini_api":
+        key_count = get_gemini_key_count(api_key)
+        logger.info("GeminiKeys | active_key=1/%d | total_keys=%d", key_count, key_count)
+
+    try:
+        llm_results = await run_llm_with_checkpoint(
+            records_for_run,
+            resolved_model,
+            temperature,
+            out_dir,
+            router_cfg,
+            api_key,
+            max_image_pixels,
+            max_output_tokens,
+            max_retries,
+            retry_delay_seconds,
+            max_retry_delay_seconds,
+            concurrency,
+            checkpoint_every,
+            load_checkpoint_file=not no_checkpoint_load and not rerun_minus_one,
+            checkpoint_records=input_records if rerun_minus_one else None,
+            checkpoint_base_results_by_id=cached_results if rerun_minus_one else None,
+            started_at=pipeline_started_at,
+        )
+    except QuotaExceededError:
+        logger.error("Stopped pipeline due to quota exceeded | elapsed=%s | checkpoint_files=%s,%s", _format_elapsed(pipeline_started_at), _results_path(out_dir).name, _results_json_path(out_dir).name)
+        return
+
+    if rerun_minus_one:
+        merged_results = dict(cached_results)
+        merged_results.update({result.id: result for result in llm_results})
+        completed_inputs = [record for record in input_records if record.id in merged_results]
+        completed_results = [merged_results[record.id] for record in completed_inputs]
+        routed = route_all(completed_inputs, completed_results, router_cfg)
+    else:
+        routed = route_all(input_records, llm_results, router_cfg)
+    routed, audit_count = apply_audit_sampling(routed, router_cfg.random_audit_rate, router_cfg.seed)
+    write_results(out_dir, routed)
+
+    stats = build_stats(routed, len(input_records) if rerun_minus_one else len(records_for_run))
+    logger.info(
+        "Done | processed=%d | auto=%d | review=%d | invalid=%d | audit=%d | elapsed=%s",
+        stats["processed_samples"],
+        stats["auto_accepted_count"],
+        stats["need_review_count"],
+        stats["label_distribution"].get("invalid", 0),
+        audit_count,
+        _format_elapsed(pipeline_started_at),
     )
 
-
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Round-1 weak annotation pipeline (local model inference)"
-    )
-    parser.add_argument("--input_data", required=True, help="Path to input JSON array or JSONL")
+    parser = argparse.ArgumentParser(description="Round-1 weak annotation pipeline")
+    parser.add_argument("--input_data", default=DEFAULT_INPUT_DATA, help=f"Path to input JSON array or JSONL (default: {DEFAULT_INPUT_DATA})")
     parser.add_argument("--config", required=True, help="Path to configs/round1.yaml")
     parser.add_argument("--output_dir", required=True, help="Directory to write outputs")
-    parser.add_argument(
-        "--hf_token", default=None,
-        help="HuggingFace token for model download (overrides HF_TOKEN env var)"
-    )
-    parser.add_argument(
-        "--max_records", type=int, default=None,
-        help="Limit to first N records (e.g. 5 for a quick smoke-test); omit to run all"
-    )
-    parser.add_argument(
-        "--min-record-id",
-        type=int,
-        default=None,
-        help=(
-            "Keep only rows with id>=N from input_data, then run LLM on that slice "
-            "(continue a job without re-processing lower ids)."
-        ),
-    )
-    parser.add_argument(
-        "--no-checkpoint-load",
-        action="store_true",
-        help=(
-            "Skip reading .checkpoint_llm.jsonl; truncate round1_progress.jsonl at start. "
-            "Still saves checkpoint + progress after each batch."
-        ),
-    )
+    parser.add_argument("--api_key", default=None, help="API key for the selected provider")
+    parser.add_argument("--model", choices=SUPPORTED_MODELS, default=None, help="VLM tag to use: gemma or nemotron")
+    parser.add_argument("--max_records", type=int, default=None, help="Limit to first N records")
+    parser.add_argument("--test_mode", action="store_true", help="Run on the first 5 filtered records")
+    parser.add_argument("--test_size", type=int, default=5, help="Leading records to take in test mode")
+    parser.add_argument("--min-record-id", type=int, default=None, help="Keep only rows with id>=N")
+    parser.add_argument("--from", dest="min_record_id", type=int, help="Alias of --min-record-id; run records with id>=N")
+    parser.add_argument("--rerun-minus-one", action="store_true", help="Rerun only records with label_llm1 = -1 from the existing checkpoint and update the same output files")
+    parser.add_argument("--no-checkpoint-load", action="store_true", help="Ignore previous round1_results.jsonl")
     args = parser.parse_args()
 
-    run_pipeline(
-        input_data=args.input_data,
-        config_path=args.config,
-        output_dir=args.output_dir,
-        hf_token=args.hf_token,
-        max_records=args.max_records,
-        min_record_id=args.min_record_id,
-        no_checkpoint_load=args.no_checkpoint_load,
+    asyncio.run(
+        run_pipeline_async(
+            config_path=args.config,
+            output_dir=args.output_dir,
+            input_data=args.input_data,
+            api_key=args.api_key,
+            max_records=args.max_records,
+            min_record_id=args.min_record_id,
+            no_checkpoint_load=args.no_checkpoint_load,
+            rerun_minus_one=args.rerun_minus_one,
+            test_mode=args.test_mode,
+            test_size=args.test_size,
+            model_tag=args.model,
+        )
     )
 
 

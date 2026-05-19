@@ -34,7 +34,10 @@ services:
       # Admin account created on first boot
       - LABEL_STUDIO_USERNAME=${LS_USERNAME:-admin@example.com}
       - LABEL_STUDIO_PASSWORD=${LS_PASSWORD:-Admin1234!}
-      # Allow Label Studio to serve files from the mounted local directory
+      # Local URLs in tasks: /data/local-files/?d=<path relative to DOCUMENT_ROOT>
+      # Example file host ./data/images/x.jpg -> ?d=images/x.jpg
+      # Cloud Storage -> Local Files path MUST be a subdirectory of DOCUMENT_ROOT
+      # (cannot equal /label-studio/files). Use e.g. /label-studio/files/images
       - LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
       - LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/label-studio/files
     volumes:

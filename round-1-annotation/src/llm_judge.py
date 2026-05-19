@@ -1,290 +1,325 @@
 from __future__ import annotations
 
-"""
-LLM judge backed by local model inference (Qwen/Qwen3.5-2B).
+"""LLM judge for round-1."""
 
-Requires CUDA GPU. Designed for Kaggle / Colab environments with free GPU.
-
-The model is downloaded from HuggingFace Hub on first run and cached locally.
-No HF_TOKEN needed — Qwen3.5-2B is public. If you add a private model later,
-set HF_TOKEN or pass it to judge_batch().
-
-The model singleton is loaded once and reused across all batch calls in the
-same process. Supports 4-bit quantization (bitsandbytes) to reduce VRAM usage.
-
-Model: Qwen/Qwen3.5-2B
-  - Class    : AutoModelForImageTextToText  (natively multimodal, no -VL- suffix)
-  - Processor: AutoProcessor
-  - Inference API: processor.apply_chat_template(tokenize=True, return_dict=True)
-  - Operates in non-thinking mode by default (no <think> block in output)
-  - Requires: transformers >= 4.51.0
-
-Prompt contract (prompt.txt):
-  - Placeholder {text}   : the post text (may contain emoji)
-  - Placeholder {images} : short description of image availability shown in
-                           the text section; actual PIL images are prepended as
-                           content items in the VL message so the model sees them.
-  - The model must return a single JSON object with keys:
-    Label_LLM1, reasoning, Text_Only, ImageSet_Only, Key_Images, Difficulty
-"""
-
+import asyncio
+import base64
+import io
 import json
 import os
+import random
 import re
+import urllib.error
+import urllib.request
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-import torch
-from PIL import Image
-from transformers import AutoModelForImageTextToText, AutoProcessor, BitsAndBytesConfig
+from dotenv import load_dotenv
+
+if TYPE_CHECKING:
+    from PIL import Image
+
 from .schemas import InputRecord, LLMJudgeRecord
 from .utils_logging import get_logger
 
 logger = get_logger(__name__)
 
-_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "prompt.txt"
-_FEW_SHOT_PATH = Path(__file__).parent.parent / "prompts" / "few-short-examples.txt"
-_PROMPT_TEMPLATE: Optional[str] = None
+_RETRYABLE_ERROR_MARKERS = (
+    "429",
+    "500",
+    "503",
+    "504",
+    "resource_exhausted",
+    "internal",
+    "unavailable",
+    "deadline_exceeded",
+    "timeout",
+    "timed out",
+    "connection reset",
+    "temporarily overloaded",
+    "rate limit",
+    "too many requests",
+)
 
-_MODEL = None
-_PROCESSOR = None
-_LOADED_MODEL_NAME: Optional[str] = None
+_OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-_REPAIR_SUFFIX = (
-    "\n\nPhản hồi trước của bạn không phải JSON hợp lệ. "
-    "Hãy chỉ trả về đúng một đối tượng JSON với các trường bắt buộc: "
-    "reasoning, Label_LLM1, Text_Only, ImageSet_Only, Key_Images, Difficulty. "
-    "Không thêm bất kỳ nội dung nào khác ngoài đối tượng JSON."
+
+class QuotaExceededError(RuntimeError):
+    pass
+
+
+_QUOTA_EXCEEDED_ERROR_MARKERS = (
+    "quota exceeded",
+    "exceeded your current quota",
+    "insufficient credits",
+    "payment required",
+    "credit balance",
+    "limit_remaining",
+    "free-models-per-day",
+    "resource_exhausted",
+    "quota",
 )
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+def _load_env_file() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    round1_root = Path(__file__).resolve().parents[1]
+    load_dotenv(repo_root / ".env")
+    load_dotenv(round1_root / ".env", override=True)
+
+
+_load_env_file()
+
+_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "prompt.txt"
+_PROMPT_TEMPLATE: Optional[str] = None
+_CLIENT = None
+_ASYNC_CLIENT = None
+_ACTIVE_PROVIDER: Optional[str] = None
+
+_REPAIR_SUFFIX = (
+    "\n\nPhản hồi trước của bạn không phải JSON hợp lệ. "
+    "Hãy chỉ trả về đúng một đối tượng JSON hợp lệ, không markdown, không giải thích thêm. "
+    "Giữ nguyên các khóa và kiểu dữ liệu như output schema đã yêu cầu."
+)
+
+_OPENROUTER_RESPONSE_FORMAT = {"type": "json_object"}
+
 
 def _load_prompt_template() -> str:
     global _PROMPT_TEMPLATE
     if _PROMPT_TEMPLATE is None:
-        prompt = _PROMPT_PATH.read_text(encoding="utf-8")
-        if _FEW_SHOT_PATH.exists():
-            few_shot = _FEW_SHOT_PATH.read_text(encoding="utf-8")
-            prompt = prompt.rstrip() + "\n\n" + few_shot.lstrip()
-        _PROMPT_TEMPLATE = prompt
+        _PROMPT_TEMPLATE = _PROMPT_PATH.read_text(encoding="utf-8")
     return _PROMPT_TEMPLATE
 
 
-def _is_vl_model(model_name: str) -> bool:
-    """
-    Detect multimodal (vision-language) models by name convention.
-
-    Covers:
-      - Qwen2.5-VL-*, Qwen3-VL-* (explicit -vl- suffix)
-      - Qwen3.5-* series (natively multimodal despite no -vl- in name)
-    """
-    n = model_name.lower()
-    if "-vl-" in n or n.endswith("-vl"):
-        return True
-    if "qwen3.5" in n or "qwen3_5" in n:
-        return True
-    return False
+def _import_google_genai() -> tuple[Any, Any]:
+    try:
+        from google import genai
+        from google.genai import types
+    except ImportError as exc:
+        raise ImportError("Missing dependency 'google-genai'. Install requirements before running the pipeline.") from exc
+    return genai, types
 
 
-def load_local_model(
-    model_name: str,
-    device: str = "cuda",
-    load_in_4bit: bool = False,
-    hf_token: Optional[str] = None,
-) -> Tuple:
-    """
-    Load model and processor as a process-level singleton.
-    Returns (model, processor). Subsequent calls with the same model_name
-    return the cached instance immediately.
-    """
-    global _MODEL, _PROCESSOR, _LOADED_MODEL_NAME
+def _import_pil_image() -> Any:
+    try:
+        from PIL import Image
+    except ImportError as exc:
+        raise ImportError("Missing dependency 'Pillow'. Install requirements before running the pipeline.") from exc
+    return Image
 
-    if _MODEL is not None and _LOADED_MODEL_NAME == model_name:
-        return _MODEL, _PROCESSOR
 
-    logger.info(
-        "Loading model: %s  (device=%s, 4bit=%s)", model_name, device, load_in_4bit
+def _split_api_keys(raw_value: str) -> List[str]:
+    normalized = raw_value.replace("\n", ",").replace(";", ",")
+    return [part.strip() for part in normalized.split(",") if part.strip()]
+
+
+def _resolve_openrouter_api_keys(api_key: Optional[str] = None) -> List[str]:
+    raw_value = api_key or os.environ.get("OPENROUTER_API_KEYS") or os.environ.get("OPENROUTER_API_KEY")
+    if not raw_value:
+        raise ValueError("OpenRouter API key list not found. Set OPENROUTER_API_KEYS / OPENROUTER_API_KEY or pass --api_key.")
+    keys = _split_api_keys(raw_value)
+    if not keys:
+        raise ValueError("OpenRouter API key list is empty.")
+    return keys
+
+
+def _resolve_gemini_api_keys(api_key: Optional[str] = None) -> List[str]:
+    raw_value = (
+        api_key
+        or os.environ.get("GEMINI_API_KEYS")
+        or os.environ.get("GOOGLE_API_KEYS")
+        or os.environ.get("GOOGLE_API_KEY")
+        or os.environ.get("GEMINI_API_KEY")
     )
+    if not raw_value:
+        raise ValueError("Gemini API key list not found. Set GEMINI_API_KEYS / GEMINI_API_KEY / GOOGLE_API_KEY or pass --api_key.")
+    keys = _split_api_keys(raw_value)
+    if not keys:
+        raise ValueError("Gemini API key list is empty.")
+    return keys
 
-    token = hf_token or os.environ.get("HF_TOKEN")
 
-    load_kwargs: dict = {
-        "pretrained_model_name_or_path": model_name,
-        "device_map": "auto",
-    }
-    if token:
-        load_kwargs["token"] = token
+def _resolve_api_key(provider: str, api_key: Optional[str] = None) -> str:
+    if provider == "openrouter":
+        return _resolve_openrouter_api_keys(api_key)[0]
+    if provider == "gemini_api":
+        return _resolve_gemini_api_keys(api_key)[0]
 
-    if load_in_4bit:
-        load_kwargs["quantization_config"] = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.float16,
-        )
-        # bitsandbytes 4-bit does NOT support CPU/disk offload — any layer placed
-        # on CPU causes: "ValueError: Some modules are dispatched on the CPU or the
-        # disk."  device_map="auto" may spill to CPU when it cannot estimate VRAM
-        # correctly (common on Kaggle multi-GPU).  Explicitly capping max_memory to
-        # GPU-only (no "cpu" key) prevents the fallback entirely.
-        n_gpus = torch.cuda.device_count()
-        if n_gpus > 0:
-            max_memory: dict = {}
-            for i in range(n_gpus):
-                props = torch.cuda.get_device_properties(i)
-                # Reserve ~1 GiB per GPU for activations / KV-cache headroom
-                usable_gib = max(1, int(props.total_memory / 1024**3) - 1)
-                max_memory[i] = f"{usable_gib}GiB"
-            load_kwargs["max_memory"] = max_memory
-            logger.info("4-bit GPU-only max_memory: %s", max_memory)
-    else:
-        load_kwargs["dtype"] = "auto"
+    resolved = api_key or os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    if not resolved:
+        raise ValueError("Gemini API key not found. Set GEMINI_API_KEY / GOOGLE_API_KEY or pass --api_key.")
+    return resolved
 
-    _MODEL = AutoModelForImageTextToText.from_pretrained(**load_kwargs)
-    _MODEL.eval()
 
-    proc_kwargs: dict = {}
-    if token:
-        proc_kwargs["token"] = token
-    _PROCESSOR = AutoProcessor.from_pretrained(model_name, **proc_kwargs)
+def load_api_client(provider: str, api_key: Optional[str] = None):
+    global _CLIENT, _ASYNC_CLIENT, _ACTIVE_PROVIDER
+    if provider == "openrouter":
+        resolved_keys = _resolve_openrouter_api_keys(api_key)
+        _CLIENT = {
+            "provider": provider,
+            "api_keys": resolved_keys,
+            "active_key_index": 0,
+            "exhausted_key_indices": set(),
+            "lock": None,
+        }
+        _ASYNC_CLIENT = _CLIENT
+        _ACTIVE_PROVIDER = provider
+        return _CLIENT
 
-    _LOADED_MODEL_NAME = model_name
-    logger.info("Model loaded successfully.")
-    return _MODEL, _PROCESSOR
+    if provider == "gemini_api":
+        resolved_keys = _resolve_gemini_api_keys(api_key)
+        genai, _ = _import_google_genai()
+        _CLIENT = {
+            "provider": provider,
+            "api_keys": resolved_keys,
+            "active_key_index": 0,
+            "exhausted_key_indices": set(),
+            "lock": None,
+            "clients": [genai.Client(api_key=key) for key in resolved_keys],
+        }
+        _ASYNC_CLIENT = _CLIENT
+        _ACTIVE_PROVIDER = provider
+        return _CLIENT
+
+    if _CLIENT is None or _ACTIVE_PROVIDER != provider:
+        genai, _ = _import_google_genai()
+        _CLIENT = genai.Client(api_key=_resolve_api_key(provider, api_key))
+        _ASYNC_CLIENT = _CLIENT.aio
+        _ACTIVE_PROVIDER = provider
+    return _CLIENT
+
+
+def load_async_api_client(provider: str, api_key: Optional[str] = None):
+    load_api_client(provider, api_key)
+    if provider in ("openrouter", "gemini_api") and _ASYNC_CLIENT is not None and _ASYNC_CLIENT.get("lock") is None:
+        _ASYNC_CLIENT["lock"] = asyncio.Lock()
+    return _ASYNC_CLIENT
+
+
+def get_openrouter_key_count(api_key: Optional[str] = None) -> int:
+    return len(_resolve_openrouter_api_keys(api_key))
+
+
+def get_gemini_key_count(api_key: Optional[str] = None) -> int:
+    return len(_resolve_gemini_api_keys(api_key))
+
+
+async def close_async_api_client() -> None:
+    global _CLIENT, _ASYNC_CLIENT, _ACTIVE_PROVIDER
+    if _ACTIVE_PROVIDER == "gemini_api" and isinstance(_CLIENT, dict):
+        for client in _CLIENT.get("clients", []):
+            await client.aio.aclose()
+            client.close()
+    elif _ACTIVE_PROVIDER == "gemini_api" and _ASYNC_CLIENT is not None:
+        await _ASYNC_CLIENT.aclose()
+        if _CLIENT is not None:
+            _CLIENT.close()
+    _ASYNC_CLIENT = None
+    _CLIENT = None
+    _ACTIVE_PROVIDER = None
 
 
 def _resize_image(img: Image.Image, max_pixels: int) -> Image.Image:
-    """
-    Resize img so that width * height <= max_pixels, preserving aspect ratio.
-    Uses LANCZOS resampling. Returns the original image if already within budget.
-    """
     w, h = img.size
     if max_pixels <= 0 or w * h <= max_pixels:
         return img
     scale = (max_pixels / (w * h)) ** 0.5
     new_w = max(1, int(w * scale))
     new_h = max(1, int(h * scale))
-    logger.debug(
-        "Resizing image %dx%d -> %dx%d (max_pixels=%d)", w, h, new_w, new_h, max_pixels
-    )
-    return img.resize((new_w, new_h), Image.LANCZOS)
+    Image = _import_pil_image()
+    resampling = getattr(Image, "Resampling", Image)
+    return img.resize((new_w, new_h), resampling.LANCZOS)
 
 
-def _open_image(image_path: str, max_pixels: int = 1_048_576) -> Optional[Image.Image]:
-    """
-    Open image as a PIL Image (RGB) and resize if needed.
-
-    Resolution order (first existing path wins):
-      1. Absolute path — used as-is.
-      2. Relative path resolved from repo root (REPO_DIR).
-         On Kaggle, REPO_DIR/data/ is a symlink to the mounted dataset, so
-         "data/images/foo.png" → /kaggle/input/DATASET_SLUG/images/foo.png.
-         This is always tried with an absolute path so it is cwd-independent.
-      3. Relative path resolved from cwd — convenience fallback for local dev.
-
-    After loading, the image is downscaled so that width * height <= max_pixels
-    to cap VRAM usage in the vision encoder (set max_pixels=0 to disable).
-    """
+def _open_image(image_path: str, max_pixels: int = 300_000) -> Optional[Image.Image]:
+    Image = _import_pil_image()
     p = Path(image_path)
-
     if p.is_absolute():
         candidates = [p]
     else:
         repo_root = Path(__file__).resolve().parents[2]
-        candidates = [
-            repo_root / image_path,
-            Path.cwd() / image_path,
-        ]
+        candidates = [repo_root / image_path, Path.cwd() / image_path]
 
     for candidate in candidates:
         if candidate.exists():
             try:
                 img = Image.open(candidate).convert("RGB")
                 return _resize_image(img, max_pixels)
-            except Exception as exc:
-                logger.warning("Cannot open image %s: %s", candidate, exc)
+            except Exception:
                 return None
-
-    logger.debug("Image not found at any candidate path: %s", image_path)
     return None
 
 
-def _load_images(
-    record: InputRecord,
-    is_vl: bool,
-    max_pixels: int = 1_048_576,
-) -> Tuple[List[Image.Image], bool]:
-    """
-    Load all images for a record.
-    Returns (list_of_pil_images, image_missing_flag).
-
-    image_missing is True when the record references at least one image path
-    but none of the images could be opened from disk.
-    Each image is downscaled to fit within max_pixels (width * height).
-    """
-    if not is_vl:
-        return [], False
-
+def _load_images(record: InputRecord, max_pixels: int = 300_000) -> tuple[List[Image.Image], bool]:
     paths: List[str] = []
     if record.image_paths:
         paths = record.image_paths
     elif record.image_path:
         paths = [record.image_path]
-
     if not paths:
         return [], False
-
     images_pil = [img for p in paths for img in [_open_image(p, max_pixels)] if img is not None]
-    image_missing = len(images_pil) == 0
-    return images_pil, image_missing
+    return images_pil, len(images_pil) == 0
 
 
-def _build_messages(
-    text: str,
-    images_pil: List[Image.Image],
-    is_vl: bool,
-    ocr_text: Optional[str] = None,
-) -> list:
-    """Build a chat messages list for Qwen3.5-2B using the loaded prompt."""
+def _build_prompt(text: str, image_count: int, ocr_text: Optional[str] = None) -> str:
     template = _load_prompt_template()
-
-    if images_pil:
-        n = len(images_pil)
+    if image_count:
         images_placeholder = (
-            f"[{n} ảnh đính kèm — xem ảnh trong nội dung tin nhắn]"
-            if n > 1
-            else "[Xem ảnh đính kèm]"
+            f"[{image_count} ảnh đính kèm — xem ảnh trong nội dung tin nhắn]"
+            if image_count > 1 else "[Xem ảnh đính kèm]"
         )
     else:
         images_placeholder = "[Không có ảnh hoặc ảnh không đọc được]"
-
     ocr_placeholder = ocr_text.strip() if ocr_text and ocr_text.strip() else "[Không có OCR text]"
+    return template.replace("{text}", text).replace("{images}", images_placeholder).replace("{ocr_text}", ocr_placeholder)
 
-    # IMPORTANT: do NOT use str.format — the prompt contains raw JSON braces
-    # for output contract examples, which would raise KeyError.
-    prompt = (
-        template
-        .replace("{text}", text)
-        .replace("{images}", images_placeholder)
-        .replace("{ocr_text}", ocr_placeholder)
-    )
 
-    if is_vl and images_pil:
-        content: list = [{"type": "image", "image": img} for img in images_pil]
-        content.append({"type": "text", "text": prompt})
-    else:
-        content = [{"type": "text", "text": prompt}]
+def _build_gemini_contents(text: str, images_pil: List[Image.Image], ocr_text: Optional[str] = None) -> list[Any]:
+    prompt = _build_prompt(text, len(images_pil), ocr_text)
+    return [*images_pil, prompt]
 
+
+def _image_to_data_url(image: Image.Image) -> str:
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", quality=90)
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:image/jpeg;base64,{encoded}"
+
+
+def _build_openrouter_messages(text: str, images_pil: List[Image.Image], ocr_text: Optional[str] = None) -> list[dict[str, Any]]:
+    prompt = _build_prompt(text, len(images_pil), ocr_text)
+    content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
+    for image in images_pil:
+        content.append({"type": "image_url", "image_url": {"url": _image_to_data_url(image)}})
     return [{"role": "user", "content": content}]
 
 
+def _build_repair_prompt(prompt: str, invalid_response: str) -> str:
+    return (
+        f"{prompt}\n\n"
+        "Phản hồi trước của bạn:\n"
+        f"{invalid_response}\n"
+        f"{_REPAIR_SUFFIX}"
+    )
+
+
+def _build_openrouter_repair_messages(
+    text: str,
+    images_pil: List[Image.Image],
+    invalid_response: str,
+    ocr_text: Optional[str] = None,
+) -> list[dict[str, Any]]:
+    prompt = _build_prompt(text, len(images_pil), ocr_text)
+    return [
+        *_build_openrouter_messages(text, images_pil, ocr_text),
+        {"role": "assistant", "content": invalid_response},
+        {"role": "user", "content": [{"type": "text", "text": _build_repair_prompt(prompt, invalid_response)}]},
+    ]
+
+
 def _extract_json(raw: str) -> dict:
-    # Strip <think>...</think> blocks generated by Qwen3/Qwen3.5 in thinking mode
-    # before attempting JSON extraction so the greedy regex doesn't grab brace
-    # characters that appear inside the thinking section.
     cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
     match = re.search(r"\{.*\}", cleaned, re.DOTALL)
     if match:
@@ -293,15 +328,12 @@ def _extract_json(raw: str) -> dict:
 
 
 def _validate(data: dict) -> LLMJudgeRecord:
-    """Parse and validate the prompt output schema into a LLMJudgeRecord."""
     raw_label = data.get("llm_label", "INVALID")
     if raw_label == "INVALID":
         label = "INVALID"
-    elif raw_label in (0, 1):
+    elif raw_label in (0, 1, -1):
         label = int(raw_label)
-    elif str(raw_label) in ("0", "1"):
-        # Model occasionally returns the label as a quoted string ("0" / "1")
-        # instead of a bare integer. Accept both forms.
+    elif str(raw_label) in ("0", "1", "-1"):
         label = int(raw_label)
     else:
         label = "INVALID"
@@ -310,18 +342,14 @@ def _validate(data: dict) -> LLMJudgeRecord:
     has_emoji = int(has_emoji_raw) if (has_emoji_raw in (0, 1) or str(has_emoji_raw) in ("0", "1")) else None
 
     needs_human_check_raw = data.get("needs_human_check")
-    # Model may return as int (0/1) or quoted string ("0"/"1")
     if needs_human_check_raw in (0, 1) or str(needs_human_check_raw) in ("0", "1"):
         needs_human_check = int(needs_human_check_raw)
     else:
         needs_human_check = None
 
     notes = str(data.get("notes") or data.get("Notes") or "")[:500]
-
     reasoning = data.get("reasoning", {})
     if isinstance(reasoning, str) and reasoning.strip():
-        # Model returned reasoning as a flat prose string instead of a dict.
-        # Preserve it under the "verdict" key so the content is not lost.
         reasoning = {"verdict": reasoning}
     elif not isinstance(reasoning, dict):
         reasoning = {}
@@ -336,181 +364,258 @@ def _validate(data: dict) -> LLMJudgeRecord:
     )
 
 
-# ---------------------------------------------------------------------------
-# Local inference call
-# ---------------------------------------------------------------------------
+def _is_retryable_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return any(marker in msg for marker in _RETRYABLE_ERROR_MARKERS)
 
-def _call_local(
-    model,
-    processor,
-    messages: list,
+
+def _is_quota_exceeded_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return any(marker in msg for marker in _QUOTA_EXCEEDED_ERROR_MARKERS)
+
+
+async def _get_provider_key_state(async_client: Dict[str, Any]) -> tuple[str, int, int]:
+    lock = async_client["lock"]
+    async with lock:
+        key_index = int(async_client["active_key_index"])
+        api_keys = async_client["api_keys"]
+        return api_keys[key_index], key_index, len(api_keys)
+
+
+async def _rotate_provider_api_key(async_client: Dict[str, Any]) -> tuple[bool, int, int, int]:
+    lock = async_client["lock"]
+    async with lock:
+        current_index = int(async_client["active_key_index"])
+        exhausted = async_client["exhausted_key_indices"]
+        exhausted.add(current_index)
+        api_keys = async_client["api_keys"]
+        total = len(api_keys)
+
+        for candidate_index in range(total):
+            if candidate_index not in exhausted:
+                async_client["active_key_index"] = candidate_index
+                return True, current_index, candidate_index, total
+
+        return False, current_index, current_index, total
+
+
+def _compute_retry_delay_seconds(base_delay_seconds: float, attempt: int, max_delay_seconds: float) -> float:
+    exponential = base_delay_seconds * (2 ** max(0, attempt - 1))
+    capped = min(exponential, max_delay_seconds)
+    jitter = random.uniform(0.0, min(1.0, capped * 0.2))
+    return capped + jitter
+
+
+async def _call_gemini_api_async(
+    async_client: Dict[str, Any],
+    model_name: str,
+    contents: list[Any],
     temperature: float,
-    max_new_tokens: int = 2048,
+    max_output_tokens: int = 256,
 ) -> str:
-    """
-    Run a single forward+generate pass using the unified processor API.
-
-    processor.apply_chat_template with tokenize=True + return_dict=True
-    handles both text tokenization and image preprocessing in one step,
-    producing a dict with input_ids, attention_mask, and pixel_values.
-    enable_thinking=False suppresses <think> blocks on Qwen3/Qwen3.5 models
-    (ignored by processors that do not support this kwarg).
-    """
-    try:
-        inputs = processor.apply_chat_template(
-            messages,
-            tokenize=True,
-            add_generation_prompt=True,
-            return_dict=True,
-            return_tensors="pt",
-            enable_thinking=False,
-        )
-    except TypeError:
-        # Fallback for processors that do not accept enable_thinking
-        inputs = processor.apply_chat_template(
-            messages,
-            tokenize=True,
-            add_generation_prompt=True,
-            return_dict=True,
-            return_tensors="pt",
-        )
-    # Use next(model.parameters()).device so this works with device_map="auto"
-    # (model.device is not defined when the model is sharded across devices)
-    device = next(model.parameters()).device
-    inputs = {k: v.to(device) if hasattr(v, "to") else v for k, v in inputs.items()}
-
-    eos_id = getattr(model.config, "eos_token_id", None) or getattr(processor.tokenizer, "eos_token_id", None)
-    pad_token_id = eos_id[0] if isinstance(eos_id, list) else eos_id
-
-    gen_kwargs: dict = {"max_new_tokens": max_new_tokens}
-    if pad_token_id is not None:
-        gen_kwargs["pad_token_id"] = pad_token_id
-    if temperature > 0:
-        gen_kwargs["temperature"] = temperature
-        gen_kwargs["do_sample"] = True
-    else:
-        gen_kwargs["do_sample"] = False
-
-    with torch.no_grad():
-        generated_ids = model.generate(**inputs, **gen_kwargs)
-
-    trimmed = [
-        out_ids[len(in_ids):]
-        for in_ids, out_ids in zip(inputs["input_ids"], generated_ids)
-    ]
-    output = processor.batch_decode(
-        trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+    _, types = _import_google_genai()
+    _, key_index, _ = await _get_provider_key_state(async_client)
+    response = await async_client["clients"][key_index].aio.models.generate_content(
+        model=model_name,
+        contents=contents,
+        config=types.GenerateContentConfig(
+            temperature=temperature,
+            max_output_tokens=max_output_tokens,
+            response_mime_type="application/json",
+        ),
     )
-    return output[0] if output else ""
+    if getattr(response, "text", None):
+        return response.text
+    if getattr(response, "parsed", None) is not None:
+        return json.dumps(response.parsed, ensure_ascii=False)
+    raise ValueError("Empty response from Gemini API.")
 
 
-# ---------------------------------------------------------------------------
-# Per-record judgment
-# ---------------------------------------------------------------------------
+def _build_openrouter_payload(
+    model_config: Dict[str, Any],
+    messages: list[dict[str, Any]],
+    temperature: float,
+    max_output_tokens: int,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "model": model_config["model_name"],
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_output_tokens,
+        "response_format": _OPENROUTER_RESPONSE_FORMAT,
+    }
+    reasoning = dict(model_config.get("reasoning") or {})
+    if reasoning:
+        payload["reasoning"] = reasoning
+    return payload
 
-def judge_single(
-    model,
-    processor,
+
+def _extract_openrouter_text(response_json: dict[str, Any]) -> str:
+    choices = response_json.get("choices") or []
+    if not choices:
+        raise ValueError("Empty response from OpenRouter API.")
+    message = (choices[0] or {}).get("message") or {}
+    content = message.get("content")
+    if isinstance(content, str) and content.strip():
+        return content
+    if isinstance(content, list):
+        texts = [part.get("text", "") for part in content if isinstance(part, dict) and part.get("type") == "text"]
+        merged = "".join(texts).strip()
+        if merged:
+            return merged
+    raise ValueError("OpenRouter response did not contain text content.")
+
+
+def _openrouter_request(api_key: str, payload: dict[str, Any]) -> str:
+    request = urllib.request.Request(
+        _OPENROUTER_API_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/openai/codex",
+            "X-Title": "social-media-mining-round1",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=180) as response:
+            body = response.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(f"OpenRouter HTTP {exc.code}: {body[:300]}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"OpenRouter connection error: {exc}") from exc
+
+    try:
+        response_json = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"OpenRouter returned non-JSON body: {body[:300]}") from exc
+    return _extract_openrouter_text(response_json)
+
+
+async def _call_openrouter_api_async(
+    async_client: Dict[str, Any],
+    model_config: Dict[str, Any],
+    messages: list[dict[str, Any]],
+    temperature: float,
+    max_output_tokens: int,
+) -> str:
+    payload = _build_openrouter_payload(model_config, messages, temperature, max_output_tokens)
+    api_key, _, _ = await _get_provider_key_state(async_client)
+    return await asyncio.to_thread(_openrouter_request, api_key, payload)
+
+
+async def _judge_once_async(
+    async_client,
+    model_config: Dict[str, Any],
     record: InputRecord,
     temperature: float,
-    is_vl: bool,
-    max_image_pixels: int = 1_048_576,
+    max_image_pixels: int,
+    max_output_tokens: int,
+    images_pil: Optional[List[Image.Image]] = None,
+    image_missing: Optional[bool] = None,
 ) -> LLMJudgeRecord:
-    """Run local inference for one record with one repair retry on bad JSON."""
-    images_pil, image_missing = _load_images(record, is_vl, max_image_pixels)
+    provider = model_config["provider"]
+    if images_pil is None or image_missing is None:
+        images_pil, image_missing = _load_images(record, max_image_pixels)
 
-    if image_missing:
-        logger.warning("All images missing for id=%d: %s", record.id, record.image_path)
-
-    messages = _build_messages(record.text, images_pil, is_vl, record.ocr_text)
-    raw = ""
+    if provider == "openrouter":
+        messages = _build_openrouter_messages(record.text, images_pil, record.ocr_text)
+        raw = await _call_openrouter_api_async(async_client, model_config, messages, temperature, max_output_tokens)
+    else:
+        contents = _build_gemini_contents(record.text, images_pil, record.ocr_text)
+        raw = await _call_gemini_api_async(async_client, model_config["model_name"], contents, temperature, max_output_tokens)
 
     try:
-        raw = _call_local(model, processor, messages, temperature)
         result = _validate(_extract_json(raw))
-        result = result.model_copy(update={
-            "id": record.id,
-            "image_missing": image_missing,
-        })
-        return result
-
     except (json.JSONDecodeError, ValueError, KeyError):
-        logger.warning("Bad JSON for id=%d, retrying repair. Raw: %s", record.id, raw[:200])
-        repair_messages = messages + [
-            {"role": "assistant", "content": [{"type": "text", "text": raw}]},
-            {"role": "user", "content": [{"type": "text", "text": _REPAIR_SUFFIX}]},
-        ]
+        if provider == "openrouter":
+            raw2 = await _call_openrouter_api_async(
+                async_client,
+                model_config,
+                _build_openrouter_repair_messages(record.text, images_pil, raw, record.ocr_text),
+                temperature,
+                max_output_tokens,
+            )
+        else:
+            prompt = _build_prompt(record.text, len(images_pil), record.ocr_text)
+            repair_prompt = _build_repair_prompt(prompt, raw)
+            raw2 = await _call_gemini_api_async(async_client, model_config["model_name"], [*images_pil, repair_prompt], temperature, max_output_tokens)
+        result = _validate(_extract_json(raw2))
+
+    return result.model_copy(update={"id": record.id, "image_missing": image_missing})
+
+
+async def judge_single_async(
+    async_client,
+    model_config: Dict[str, Any],
+    record: InputRecord,
+    temperature: float,
+    max_image_pixels: int = 300_000,
+    max_output_tokens: int = 256,
+    max_retries: int = 3,
+    retry_delay_seconds: int = 5,
+    max_retry_delay_seconds: int = 20,
+) -> LLMJudgeRecord:
+    last_error = "Unknown error"
+    images_pil, image_missing = _load_images(record, max_image_pixels)
+    attempt = 1
+
+    while attempt <= max_retries:
         try:
-            raw2 = _call_local(model, processor, repair_messages, temperature)
-            result2 = _validate(_extract_json(raw2))
-            result2 = result2.model_copy(update={
-                "id": record.id,
-                "image_missing": image_missing,
-            })
-            return result2
-        except Exception as exc2:
-            logger.error("Repair failed for id=%d: %s", record.id, exc2)
-            return LLMJudgeRecord(
-                id=record.id,
-                label_llm1="INVALID",
-                notes="JSON parse error after retry.",
-                parse_error=True,
+            return await _judge_once_async(
+                async_client,
+                model_config,
+                record,
+                temperature,
+                max_image_pixels,
+                max_output_tokens,
+                images_pil=images_pil,
                 image_missing=image_missing,
             )
+        except Exception as exc:
+            provider = model_config.get("provider")
+            if provider in ("openrouter", "gemini_api") and _is_quota_exceeded_error(exc):
+                rotated, from_index, to_index, total_keys = await _rotate_provider_api_key(async_client)
+                if rotated:
+                    logger.warning(
+                        "RotateKey | id=%d | model=%s | from_key=%d/%d | to_key=%d/%d | reason=quota_exceeded",
+                        record.id,
+                        model_config.get("tag", model_config.get("model_name", "unknown")),
+                        from_index + 1,
+                        total_keys,
+                        to_index + 1,
+                        total_keys,
+                    )
+                    continue
+                provider_name = "OpenRouter" if provider == "openrouter" else "Gemini"
+                raise QuotaExceededError(f"All {provider_name} API keys exhausted: {str(exc)[:220]}") from exc
+            if _is_quota_exceeded_error(exc):
+                raise QuotaExceededError(str(exc)[:300]) from exc
+            last_error = str(exc)[:200]
+            should_retry = attempt < max_retries and _is_retryable_error(exc)
+            if should_retry:
+                delay_seconds = _compute_retry_delay_seconds(retry_delay_seconds, attempt, max_retry_delay_seconds)
+                logger.warning(
+                    "Retry | id=%d | model=%s | attempt=%d/%d | wait=%.1fs | reason=%s",
+                    record.id,
+                    model_config.get("tag", model_config.get("model_name", "unknown")),
+                    attempt,
+                    max_retries,
+                    delay_seconds,
+                    str(exc)[:120],
+                )
+                await asyncio.sleep(delay_seconds)
+                attempt += 1
+                continue
+            break
 
-    except Exception as exc:
-        logger.error("Unexpected error for id=%d: %s", record.id, exc)
-        return LLMJudgeRecord(
-            id=record.id,
-            label_llm1="INVALID",
-            notes=f"Unexpected error: {str(exc)[:200]}",
-            parse_error=True,
-            image_missing=image_missing,
-        )
-
-
-# ---------------------------------------------------------------------------
-# Batch entry-point
-# ---------------------------------------------------------------------------
-
-def judge_batch(
-    records: List[InputRecord],
-    model_name: str,
-    temperature: float,
-    hf_token: Optional[str] = None,
-    device: str = "cuda",
-    load_in_4bit: bool = False,
-    max_image_pixels: int = 1_048_576,
-) -> List[LLMJudgeRecord]:
-    """
-    Judge a list of records via local model inference.
-
-    Parameters
-    ----------
-    records          : list of InputRecord
-    model_name       : HuggingFace model ID, e.g. "Qwen/Qwen2.5-VL-7B-Instruct"
-    temperature      : sampling temperature (0.1 recommended)
-    hf_token         : HF token for downloading the model from Hub
-    device           : "cuda" or "cpu"
-    load_in_4bit     : enable 4-bit quantization via bitsandbytes to reduce VRAM
-    max_image_pixels : cap image width*height before vision encoding to limit VRAM
-                       (default 1_048_576 = 1024x1024; set 0 to disable)
-    """
-    model, processor = load_local_model(model_name, device, load_in_4bit, hf_token)
-    is_vl = _is_vl_model(model_name)
-    logger.info(
-        "Local inference | model=%s | VL=%s | device=%s | 4bit=%s | max_img_px=%s",
-        model_name, is_vl, device, load_in_4bit,
-        max_image_pixels if max_image_pixels > 0 else "unlimited",
+    return LLMJudgeRecord(
+        id=record.id,
+        label_llm1=-1,
+        notes=f"Failed after {max_retries} attempts: {last_error}",
+        parse_error=True,
+        image_missing=image_missing,
     )
-
-    results: List[LLMJudgeRecord] = []
-    for record in records:
-        result = judge_single(model, processor, record, temperature, is_vl, max_image_pixels)
-        results.append(result)
-        logger.debug(
-            "id=%d | label=%s | needs_human_check=%s | parse_err=%s",
-            record.id, result.label_llm1, result.needs_human_check, result.parse_error,
-        )
-
-    return results

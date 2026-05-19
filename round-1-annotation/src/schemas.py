@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class InputRecord(BaseModel):
@@ -22,15 +22,15 @@ class InputRecord(BaseModel):
 
 class LLMJudgeRecord(BaseModel):
     """
-    Structured output of the LLM judge using the current prompt schema.
+    Structured output of the LLM judge.
 
-    label_llm1        : 0 (non-sarcastic), 1 (sarcastic), or "INVALID"
+    label_llm1        : 0 (non-sarcastic), 1 (sarcastic), -1 (failed after retries), or "INVALID"
     has_emoji         : 1 nếu bài đăng có emoji, 0 nếu không
-    needs_human_check : 0 nếu LLM tự tin, 1 nếu cần human kiểm chứng (dùng để routing)
+    needs_human_check : 0 nếu LLM tự tin, 1 nếu cần human kiểm chứng
     notes             : free-form notes from the model
     reasoning         : full nested reasoning dict from the model response
-    parse_error       : True when the model output could not be parsed (routing hint)
-    image_missing     : True when expected images were not found on disk (routing hint)
+    parse_error       : True when the model output could not be parsed / request failed
+    image_missing     : True when expected images were not found on disk
     """
 
     id: int
@@ -44,16 +44,18 @@ class LLMJudgeRecord(BaseModel):
 
 
 class Round1OutputRecord(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
     id: int
     text: str
     image_path: str
+    ocr_text: Optional[str] = None
     label_llm1: Union[int, Literal["INVALID"]]
     has_emoji: Optional[int]
-    needs_human_check: Optional[int]
+    needs_human_check: Optional[int] = Field(default=None, exclude=True)
     notes: str
     reasoning: Dict[str, Any]
     round1_label: Literal["sarcastic", "non_sarcastic", "invalid"]
-    need_review: bool
+    need_review: bool = Field(exclude=True)
     route_reason: Literal[
         "high_conf",
         "low_conf",
@@ -61,5 +63,7 @@ class Round1OutputRecord(BaseModel):
         "invalid_json",
         "missing_image",
         "audit_sampled",
-    ]
+    ] = Field(exclude=True)
+    parse_error: bool = False
+    image_missing: bool = False
     timestamp_utc: str

@@ -1,49 +1,25 @@
-# Round-1 weak annotation pipeline configuration
-# Local inference via Qwen/Qwen3.5-2B on GPU.
-# Designed for Kaggle (free T4 / P100 GPU).
-
-# ---------------------------------------------------------------------------
-# Routing thresholds
-# ---------------------------------------------------------------------------
-#
-# Confidence is derived from the model's Difficulty field in the new prompt:
-#   "Easy"  -> high confidence -> auto-accept (high_conf)
-#   "Hard"  -> lower confidence -> human review (low_conf)
-#   "INVALID" -> always human review (uncertain)
-#
-# random_audit_rate : fraction of auto-accepted records sent to human queue
-#                     for quality-control spot-checking.
-random_audit_rate: 0.10
+random_audit_rate: 0.1
 seed: 42
-
-# ---------------------------------------------------------------------------
-# Model & inference settings
-# ---------------------------------------------------------------------------
-
-# HuggingFace model ID (downloaded locally on first run)
-# Class: AutoModelForImageTextToText  |  transformers >= 4.51.0
-llm_model: "Qwen/Qwen3.5-9B"
-
-# Provider tag (kept for reference; local inference ignores this field)
-llm_provider: "local"
-
+default_model: gemma
+models:
+  gemma:
+    provider: gemini_api
+    model_name: gemma-4-31b-it
+    max_output_tokens: 1028
+    concurrency: 3
+  nemotron:
+    provider: openrouter
+    model_name: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+    reasoning:
+      effort: none
+      exclude: true
+    max_output_tokens: 1028
+    concurrency: 1
 llm_temperature: 0.1
-
-# Device to run inference on: "cuda" (GPU) or "cpu"
-device: "cuda"
-
-# Enable 4-bit quantization via bitsandbytes.
-# Strongly recommended on Kaggle T4 (16 GB VRAM) — reduces model VRAM from
-# ~14 GB (float16) to ~4 GB, leaving headroom for activations.
-load_in_4bit: true
-
-# Set to 0 to disable resizing (not recommended on Kaggle T4 with 7B model).
-max_image_pixels: 500000
-max_new_tokens: 512
-# ---------------------------------------------------------------------------
-# Pipeline
-# ---------------------------------------------------------------------------
-
-# Number of records per checkpoint save. Lower = more frequent saves.
-# Keep small for local inference (each record takes a few seconds).
-batch_size: 8
+max_image_pixels: 300000
+max_output_tokens: 1028
+max_retries: 5
+retry_delay_seconds: 5
+max_retry_delay_seconds: 20
+concurrency: 3
+checkpoint_every: 10
