@@ -82,6 +82,8 @@ _REPAIR_SUFFIX = (
     "Giữ nguyên các khóa và kiểu dữ liệu như output schema đã yêu cầu."
 )
 
+_OPENROUTER_RESPONSE_FORMAT = {"type": "json_object"}
+
 
 def _load_prompt_template() -> str:
     global _PROMPT_TEMPLATE
@@ -122,9 +124,27 @@ def _resolve_openrouter_api_keys(api_key: Optional[str] = None) -> List[str]:
     return keys
 
 
+def _resolve_gemini_api_keys(api_key: Optional[str] = None) -> List[str]:
+    raw_value = (
+        api_key
+        or os.environ.get("GEMINI_API_KEYS")
+        or os.environ.get("GOOGLE_API_KEYS")
+        or os.environ.get("GOOGLE_API_KEY")
+        or os.environ.get("GEMINI_API_KEY")
+    )
+    if not raw_value:
+        raise ValueError("Gemini API key list not found. Set GEMINI_API_KEYS / GEMINI_API_KEY / GOOGLE_API_KEY or pass --api_key.")
+    keys = _split_api_keys(raw_value)
+    if not keys:
+        raise ValueError("Gemini API key list is empty.")
+    return keys
+
+
 def _resolve_api_key(provider: str, api_key: Optional[str] = None) -> str:
     if provider == "openrouter":
         return _resolve_openrouter_api_keys(api_key)[0]
+    if provider == "gemini_api":
+        return _resolve_gemini_api_keys(api_key)[0]
 
     resolved = api_key or os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not resolved:
@@ -147,6 +167,21 @@ def load_api_client(provider: str, api_key: Optional[str] = None):
         _ACTIVE_PROVIDER = provider
         return _CLIENT
 
+    if provider == "gemini_api":
+        resolved_keys = _resolve_gemini_api_keys(api_key)
+        genai, _ = _import_google_genai()
+        _CLIENT = {
+            "provider": provider,
+            "api_keys": resolved_keys,
+            "active_key_index": 0,
+            "exhausted_key_indices": set(),
+            "lock": None,
+            "clients": [genai.Client(api_key=key) for key in resolved_keys],
+        }
+        _ASYNC_CLIENT = _CLIENT
+        _ACTIVE_PROVIDER = provider
+        return _CLIENT
+
     if _CLIENT is None or _ACTIVE_PROVIDER != provider:
         genai, _ = _import_google_genai()
         _CLIENT = genai.Client(api_key=_resolve_api_key(provider, api_key))
@@ -157,7 +192,7 @@ def load_api_client(provider: str, api_key: Optional[str] = None):
 
 def load_async_api_client(provider: str, api_key: Optional[str] = None):
     load_api_client(provider, api_key)
-    if provider == "openrouter" and _ASYNC_CLIENT is not None and _ASYNC_CLIENT.get("lock") is None:
+    if provider in ("openrouter", "gemini_api") and _ASYNC_CLIENT is not None and _ASYNC_CLIENT.get("lock") is None:
         _ASYNC_CLIENT["lock"] = asyncio.Lock()
     return _ASYNC_CLIENT
 
@@ -166,12 +201,20 @@ def get_openrouter_key_count(api_key: Optional[str] = None) -> int:
     return len(_resolve_openrouter_api_keys(api_key))
 
 
+def get_gemini_key_count(api_key: Optional[str] = None) -> int:
+    return len(_resolve_gemini_api_keys(api_key))
+
+
 async def close_async_api_client() -> None:
     global _CLIENT, _ASYNC_CLIENT, _ACTIVE_PROVIDER
-    if _ACTIVE_PROVIDER == "gemini_api" and _ASYNC_CLIENT is not None:
+    if _ACTIVE_PROVIDER == "gemini_api" and isinstance(_CLIENT, dict):
+        for client in _CLIENT.get("clients", []):
+            await client.aio.aclose()
+            client.close()
+    elif _ACTIVE_PROVIDER == "gemini_api" and _ASYNC_CLIENT is not None:
         await _ASYNC_CLIENT.aclose()
-    if _ACTIVE_PROVIDER == "gemini_api" and _CLIENT is not None:
-        _CLIENT.close()
+        if _CLIENT is not None:
+            _CLIENT.close()
     _ASYNC_CLIENT = None
     _CLIENT = None
     _ACTIVE_PROVIDER = None
@@ -253,6 +296,29 @@ def _build_openrouter_messages(text: str, images_pil: List[Image.Image], ocr_tex
     return [{"role": "user", "content": content}]
 
 
+def _build_repair_prompt(prompt: str, invalid_response: str) -> str:
+    return (
+        f"{prompt}\n\n"
+        "Phản hồi trước của bạn:\n"
+        f"{invalid_response}\n"
+        f"{_REPAIR_SUFFIX}"
+    )
+
+
+def _build_openrouter_repair_messages(
+    text: str,
+    images_pil: List[Image.Image],
+    invalid_response: str,
+    ocr_text: Optional[str] = None,
+) -> list[dict[str, Any]]:
+    prompt = _build_prompt(text, len(images_pil), ocr_text)
+    return [
+        *_build_openrouter_messages(text, images_pil, ocr_text),
+        {"role": "assistant", "content": invalid_response},
+        {"role": "user", "content": [{"type": "text", "text": _build_repair_prompt(prompt, invalid_response)}]},
+    ]
+
+
 def _extract_json(raw: str) -> dict:
     cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
     match = re.search(r"\{.*\}", cleaned, re.DOTALL)
@@ -308,7 +374,7 @@ def _is_quota_exceeded_error(exc: Exception) -> bool:
     return any(marker in msg for marker in _QUOTA_EXCEEDED_ERROR_MARKERS)
 
 
-async def _get_openrouter_key_state(async_client: Dict[str, Any]) -> tuple[str, int, int]:
+async def _get_provider_key_state(async_client: Dict[str, Any]) -> tuple[str, int, int]:
     lock = async_client["lock"]
     async with lock:
         key_index = int(async_client["active_key_index"])
@@ -316,7 +382,7 @@ async def _get_openrouter_key_state(async_client: Dict[str, Any]) -> tuple[str, 
         return api_keys[key_index], key_index, len(api_keys)
 
 
-async def _rotate_openrouter_api_key(async_client: Dict[str, Any]) -> tuple[bool, int, int, int]:
+async def _rotate_provider_api_key(async_client: Dict[str, Any]) -> tuple[bool, int, int, int]:
     lock = async_client["lock"]
     async with lock:
         current_index = int(async_client["active_key_index"])
@@ -341,14 +407,15 @@ def _compute_retry_delay_seconds(base_delay_seconds: float, attempt: int, max_de
 
 
 async def _call_gemini_api_async(
-    async_client,
+    async_client: Dict[str, Any],
     model_name: str,
     contents: list[Any],
     temperature: float,
     max_output_tokens: int = 256,
 ) -> str:
     _, types = _import_google_genai()
-    response = await async_client.models.generate_content(
+    _, key_index, _ = await _get_provider_key_state(async_client)
+    response = await async_client["clients"][key_index].aio.models.generate_content(
         model=model_name,
         contents=contents,
         config=types.GenerateContentConfig(
@@ -375,6 +442,7 @@ def _build_openrouter_payload(
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_output_tokens,
+        "response_format": _OPENROUTER_RESPONSE_FORMAT,
     }
     reasoning = dict(model_config.get("reasoning") or {})
     if reasoning:
@@ -435,7 +503,7 @@ async def _call_openrouter_api_async(
     max_output_tokens: int,
 ) -> str:
     payload = _build_openrouter_payload(model_config, messages, temperature, max_output_tokens)
-    api_key, _, _ = await _get_openrouter_key_state(async_client)
+    api_key, _, _ = await _get_provider_key_state(async_client)
     return await asyncio.to_thread(_openrouter_request, api_key, payload)
 
 
@@ -460,17 +528,18 @@ async def _judge_once_async(
     try:
         result = _validate(_extract_json(raw))
     except (json.JSONDecodeError, ValueError, KeyError):
-        repair_prompt = raw + _REPAIR_SUFFIX
         if provider == "openrouter":
             raw2 = await _call_openrouter_api_async(
                 async_client,
                 model_config,
-                [{"role": "user", "content": [{"type": "text", "text": repair_prompt}]}],
+                _build_openrouter_repair_messages(record.text, images_pil, raw, record.ocr_text),
                 temperature,
                 max_output_tokens,
             )
         else:
-            raw2 = await _call_gemini_api_async(async_client, model_config["model_name"], [repair_prompt], temperature, max_output_tokens)
+            prompt = _build_prompt(record.text, len(images_pil), record.ocr_text)
+            repair_prompt = _build_repair_prompt(prompt, raw)
+            raw2 = await _call_gemini_api_async(async_client, model_config["model_name"], [*images_pil, repair_prompt], temperature, max_output_tokens)
         result = _validate(_extract_json(raw2))
 
     return result.model_copy(update={"id": record.id, "image_missing": image_missing})
@@ -495,8 +564,9 @@ async def judge_single_async(
         try:
             return await _judge_once_async(async_client, model_config, record, temperature, max_image_pixels, max_output_tokens)
         except Exception as exc:
-            if model_config.get("provider") == "openrouter" and _is_quota_exceeded_error(exc):
-                rotated, from_index, to_index, total_keys = await _rotate_openrouter_api_key(async_client)
+            provider = model_config.get("provider")
+            if provider in ("openrouter", "gemini_api") and _is_quota_exceeded_error(exc):
+                rotated, from_index, to_index, total_keys = await _rotate_provider_api_key(async_client)
                 if rotated:
                     logger.warning(
                         "RotateKey | id=%d | model=%s | from_key=%d/%d | to_key=%d/%d | reason=quota_exceeded",
@@ -508,7 +578,8 @@ async def judge_single_async(
                         total_keys,
                     )
                     continue
-                raise QuotaExceededError(f"All OpenRouter API keys exhausted: {str(exc)[:220]}") from exc
+                provider_name = "OpenRouter" if provider == "openrouter" else "Gemini"
+                raise QuotaExceededError(f"All {provider_name} API keys exhausted: {str(exc)[:220]}") from exc
             if _is_quota_exceeded_error(exc):
                 raise QuotaExceededError(str(exc)[:300]) from exc
             last_error = str(exc)[:200]

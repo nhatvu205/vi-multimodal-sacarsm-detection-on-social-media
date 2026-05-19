@@ -20,7 +20,7 @@ def test_resolve_model_config_returns_nemotron_settings():
             "nemotron": {
                 "provider": "openrouter",
                 "model_name": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-                "reasoning": {"enabled": True, "exclude": True},
+                "concurrency": 1,
             },
         },
     }
@@ -29,4 +29,5 @@ def test_resolve_model_config_returns_nemotron_settings():
 
     assert model_cfg["tag"] == "nemotron"
     assert model_cfg["provider"] == "openrouter"
-    assert model_cfg["reasoning"] == {"enabled": True, "exclude": True}
+    assert model_cfg["reasoning"] == {}
+    assert model_cfg["concurrency"] == 1
