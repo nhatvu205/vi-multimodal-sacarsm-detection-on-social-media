@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 import yaml
 
 from .fusion_router import RouterConfig, apply_audit_sampling, route_all
-from .llm_judge import QuotaExceededError, close_async_api_client, get_gemini_key_count, get_openrouter_key_count, judge_single_async, load_async_api_client
+from .llm_judge import KeyExhaustedError, QuotaExceededError, close_async_api_client, get_gemini_key_count, get_openrouter_key_count, judge_single_async, load_async_api_client
 from .loaders import load_input_records
 from .schemas import InputRecord, LLMJudgeRecord, Round1OutputRecord
 from .utils_logging import get_logger
@@ -187,12 +187,25 @@ def _save_checkpoint_results(
     write_results(output_dir, routed)
 
 
+def _merge_results(
+    current_results_by_id: Dict[int, LLMJudgeRecord],
+    base_results_by_id: Optional[Dict[int, LLMJudgeRecord]] = None,
+) -> Dict[int, LLMJudgeRecord]:
+    merged = dict(base_results_by_id or {})
+    merged.update(current_results_by_id)
+    return merged
+
+
 async def _cancel_pending_tasks(tasks: List[asyncio.Task]) -> None:
     pending = [task for task in tasks if not task.done()]
     for task in pending:
         task.cancel()
     if pending:
         await asyncio.gather(*pending, return_exceptions=True)
+
+
+def _get_provider_name(model_config: Dict[str, Any]) -> str:
+    return "OpenRouter" if model_config.get("provider") == "openrouter" else "Gemini"
 
 
 async def run_llm_with_checkpoint(
@@ -211,11 +224,14 @@ async def run_llm_with_checkpoint(
     checkpoint_every: int = 10,
     *,
     load_checkpoint_file: bool = True,
+    parallel_keys: bool = False,
+    per_key_concurrency: int = 1,
+    cached_results_by_id: Optional[Dict[int, LLMJudgeRecord]] = None,
     checkpoint_records: Optional[List[InputRecord]] = None,
     checkpoint_base_results_by_id: Optional[Dict[int, LLMJudgeRecord]] = None,
     started_at: Optional[float] = None,
 ) -> List[LLMJudgeRecord]:
-    cached = load_checkpoint(output_dir) if load_checkpoint_file else {}
+    cached = dict(cached_results_by_id) if cached_results_by_id is not None else (load_checkpoint(output_dir) if load_checkpoint_file else {})
     results_by_id: Dict[int, LLMJudgeRecord] = {record.id: cached[record.id] for record in records if record.id in cached}
     remaining = [record for record in records if record.id not in results_by_id]
 
@@ -224,6 +240,98 @@ async def run_llm_with_checkpoint(
 
     started_at = started_at or time.monotonic()
     async_client = load_async_api_client(model_config["provider"], api_key)
+    if parallel_keys:
+        if not isinstance(async_client, dict) or "api_keys" not in async_client:
+            raise ValueError("Parallel key mode requires a provider with multiple API keys.")
+        key_count = len(async_client["api_keys"])
+        per_key_concurrency = max(1, per_key_concurrency)
+        checkpoint_every = max(1, checkpoint_every)
+        completed_since_save = 0
+        completed_total = len(results_by_id)
+        queue: asyncio.Queue[InputRecord] = asyncio.Queue()
+        for record in remaining:
+            queue.put_nowait(record)
+        exhausted_key_indices: set[int] = set(async_client.get("exhausted_key_indices", set()))
+        state_lock = asyncio.Lock()
+
+        def _save_parallel_checkpoint() -> None:
+            _save_checkpoint_results(
+                output_dir,
+                checkpoint_records or records,
+                _merge_results(results_by_id, checkpoint_base_results_by_id),
+                router_cfg,
+            )
+
+        async def _worker(key_index: int) -> None:
+            nonlocal completed_since_save, completed_total
+            while key_index not in exhausted_key_indices:
+                try:
+                    record = await asyncio.wait_for(queue.get(), timeout=0.1)
+                except asyncio.TimeoutError:
+                    if queue.empty():
+                        return
+                    continue
+
+                try:
+                    result = await judge_single_async(
+                        async_client,
+                        model_config,
+                        record,
+                        temperature,
+                        max_image_pixels,
+                        max_output_tokens,
+                        max_retries,
+                        retry_delay_seconds,
+                        max_retry_delay_seconds,
+                        key_index=key_index,
+                        allow_key_rotation=False,
+                    )
+                except KeyExhaustedError:
+                    async with state_lock:
+                        exhausted_key_indices.add(key_index)
+                        async_client["exhausted_key_indices"].add(key_index)
+                        if len(exhausted_key_indices) >= key_count:
+                            queue.task_done()
+                            return
+                        queue.put_nowait(record)
+                        logger.warning(
+                            "ExhaustKey | model=%s | key=%d/%d | remaining_keys=%d",
+                            model_config.get("tag", model_config.get("model_name", "unknown")),
+                            key_index + 1,
+                            key_count,
+                            key_count - len(exhausted_key_indices),
+                        )
+                    queue.task_done()
+                    return
+
+                async with state_lock:
+                    results_by_id[result.id] = result
+                    completed_total += 1
+                    completed_since_save += 1
+                    logger.info("Progress | %d/%d | id=%d | label=%s | elapsed=%s", completed_total, len(records), result.id, result.label_llm1, _format_elapsed(started_at))
+                    if completed_since_save >= checkpoint_every:
+                        _save_parallel_checkpoint()
+                        completed_since_save = 0
+                        logger.info("Checkpoint | saved=%d | elapsed=%s | files=%s,%s", completed_total, _format_elapsed(started_at), _results_path(output_dir).name, _results_json_path(output_dir).name)
+                queue.task_done()
+
+        worker_count = key_count * per_key_concurrency
+        workers = [
+            asyncio.create_task(_worker(key_index))
+            for key_index in range(key_count)
+            for _ in range(per_key_concurrency)
+        ]
+        try:
+            await asyncio.gather(*workers)
+            if completed_since_save > 0:
+                _save_parallel_checkpoint()
+                logger.info("Checkpoint | saved=%d | elapsed=%s | files=%s,%s", completed_total, _format_elapsed(started_at), _results_path(output_dir).name, _results_json_path(output_dir).name)
+            if not queue.empty() and len(exhausted_key_indices) >= key_count:
+                raise QuotaExceededError(f"All {_get_provider_name(model_config)} API keys exhausted.")
+        finally:
+            await close_async_api_client()
+        return [results_by_id[record.id] for record in records if record.id in results_by_id]
+
     semaphore = asyncio.Semaphore(max(1, concurrency))
     checkpoint_every = max(1, checkpoint_every)
     completed_since_save = 0
@@ -252,7 +360,12 @@ async def run_llm_with_checkpoint(
             except QuotaExceededError as exc:
                 await _cancel_pending_tasks(tasks)
                 if results_by_id:
-                    _save_checkpoint_results(output_dir, records, results_by_id, router_cfg)
+                    _save_checkpoint_results(
+                        output_dir,
+                        checkpoint_records or records,
+                        _merge_results(results_by_id, checkpoint_base_results_by_id),
+                        router_cfg,
+                    )
                     logger.info("Checkpoint | saved=%d | elapsed=%s | files=%s,%s", completed_total, _format_elapsed(started_at), _results_path(output_dir).name, _results_json_path(output_dir).name)
                 logger.error("Stop | reason=quota_exceeded | saved=%d | elapsed=%s | error=%s", completed_total, _format_elapsed(started_at), str(exc)[:200])
                 raise
@@ -264,24 +377,20 @@ async def run_llm_with_checkpoint(
             logger.info("Progress | %d/%d | id=%d | label=%s | elapsed=%s", completed_total, len(records), result.id, result.label_llm1, _format_elapsed(started_at))
 
             if completed_since_save >= checkpoint_every:
-                checkpoint_results = dict(checkpoint_base_results_by_id or {})
-                checkpoint_results.update(results_by_id)
                 _save_checkpoint_results(
                     output_dir,
                     checkpoint_records or records,
-                    checkpoint_results,
+                    _merge_results(results_by_id, checkpoint_base_results_by_id),
                     router_cfg,
                 )
                 completed_since_save = 0
                 logger.info("Checkpoint | saved=%d | elapsed=%s | files=%s,%s", completed_total, _format_elapsed(started_at), _results_path(output_dir).name, _results_json_path(output_dir).name)
 
         if completed_since_save > 0:
-            checkpoint_results = dict(checkpoint_base_results_by_id or {})
-            checkpoint_results.update(results_by_id)
             _save_checkpoint_results(
                 output_dir,
                 checkpoint_records or records,
-                checkpoint_results,
+                _merge_results(results_by_id, checkpoint_base_results_by_id),
                 router_cfg,
             )
             logger.info("Checkpoint | saved=%d | elapsed=%s | files=%s,%s", completed_total, _format_elapsed(started_at), _results_path(output_dir).name, _results_json_path(output_dir).name)
@@ -296,11 +405,13 @@ async def run_pipeline_async(
     output_dir: str,
     input_data: str = DEFAULT_INPUT_DATA,
     api_key: Optional[str] = None,
-    max_records: Optional[int] = None,
     *,
     min_record_id: Optional[int] = None,
+    max_record_id: Optional[int] = None,
     no_checkpoint_load: bool = False,
     rerun_minus_one: bool = False,
+    parallel_keys: bool = False,
+    per_key_concurrency: int = 1,
     test_mode: bool = False,
     test_size: int = 5,
     model_tag: Optional[str] = None,
@@ -327,14 +438,15 @@ async def run_pipeline_async(
         _results_path(out_dir).unlink(missing_ok=True)
         _results_json_path(out_dir).unlink(missing_ok=True)
 
-    input_records = load_input_records(input_data)
-    if max_records is not None:
-        input_records = input_records[:max_records]
+    all_input_records = load_input_records(input_data)
+    input_records = all_input_records
     if min_record_id is not None:
         input_records = [record for record in input_records if record.id >= min_record_id]
+    if max_record_id is not None:
+        input_records = [record for record in input_records if record.id <= max_record_id]
     input_records = select_records_for_run(input_records, test_mode=test_mode, test_size=test_size, seed=seed)
 
-    cached_results = load_checkpoint(out_dir) if rerun_minus_one else {}
+    cached_results = load_checkpoint(out_dir) if not no_checkpoint_load else {}
     records_for_run = input_records
     if rerun_minus_one:
         records_for_run = select_failed_records_for_rerun(input_records, cached_results)
@@ -349,14 +461,16 @@ async def run_pipeline_async(
             return
 
     logger.info(
-        "Start | input=%d | test=%s | from_id=%s | model=%s | provider=%s | concurrency=%d | checkpoint_every=%d | output=%s",
+        "Start | input=%d | test=%s | from_id=%s | model=%s | provider=%s | concurrency=%d | checkpoint_every=%d | parallel_keys=%s | per_key_concurrency=%d | output=%s",
         len(records_for_run),
         test_mode,
-        min_record_id if min_record_id is not None else "start",
+        f"{min_record_id if min_record_id is not None else 'start'}..{max_record_id if max_record_id is not None else 'end'}",
         resolved_model["tag"],
         resolved_model["provider"],
         concurrency,
         checkpoint_every,
+        parallel_keys,
+        per_key_concurrency,
         _results_json_path(out_dir).name,
     )
     logger.info("ModelConfig | tag=%s | name=%s", resolved_model["tag"], resolved_model["model_name"])
@@ -382,23 +496,22 @@ async def run_pipeline_async(
             max_retry_delay_seconds,
             concurrency,
             checkpoint_every,
-            load_checkpoint_file=not no_checkpoint_load and not rerun_minus_one,
-            checkpoint_records=input_records if rerun_minus_one else None,
-            checkpoint_base_results_by_id=cached_results if rerun_minus_one else None,
+            load_checkpoint_file=False,
+            parallel_keys=parallel_keys,
+            per_key_concurrency=per_key_concurrency,
+            cached_results_by_id=cached_results,
+            checkpoint_records=all_input_records,
+            checkpoint_base_results_by_id=cached_results,
             started_at=pipeline_started_at,
         )
     except QuotaExceededError:
         logger.error("Stopped pipeline due to quota exceeded | elapsed=%s | checkpoint_files=%s,%s", _format_elapsed(pipeline_started_at), _results_path(out_dir).name, _results_json_path(out_dir).name)
         return
 
-    if rerun_minus_one:
-        merged_results = dict(cached_results)
-        merged_results.update({result.id: result for result in llm_results})
-        completed_inputs = [record for record in input_records if record.id in merged_results]
-        completed_results = [merged_results[record.id] for record in completed_inputs]
-        routed = route_all(completed_inputs, completed_results, router_cfg)
-    else:
-        routed = route_all(input_records, llm_results, router_cfg)
+    merged_results = _merge_results({result.id: result for result in llm_results}, cached_results)
+    completed_inputs = [record for record in all_input_records if record.id in merged_results]
+    completed_results = [merged_results[record.id] for record in completed_inputs]
+    routed = route_all(completed_inputs, completed_results, router_cfg)
     routed, audit_count = apply_audit_sampling(routed, router_cfg.random_audit_rate, router_cfg.seed)
     write_results(out_dir, routed)
 
@@ -421,11 +534,13 @@ def main() -> None:
     parser.add_argument("--output_dir", required=True, help="Directory to write outputs")
     parser.add_argument("--api_key", default=None, help="API key for the selected provider")
     parser.add_argument("--model", choices=SUPPORTED_MODELS, default=None, help="VLM tag to use: gemma or nemotron")
-    parser.add_argument("--max_records", type=int, default=None, help="Limit to first N records")
     parser.add_argument("--test_mode", action="store_true", help="Run on the first 5 filtered records")
     parser.add_argument("--test_size", type=int, default=5, help="Leading records to take in test mode")
     parser.add_argument("--min-record-id", type=int, default=None, help="Keep only rows with id>=N")
     parser.add_argument("--from", dest="min_record_id", type=int, help="Alias of --min-record-id; run records with id>=N")
+    parser.add_argument("--to", dest="max_record_id", type=int, help="Alias of --max-record-id; run records with id<=N")
+    parser.add_argument("--parallel-keys", action="store_true", help="Send requests across multiple API keys in parallel and stop using keys that hit quota")
+    parser.add_argument("--per-key-concurrency", type=int, default=1, help="Concurrency per API key when --parallel-keys is enabled")
     parser.add_argument("--rerun-minus-one", action="store_true", help="Rerun only records with label_llm1 = -1 from the existing checkpoint and update the same output files")
     parser.add_argument("--no-checkpoint-load", action="store_true", help="Ignore previous round1_results.jsonl")
     args = parser.parse_args()
@@ -436,10 +551,12 @@ def main() -> None:
             output_dir=args.output_dir,
             input_data=args.input_data,
             api_key=args.api_key,
-            max_records=args.max_records,
             min_record_id=args.min_record_id,
+            max_record_id=args.max_record_id,
             no_checkpoint_load=args.no_checkpoint_load,
             rerun_minus_one=args.rerun_minus_one,
+            parallel_keys=args.parallel_keys,
+            per_key_concurrency=args.per_key_concurrency,
             test_mode=args.test_mode,
             test_size=args.test_size,
             model_tag=args.model,
