@@ -69,6 +69,30 @@ def _results_json_path(output_dir: Path) -> Path:
     return output_dir / RESULTS_JSON_FILENAME
 
 
+def _parse_error_artifact_path(output_dir: Path, record_id: int) -> Path:
+    return output_dir / f"parse_error_{record_id}.json"
+
+
+def _sync_parse_error_artifact(output_dir: Path, provider: str, result: LLMJudgeRecord) -> None:
+    artifact_path = _parse_error_artifact_path(output_dir, result.id)
+    if provider != "openrouter":
+        artifact_path.unlink(missing_ok=True)
+        return
+
+    if result.label_llm1 == -1 or result.parse_error:
+        payload = {
+            "id": result.id,
+            "label_llm1": result.label_llm1,
+            "parse_error": result.parse_error,
+            "notes": result.notes,
+            "raw_response": result.raw_response,
+        }
+        artifact_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        return
+
+    artifact_path.unlink(missing_ok=True)
+
+
 
 def _format_elapsed(start_time: float) -> str:
     return f"{time.monotonic() - start_time:.1f}s"
@@ -306,6 +330,7 @@ async def run_llm_with_checkpoint(
 
                 async with state_lock:
                     results_by_id[result.id] = result
+                    _sync_parse_error_artifact(output_dir, model_config["provider"], result)
                     completed_total += 1
                     completed_since_save += 1
                     logger.info("Progress | %d/%d | id=%d | label=%s | elapsed=%s", completed_total, len(records), result.id, result.label_llm1, _format_elapsed(started_at))
@@ -371,6 +396,7 @@ async def run_llm_with_checkpoint(
                 raise
 
             results_by_id[result.id] = result
+            _sync_parse_error_artifact(output_dir, model_config["provider"], result)
             completed_total += 1
             completed_since_save += 1
 

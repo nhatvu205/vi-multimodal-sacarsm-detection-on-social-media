@@ -31,6 +31,7 @@ class LLMJudgeRecord(BaseModel):
     reasoning         : full nested reasoning dict from the model response
     parse_error       : True when the model output could not be parsed / request failed
     image_missing     : True when expected images were not found on disk
+    raw_response      : raw response/debug payload for parse-error cases (internal only)
     """
 
     id: int
@@ -41,6 +42,7 @@ class LLMJudgeRecord(BaseModel):
     reasoning: Dict[str, Any] = Field(default_factory=dict)
     parse_error: bool = False
     image_missing: bool = False
+    raw_response: Optional[Any] = Field(default=None, exclude=True)
 
 
 class Round1OutputRecord(BaseModel):

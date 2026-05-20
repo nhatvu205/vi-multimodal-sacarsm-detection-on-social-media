@@ -50,8 +50,8 @@ def test_judge_once_async_openrouter_repair_reuses_full_input(monkeypatch):
     async def fake_call(async_client, model_config, messages, temperature, max_output_tokens, key_index=None):
         calls.append(messages)
         if len(calls) == 1:
-            return "not json"
-        return '{"llm_label": 1, "reasoning": {}, "has_emoji": 0, "needs_human_check": 0}'
+            return "not json", {"choices": [{"message": {"content": "not json"}}]}
+        return '{"llm_label": 1, "reasoning": {}, "has_emoji": 0, "needs_human_check": 0}', {"choices": [{"message": {"content": '{"llm_label": 1}'}}]}
 
     monkeypatch.setattr("src.llm_judge._call_openrouter_api_async", fake_call)
     monkeypatch.setattr("src.llm_judge._load_images", lambda record, max_pixels: ([], False))
@@ -74,6 +74,30 @@ def test_judge_once_async_openrouter_repair_reuses_full_input(monkeypatch):
     assert calls[1][1] == {"role": "assistant", "content": "not json"}
     assert "caption" in calls[1][2]["content"][0]["text"]
     assert "ocr text" in calls[1][2]["content"][0]["text"]
+
+
+def test_judge_single_async_openrouter_returns_raw_response_on_parse_error(monkeypatch):
+    monkeypatch.setattr("src.llm_judge._load_images", lambda record, max_pixels: ([], False))
+
+    async def fake_call(async_client, model_config, messages, temperature, max_output_tokens, key_index=None):
+        return "not json", {"choices": [{"message": {"content": "not json"}}]}
+
+    monkeypatch.setattr("src.llm_judge._call_openrouter_api_async", fake_call)
+
+    result = asyncio.run(
+        judge_single_async(
+            async_client={"lock": asyncio.Lock()},
+            model_config={"provider": "openrouter", "tag": "nemotron", "model_name": "nemotron"},
+            record=InputRecord(id=9, text="caption", image_path="img.jpg"),
+            temperature=0.1,
+            max_retries=1,
+        )
+    )
+
+    assert result.label_llm1 == -1
+    assert result.parse_error is True
+    assert result.raw_response is not None
+    assert result.raw_response["initial_response"]["choices"][0]["message"]["content"] == "not json"
 
 
 def test_load_async_api_client_supports_multiple_gemini_keys(monkeypatch):

@@ -54,6 +54,12 @@ class KeyExhaustedError(RuntimeError):
         self.key_index = key_index
 
 
+class RawResponseError(RuntimeError):
+    def __init__(self, message: str, raw_response: Any = None):
+        super().__init__(message)
+        self.raw_response = raw_response
+
+
 _QUOTA_EXCEEDED_ERROR_MARKERS = (
     "quota exceeded",
     "exceeded your current quota",
@@ -471,7 +477,7 @@ def _build_openrouter_payload(
 def _extract_openrouter_text(response_json: dict[str, Any]) -> str:
     choices = response_json.get("choices") or []
     if not choices:
-        raise ValueError("Empty response from OpenRouter API.")
+        raise RawResponseError("Empty response from OpenRouter API.", raw_response=response_json)
     message = (choices[0] or {}).get("message") or {}
     content = message.get("content")
     if isinstance(content, str) and content.strip():
@@ -481,10 +487,10 @@ def _extract_openrouter_text(response_json: dict[str, Any]) -> str:
         merged = "".join(texts).strip()
         if merged:
             return merged
-    raise ValueError("OpenRouter response did not contain text content.")
+    raise RawResponseError("OpenRouter response did not contain text content.", raw_response=response_json)
 
 
-def _openrouter_request(api_key: str, payload: dict[str, Any]) -> str:
+def _openrouter_request(api_key: str, payload: dict[str, Any]) -> tuple[str, Any]:
     request = urllib.request.Request(
         _OPENROUTER_API_URL,
         data=json.dumps(payload).encode("utf-8"),
@@ -502,15 +508,15 @@ def _openrouter_request(api_key: str, payload: dict[str, Any]) -> str:
             body = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="ignore")
-        raise RuntimeError(f"OpenRouter HTTP {exc.code}: {body[:300]}") from exc
+        raise RawResponseError(f"OpenRouter HTTP {exc.code}: {body[:300]}", raw_response=body) from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"OpenRouter connection error: {exc}") from exc
 
     try:
         response_json = json.loads(body)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"OpenRouter returned non-JSON body: {body[:300]}") from exc
-    return _extract_openrouter_text(response_json)
+        raise RawResponseError(f"OpenRouter returned non-JSON body: {body[:300]}", raw_response=body) from exc
+    return _extract_openrouter_text(response_json), response_json
 
 
 async def _call_openrouter_api_async(
@@ -520,7 +526,7 @@ async def _call_openrouter_api_async(
     temperature: float,
     max_output_tokens: int,
     key_index: Optional[int] = None,
-) -> str:
+) -> tuple[str, Any]:
     payload = _build_openrouter_payload(model_config, messages, temperature, max_output_tokens)
     api_key, _, _ = (
         await _get_provider_key_state_for_index(async_client, key_index)
@@ -547,7 +553,7 @@ async def _judge_once_async(
 
     if provider == "openrouter":
         messages = _build_openrouter_messages(record.text, images_pil, record.ocr_text)
-        raw = await _call_openrouter_api_async(async_client, model_config, messages, temperature, max_output_tokens, key_index=key_index)
+        raw, raw_response = await _call_openrouter_api_async(async_client, model_config, messages, temperature, max_output_tokens, key_index=key_index)
     else:
         contents = _build_gemini_contents(record.text, images_pil, record.ocr_text)
         raw = await _call_gemini_api_async(async_client, model_config["model_name"], contents, temperature, max_output_tokens, key_index=key_index)
@@ -556,14 +562,28 @@ async def _judge_once_async(
         result = _validate(_extract_json(raw))
     except (json.JSONDecodeError, ValueError, KeyError):
         if provider == "openrouter":
-            raw2 = await _call_openrouter_api_async(
-                async_client,
-                model_config,
-                _build_openrouter_repair_messages(record.text, images_pil, raw, record.ocr_text),
-                temperature,
-                max_output_tokens,
-                key_index=key_index,
-            )
+            raw2: Optional[str] = None
+            repair_raw_response: Any = None
+            try:
+                raw2, repair_raw_response = await _call_openrouter_api_async(
+                    async_client,
+                    model_config,
+                    _build_openrouter_repair_messages(record.text, images_pil, raw, record.ocr_text),
+                    temperature,
+                    max_output_tokens,
+                    key_index=key_index,
+                )
+                result = _validate(_extract_json(raw2))
+            except Exception as exc:
+                raise RawResponseError(
+                    f"OpenRouter parse/repair failed: {str(exc)[:220]}",
+                    raw_response={
+                        "initial_response": raw_response,
+                        "initial_text": raw,
+                        "repair_response": getattr(exc, "raw_response", repair_raw_response),
+                        "repair_text": raw2,
+                    },
+                ) from exc
         else:
             prompt = _build_prompt(record.text, len(images_pil), record.ocr_text)
             repair_prompt = _build_repair_prompt(prompt, raw)
@@ -575,7 +595,7 @@ async def _judge_once_async(
                 max_output_tokens,
                 key_index=key_index,
             )
-        result = _validate(_extract_json(raw2))
+            result = _validate(_extract_json(raw2))
 
     return result.model_copy(update={"id": record.id, "image_missing": image_missing})
 
@@ -594,6 +614,7 @@ async def judge_single_async(
     allow_key_rotation: bool = True,
 ) -> LLMJudgeRecord:
     last_error = "Unknown error"
+    last_raw_response: Any = None
     images_pil, image_missing = _load_images(record, max_image_pixels)
     attempt = 1
 
@@ -611,6 +632,8 @@ async def judge_single_async(
                 key_index=key_index,
             )
         except Exception as exc:
+            if hasattr(exc, "raw_response"):
+                last_raw_response = getattr(exc, "raw_response")
             provider = model_config.get("provider")
             if provider in ("openrouter", "gemini_api") and _is_quota_exceeded_error(exc):
                 if key_index is not None and not allow_key_rotation:
@@ -655,4 +678,5 @@ async def judge_single_async(
         notes=f"Failed after {max_retries} attempts: {last_error}",
         parse_error=True,
         image_missing=image_missing,
+        raw_response=last_raw_response,
     )

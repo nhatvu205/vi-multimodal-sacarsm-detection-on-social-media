@@ -1,6 +1,8 @@
 import asyncio
+import json
+from pathlib import Path
 
-from src.pipeline_round1 import resolve_model_config, run_pipeline_async, select_failed_records_for_rerun, select_records_for_run
+from src.pipeline_round1 import _sync_parse_error_artifact, resolve_model_config, run_pipeline_async, select_failed_records_for_rerun, select_records_for_run
 from src.schemas import InputRecord, LLMJudgeRecord
 
 
@@ -322,3 +324,32 @@ def test_run_pipeline_async_parallel_keys_passes_mode(monkeypatch):
     )
 
     assert captured == {"parallel_keys": True, "per_key_concurrency": 3}
+
+
+def test_sync_parse_error_artifact_writes_openrouter_payload(monkeypatch):
+    captured = {}
+
+    def fake_write_text(self, data, encoding=None):
+        captured["path"] = str(self)
+        captured["payload"] = json.loads(data)
+        return len(data)
+
+    monkeypatch.setattr(Path, "write_text", fake_write_text)
+    monkeypatch.setattr(Path, "unlink", lambda self, missing_ok=True: None)
+
+    _sync_parse_error_artifact(
+        Path("/tmp/out"),
+        "openrouter",
+        LLMJudgeRecord(
+            id=1,
+            label_llm1=-1,
+            parse_error=True,
+            notes="Failed parse",
+            raw_response={"choices": [{"message": {"content": None}}]},
+        ),
+    )
+
+    assert captured["path"].endswith("parse_error_1.json")
+    assert captured["payload"]["id"] == 1
+    assert captured["payload"]["parse_error"] is True
+    assert captured["payload"]["raw_response"]["choices"][0]["message"]["content"] is None
