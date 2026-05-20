@@ -96,6 +96,8 @@ def test_run_pipeline_async_rerun_minus_one_updates_existing_results(monkeypatch
         assert [record.id for record in run_records] == [1]
         assert load_checkpoint_file is False
         assert cached_results_by_id is not None
+        assert 1 not in cached_results_by_id
+        assert 2 in cached_results_by_id
         assert checkpoint_records == records
         assert checkpoint_base_results_by_id is not None
         return [LLMJudgeRecord(id=1, label_llm1=1, parse_error=False, image_missing=False)]

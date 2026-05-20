@@ -448,8 +448,15 @@ async def run_pipeline_async(
 
     cached_results = load_checkpoint(out_dir) if not no_checkpoint_load else {}
     records_for_run = input_records
+    cached_results_for_resume = cached_results
     if rerun_minus_one:
         records_for_run = select_failed_records_for_rerun(input_records, cached_results)
+        rerun_ids = {record.id for record in records_for_run}
+        cached_results_for_resume = {
+            record_id: result
+            for record_id, result in cached_results.items()
+            if record_id not in rerun_ids
+        }
         logger.info(
             "RerunMinusOne | candidates=%d | selected=%d | output=%s",
             len(input_records),
@@ -499,7 +506,7 @@ async def run_pipeline_async(
             load_checkpoint_file=False,
             parallel_keys=parallel_keys,
             per_key_concurrency=per_key_concurrency,
-            cached_results_by_id=cached_results,
+            cached_results_by_id=cached_results_for_resume,
             checkpoint_records=all_input_records,
             checkpoint_base_results_by_id=cached_results,
             started_at=pipeline_started_at,
