@@ -2,7 +2,8 @@ import asyncio
 import json
 from pathlib import Path
 
-from src.pipeline_round1 import _sync_parse_error_artifact, resolve_model_config, run_pipeline_async, select_failed_records_for_rerun, select_records_for_run
+from src.llm_judge import KeyExhaustedError
+from src.pipeline_round1 import _sync_parse_error_artifact, resolve_model_config, run_llm_with_checkpoint, run_pipeline_async, select_failed_records_for_rerun, select_records_for_run
 from src.schemas import InputRecord, LLMJudgeRecord
 
 
@@ -324,6 +325,62 @@ def test_run_pipeline_async_parallel_keys_passes_mode(monkeypatch):
     )
 
     assert captured == {"parallel_keys": True, "per_key_concurrency": 3}
+
+
+def test_run_llm_with_checkpoint_parallel_keys_does_not_crash_when_one_key_exhausts(monkeypatch):
+    records = [_rec(1)]
+
+    monkeypatch.setattr(
+        "src.pipeline_round1.load_async_api_client",
+        lambda provider, api_key=None: {
+            "provider": provider,
+            "lock": asyncio.Lock(),
+            "api_keys": ["k1", "k2"],
+            "active_key_index": 0,
+            "exhausted_key_indices": set(),
+        },
+    )
+
+    async def fake_close_async_api_client():
+        return None
+
+    monkeypatch.setattr("src.pipeline_round1.close_async_api_client", fake_close_async_api_client)
+    monkeypatch.setattr("src.pipeline_round1.write_results", lambda output_dir, routed: None)
+
+    async def fake_judge_single_async(
+        async_client,
+        model_config,
+        record,
+        temperature,
+        max_image_pixels=300_000,
+        max_output_tokens=256,
+        max_retries=3,
+        retry_delay_seconds=5,
+        max_retry_delay_seconds=20,
+        key_index=None,
+        allow_key_rotation=True,
+    ):
+        if key_index == 0:
+            raise KeyExhaustedError(0, "429 RESOURCE_EXHAUSTED")
+        return LLMJudgeRecord(id=record.id, label_llm1=1)
+
+    monkeypatch.setattr("src.pipeline_round1.judge_single_async", fake_judge_single_async)
+
+    results = asyncio.run(
+        run_llm_with_checkpoint(
+            records,
+            {"provider": "gemini_api", "tag": "gemma", "model_name": "gemma"},
+            temperature=0.1,
+            output_dir=Path("."),
+            router_cfg=type("Cfg", (), {"random_audit_rate": 0.1, "seed": 42})(),
+            load_checkpoint_file=False,
+            parallel_keys=True,
+            per_key_concurrency=1,
+            checkpoint_every=10,
+        )
+    )
+
+    assert [result.label_llm1 for result in results] == [1]
 
 
 def test_sync_parse_error_artifact_writes_openrouter_payload(monkeypatch):

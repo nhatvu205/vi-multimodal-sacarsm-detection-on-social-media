@@ -310,7 +310,7 @@ async def run_llm_with_checkpoint(
                         key_index=key_index,
                         allow_key_rotation=False,
                     )
-                except KeyExhaustedError:
+                except KeyExhaustedError as exc:
                     async with state_lock:
                         exhausted_key_indices.add(key_index)
                         async_client["exhausted_key_indices"].add(key_index)
@@ -319,11 +319,12 @@ async def run_llm_with_checkpoint(
                             return
                         queue.put_nowait(record)
                         logger.warning(
-                            "ExhaustKey | model=%s | key=%d/%d | remaining_keys=%d",
+                            "ExhaustKey | model=%s | key=%d/%d | remaining_keys=%d | error=%s",
                             model_config.get("tag", model_config.get("model_name", "unknown")),
                             key_index + 1,
                             key_count,
                             key_count - len(exhausted_key_indices),
+                            str(exc)[:200],
                         )
                     queue.task_done()
                     return
