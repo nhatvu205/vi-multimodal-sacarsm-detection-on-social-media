@@ -4,28 +4,36 @@
   <View style="margin-bottom: 20px;">
     <Header value="Image"/>
     <Image name="image" value="$image" maxWidth="400px"/>
-    
-    <Choices name="image_sarcasm" toName="image" choice="single" showInline="true">
-      <Choice value="sarcastic"/>
-      <Choice value="non_sarcastic"/>
-    </Choices>
+
+    <Header value="Round 1 label"/>
+    <Text name="label_round_1" value="$label_round_1"/>
   </View>
 
   <!-- TEXT -->
   <View style="margin-bottom: 20px;">
     <Header value="Text"/>
     <Text name="text" value="$text"/>
-    
+  </View>
+
+  <!-- LABELS -->
+  <View style="margin-bottom: 20px;">
+    <Header value="Text label"/>
     <Choices name="text_sarcasm" toName="text" choice="single" showInline="true">
       <Choice value="sarcastic"/>
       <Choice value="non_sarcastic"/>
     </Choices>
   </View>
 
-  <!-- MULTIMODAL -->
   <View style="margin-bottom: 20px;">
-    <Header value="Multimodal (Image + Text)"/>
-    
+    <Header value="Image label"/>
+    <Choices name="image_sarcasm" toName="image" choice="single" showInline="true">
+      <Choice value="sarcastic"/>
+      <Choice value="non_sarcastic"/>
+    </Choices>
+  </View>
+
+  <View style="margin-bottom: 20px;">
+    <Header value="Multimodal label"/>
     <Choices name="multimodal_sarcasm" toName="text" choice="single" showInline="true">
       <Choice value="sarcastic"/>
       <Choice value="non_sarcastic"/>
