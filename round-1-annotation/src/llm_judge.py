@@ -48,6 +48,18 @@ class QuotaExceededError(RuntimeError):
     pass
 
 
+class KeyExhaustedError(RuntimeError):
+    def __init__(self, key_index: int, message: str):
+        super().__init__(message)
+        self.key_index = key_index
+
+
+class RawResponseError(RuntimeError):
+    def __init__(self, message: str, raw_response: Any = None):
+        super().__init__(message)
+        self.raw_response = raw_response
+
+
 _QUOTA_EXCEEDED_ERROR_MARKERS = (
     "quota exceeded",
     "exceeded your current quota",
@@ -382,6 +394,13 @@ async def _get_provider_key_state(async_client: Dict[str, Any]) -> tuple[str, in
         return api_keys[key_index], key_index, len(api_keys)
 
 
+async def _get_provider_key_state_for_index(async_client: Dict[str, Any], key_index: int) -> tuple[str, int, int]:
+    lock = async_client["lock"]
+    async with lock:
+        api_keys = async_client["api_keys"]
+        return api_keys[key_index], key_index, len(api_keys)
+
+
 async def _rotate_provider_api_key(async_client: Dict[str, Any]) -> tuple[bool, int, int, int]:
     lock = async_client["lock"]
     async with lock:
@@ -412,10 +431,15 @@ async def _call_gemini_api_async(
     contents: list[Any],
     temperature: float,
     max_output_tokens: int = 256,
+    key_index: Optional[int] = None,
 ) -> str:
     _, types = _import_google_genai()
-    _, key_index, _ = await _get_provider_key_state(async_client)
-    response = await async_client["clients"][key_index].aio.models.generate_content(
+    _, resolved_key_index, _ = (
+        await _get_provider_key_state_for_index(async_client, key_index)
+        if key_index is not None
+        else await _get_provider_key_state(async_client)
+    )
+    response = await async_client["clients"][resolved_key_index].aio.models.generate_content(
         model=model_name,
         contents=contents,
         config=types.GenerateContentConfig(
@@ -453,7 +477,7 @@ def _build_openrouter_payload(
 def _extract_openrouter_text(response_json: dict[str, Any]) -> str:
     choices = response_json.get("choices") or []
     if not choices:
-        raise ValueError("Empty response from OpenRouter API.")
+        raise RawResponseError("Empty response from OpenRouter API.", raw_response=response_json)
     message = (choices[0] or {}).get("message") or {}
     content = message.get("content")
     if isinstance(content, str) and content.strip():
@@ -463,10 +487,10 @@ def _extract_openrouter_text(response_json: dict[str, Any]) -> str:
         merged = "".join(texts).strip()
         if merged:
             return merged
-    raise ValueError("OpenRouter response did not contain text content.")
+    raise RawResponseError("OpenRouter response did not contain text content.", raw_response=response_json)
 
 
-def _openrouter_request(api_key: str, payload: dict[str, Any]) -> str:
+def _openrouter_request(api_key: str, payload: dict[str, Any]) -> tuple[str, Any]:
     request = urllib.request.Request(
         _OPENROUTER_API_URL,
         data=json.dumps(payload).encode("utf-8"),
@@ -484,15 +508,15 @@ def _openrouter_request(api_key: str, payload: dict[str, Any]) -> str:
             body = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="ignore")
-        raise RuntimeError(f"OpenRouter HTTP {exc.code}: {body[:300]}") from exc
+        raise RawResponseError(f"OpenRouter HTTP {exc.code}: {body[:300]}", raw_response=body) from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"OpenRouter connection error: {exc}") from exc
 
     try:
         response_json = json.loads(body)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"OpenRouter returned non-JSON body: {body[:300]}") from exc
-    return _extract_openrouter_text(response_json)
+        raise RawResponseError(f"OpenRouter returned non-JSON body: {body[:300]}", raw_response=body) from exc
+    return _extract_openrouter_text(response_json), response_json
 
 
 async def _call_openrouter_api_async(
@@ -501,9 +525,14 @@ async def _call_openrouter_api_async(
     messages: list[dict[str, Any]],
     temperature: float,
     max_output_tokens: int,
-) -> str:
+    key_index: Optional[int] = None,
+) -> tuple[str, Any]:
     payload = _build_openrouter_payload(model_config, messages, temperature, max_output_tokens)
-    api_key, _, _ = await _get_provider_key_state(async_client)
+    api_key, _, _ = (
+        await _get_provider_key_state_for_index(async_client, key_index)
+        if key_index is not None
+        else await _get_provider_key_state(async_client)
+    )
     return await asyncio.to_thread(_openrouter_request, api_key, payload)
 
 
@@ -516,6 +545,7 @@ async def _judge_once_async(
     max_output_tokens: int,
     images_pil: Optional[List[Image.Image]] = None,
     image_missing: Optional[bool] = None,
+    key_index: Optional[int] = None,
 ) -> LLMJudgeRecord:
     provider = model_config["provider"]
     if images_pil is None or image_missing is None:
@@ -523,27 +553,49 @@ async def _judge_once_async(
 
     if provider == "openrouter":
         messages = _build_openrouter_messages(record.text, images_pil, record.ocr_text)
-        raw = await _call_openrouter_api_async(async_client, model_config, messages, temperature, max_output_tokens)
+        raw, raw_response = await _call_openrouter_api_async(async_client, model_config, messages, temperature, max_output_tokens, key_index=key_index)
     else:
         contents = _build_gemini_contents(record.text, images_pil, record.ocr_text)
-        raw = await _call_gemini_api_async(async_client, model_config["model_name"], contents, temperature, max_output_tokens)
+        raw = await _call_gemini_api_async(async_client, model_config["model_name"], contents, temperature, max_output_tokens, key_index=key_index)
 
     try:
         result = _validate(_extract_json(raw))
     except (json.JSONDecodeError, ValueError, KeyError):
         if provider == "openrouter":
-            raw2 = await _call_openrouter_api_async(
-                async_client,
-                model_config,
-                _build_openrouter_repair_messages(record.text, images_pil, raw, record.ocr_text),
-                temperature,
-                max_output_tokens,
-            )
+            raw2: Optional[str] = None
+            repair_raw_response: Any = None
+            try:
+                raw2, repair_raw_response = await _call_openrouter_api_async(
+                    async_client,
+                    model_config,
+                    _build_openrouter_repair_messages(record.text, images_pil, raw, record.ocr_text),
+                    temperature,
+                    max_output_tokens,
+                    key_index=key_index,
+                )
+                result = _validate(_extract_json(raw2))
+            except Exception as exc:
+                raise RawResponseError(
+                    f"OpenRouter parse/repair failed: {str(exc)[:220]}",
+                    raw_response={
+                        "initial_response": raw_response,
+                        "initial_text": raw,
+                        "repair_response": getattr(exc, "raw_response", repair_raw_response),
+                        "repair_text": raw2,
+                    },
+                ) from exc
         else:
             prompt = _build_prompt(record.text, len(images_pil), record.ocr_text)
             repair_prompt = _build_repair_prompt(prompt, raw)
-            raw2 = await _call_gemini_api_async(async_client, model_config["model_name"], [*images_pil, repair_prompt], temperature, max_output_tokens)
-        result = _validate(_extract_json(raw2))
+            raw2 = await _call_gemini_api_async(
+                async_client,
+                model_config["model_name"],
+                [*images_pil, repair_prompt],
+                temperature,
+                max_output_tokens,
+                key_index=key_index,
+            )
+            result = _validate(_extract_json(raw2))
 
     return result.model_copy(update={"id": record.id, "image_missing": image_missing})
 
@@ -558,8 +610,11 @@ async def judge_single_async(
     max_retries: int = 3,
     retry_delay_seconds: int = 5,
     max_retry_delay_seconds: int = 20,
+    key_index: Optional[int] = None,
+    allow_key_rotation: bool = True,
 ) -> LLMJudgeRecord:
     last_error = "Unknown error"
+    last_raw_response: Any = None
     images_pil, image_missing = _load_images(record, max_image_pixels)
     attempt = 1
 
@@ -574,10 +629,15 @@ async def judge_single_async(
                 max_output_tokens,
                 images_pil=images_pil,
                 image_missing=image_missing,
+                key_index=key_index,
             )
         except Exception as exc:
+            if hasattr(exc, "raw_response"):
+                last_raw_response = getattr(exc, "raw_response")
             provider = model_config.get("provider")
             if provider in ("openrouter", "gemini_api") and _is_quota_exceeded_error(exc):
+                if key_index is not None and not allow_key_rotation:
+                    raise KeyExhaustedError(key_index, str(exc)[:220]) from exc
                 rotated, from_index, to_index, total_keys = await _rotate_provider_api_key(async_client)
                 if rotated:
                     logger.warning(
@@ -618,4 +678,5 @@ async def judge_single_async(
         notes=f"Failed after {max_retries} attempts: {last_error}",
         parse_error=True,
         image_missing=image_missing,
+        raw_response=last_raw_response,
     )

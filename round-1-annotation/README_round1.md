@@ -34,8 +34,8 @@ Pipeline sẽ ghi lại **cả JSONL và JSON** sau mỗi lần đủ `checkpoin
 - `--model {gemma,nemotron}`: chọn VLM
 - `--test_mode`: chạy số lượng nhỏ theo thứ tự từ trên xuống
 - `--test_size N`: số record khi test mode
-- `--max_records N`: chỉ lấy N record đầu sau khi lọc
 - `--from N`: chỉ chạy các record có `id >= N`
+- `--to N`: chỉ chạy các record có `id <= N`
 - `--no-checkpoint-load`: bỏ resume, chạy mới hoàn toàn
 
 ## Chạy test với Gemma

@@ -1,25 +1,25 @@
-random_audit_rate: 0.08
+random_audit_rate: 0.1
 seed: 42
 default_model: gemma
 models:
   gemma:
     provider: gemini_api
     model_name: gemma-4-31b-it
-    concurrency: 4
+    max_output_tokens: 1028
+    concurrency: 3
   nemotron:
     provider: openrouter
     model_name: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
     reasoning:
-      enabled: true
+      effort: none
       exclude: true
-    max_output_tokens: 4096
-    concurrency: 2
+    max_output_tokens: 1028
+    concurrency: 1
 llm_temperature: 0.1
-ocr_path: data/raw-data/ocr_images.json
 max_image_pixels: 300000
-max_output_tokens: 256
-max_retries: 3
+max_output_tokens: 1028
+max_retries: 5
 retry_delay_seconds: 5
 max_retry_delay_seconds: 20
-concurrency: 4
+concurrency: 3
 checkpoint_every: 10
