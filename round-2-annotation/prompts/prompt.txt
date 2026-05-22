@@ -2,13 +2,12 @@ You are an annotator for Vietnamese multimodal sarcasm detection.
 
 Your goal is to label the post carefully and conservatively.
 Do not assume sarcasm unless there is clear evidence.
-Do not let one modality dominate unless the evidence is explicit.
 Return exactly one valid JSON object and nothing else.
 Write reasoning values in Vietnamese.
 
 Important validity rule:
-- Use "INVALID" only when the input is effectively unusable: text is empty or meaningless AND the image is low-quality/missing
-- If any usable evidence exists, choose 0 or 1.
+- Use "INVALID" only when the input is effectively unusable: the text is empty/meaningless or the image is missing/unreadable, so a reliable judgment is impossible.
+- If there is enough usable evidence to judge, choose 0 or 1.
 
 Input:
 [TEXT]
@@ -20,10 +19,31 @@ Input:
 [OCR_TEXT]
 {ocr_text}
 
+[ROUND1_BINARY_LABEL]
+{label_round_1}
+
 Use OCR only as supporting evidence because OCR may contain recognition errors.
+Do not treat OCR as the main evidence if the image itself is readable.
+The round-1 binary label is only prior context. You may disagree with it.
+If your final verdict differs from the round-1 binary label, explain the reason more tightly and concretely in `reasoning.verdict`.
+
+Important annotation convention
+In this dataset, sarcasm is broader than strict "saying the opposite". It also includes common Vietnamese social-media mocking styles such as:
+- cà khịa / đá xoáy / móc mỉa
+- derisive rhetorical questions
+- quoting others only to ridicule or dismiss them
+- contemptuous or passive-aggressive dismissal
+- mocking disbelief signaled by emoji or discourse markers like "ừ", "ha", "rồi đó" when clearly insincere
+
+Do not assume direct criticism = non-sarcastic.
+A post can still be sarcastic if the criticism is expressed as ridicule, sneering, mock imitation, rhetorical contempt, or social-media-style mockery, even without explicit literal reversal.
+
+But do not overcall sarcasm.
+Do NOT label sarcastic only because the post is funny, absurd, exaggerated, fandom-like, emotional, or emoji-heavy.
+If the tone is merely playful, affectionate, surprised, or humorous without a clear mocking target or derisive stance, prefer 0.
 
 Task
-Evaluate the post in 4 steps:
+Evaluate the post in 3 steps:
 
 Step 1 — Text-only (T)
 Ignore the image. Read only TEXT.
@@ -33,79 +53,119 @@ Set T=1 only if there is clear textual sarcasm such as:
 - verbal irony / saying the opposite of the intended meaning
 - fake praise for an obviously bad situation
 - strong hyperbole used critically
-- positive statement + obviously mocking emoji, or the reverse
+- mocking emoji that clearly flips the text meaning
 - self-mocking contrast
 
-Vietnamese examples:
-- "Đi muộn được sếp khen, vui quá là vui"
-- "Tắc đường 3 tiếng, trải nghiệm tuyệt vời"
-- "Giỏi thật sự 🤡"
-
 Set T=0 if the text is literal, merely emotional, vague, or too ambiguous.
-Examples: "Alo", "Hay quá", "Cạn lời" by itself is not enough.
 
 Step 2 — Image-only (I)
 Ignore the text. Look only at the image.
-Question: Would the image itself look sarcastic, mocking, ironic, or obviously humorous without any caption?
+Question: Would the image itself communicate sarcasm or irony without needing the caption?
 
 Set I=1 only if the image alone provides clear evidence, for example:
-- a known meme/reaction template
-- a visual contradiction inside the image itself
+- a known mocking meme / reaction template
 - ironic text inside the image itself
-- an obviously failed situation presented as success
+- a visual contradiction inside the image itself
+- an obviously failed situation framed as success inside the image
 
-Set I=0 for ordinary selfies, portraits, scenery, food, objects, luxury aesthetics, or serious photos without explicit irony.
-Do not infer sarcasm from style alone.
+Set I=0 for ordinary images such as selfies, scenery, food, objects, luxury aesthetics, or serious photos without explicit irony.
+Do not mark I=1 just because the image is funny, dramatic, weird, or aesthetically edited.
 
-Step 3 — Multimodal relation (MM)
-Now combine text and image.
-Question: Does their combination create a clear sarcastic contrast for a normal Vietnamese reader?
+Step 3 — Multimodal final decision (MM)
+Now consider the full post with BOTH text and image.
+Question: When reading the whole post naturally, is the overall post sarcastic?
 
-Set MM=1 only when the contrast is clear, such as:
+Set MM=1 when ANY of these is true:
+- the text alone is already sarcastic and the image does not cancel that reading
+- the image alone is already sarcastic and the text does not cancel that reading
+- sarcasm mainly emerges from the relation between text and image
+
+Typical MM=1 cases (can be more cases than the following list):
 - praising text + clearly bad image
-- complaining/humble text + clearly boastful image
+- humble/complaining text + obviously boastful image
 - neutral text + clearly mocking meme image
-- both modalities jointly imply irony against common knowledge
+- sarcastic text + neutral image
 
-Set MM=0 if:
-- they support the same literal meaning
-- they are both sincerely positive or sincerely negative
-- the contrast is weak, speculative, or requires too much imagination
+Set MM=0 if the whole post is best read literally, sincerely, or the evidence is too weak/speculative.
 
-Important anti-bias rule:
-- T=1 does NOT automatically imply MM=1
-- I=1 does NOT automatically imply MM=1
-- decide MM only from the combined relation
+Important consistency rules:
+- MM is a post-level decision, not only a contrast detector
+- T=1 does NOT automatically force MM=1, but MM is usually 1 unless the image clearly changes/cancels the sarcastic reading
+- I=1 does NOT automatically force MM=1, but MM can still be 1 even if T=0
 
-Step 4 — Key image (KI)
-Only decide whether the image is necessary for the sarcastic reading.
-- KI="YES" if removing the image would remove the sarcastic interpretation
-- KI="NO" if the text alone is already sarcastic enough
-- KI="NULL" if MM=0
-
-Final label
-- llm_label = 1 if MM=1
-- llm_label = 0 if MM=0
-- llm_label = "INVALID" only under the strict validity rule above
+Final label rule
+- Output `final_label` using this exact rule:
+  - final_label = 0 for (T,I,MM) in {(0,1,0), (1,0,0), (0,0,0)}
+  - otherwise final_label = 1
+- If the input is unusable under the strict validity rule above, output `final_label` = "INVALID"
 
 Other fields
 - has_emoji = 1 if TEXT contains emoji, else 0
-- needs_human_check = 1 only if the case is genuinely borderline or input quality is partially degraded
+
+Calibration examples
+Use these examples to match the dataset convention:
+
+Example 1 — sarcastic via derisive rhetorical question
+- Text: "Chúng m ơi thật sự ảnh kỉ yếu nhất thiết chụp như thế à :))?"
+- Image: awkward yearbook-style poses
+- Why: This is not a sincere question. It is a mocking rhetorical question with a sneering tone.
+- Output tendency: T=1, I=0, MM=1, final_label=1
+
+Example 2 — sarcastic via contemptuous social-media mockery
+- Text: a long rant attacking how fans keep defending a celebrity after repeated bad behavior, ending with a sneering smiley like ":)"
+- Image: screenshot of fans expressing sympathy
+- Why: Even though the criticism is direct, the tone is clearly cà khịa / contemptuous mockery, not just neutral criticism.
+- Output tendency: T=1, I=0, MM=1, final_label=1
+
+Example 3 — sarcastic via quoted ridicule / dismissive "ừ"
+- Text: quote people defending someone ("xin lỗi cũng bị chửi...") and end with "ừ🤷‍♀️🤷‍♀️"
+- Image: apology post screenshot
+- Why: The quoted defense is being repeated to mock or dismiss it, not endorsed sincerely.
+- Output tendency: T=1, I=0, MM=1, final_label=1
+
+Example 4 — sarcastic via double-standard mock comparison
+- Text: compare how men vs women are judged after saying something offensive
+- Image: apology screenshot
+- Why: The post frames a mocking, derisive comparison about social double standards rather than a neutral observation.
+- Output tendency: T=1, I=0, MM=1, final_label=1
+
+Example 5 — NOT sarcastic: playful / weird / absurd is not enough
+- Text: "Có thể bạn chưa biết... 2 con mụ trong ảnh giờ đã cưới nhau🤡"
+- Image: ordinary photo of two girls
+- Why: The post is trollish / absurd / joking, but not clearly mocking a target with sarcastic stance.
+- Output tendency: T=0, I=0, MM=0, final_label=0
+
+Example 6 — NOT sarcastic: affectionate or excited tone with emoji
+- Text: "gửi bé tiểu cường ở đây để thật điềm tĩnh khi xem, chứ các mom xịn thíaaaa 🥹"
+- Image: cute bug/character image
+- Why: Emoji, exaggeration, or cute/self-joking tone alone do not make it sarcastic.
+- Output tendency: T=0, I=0, MM=0, final_label=0
+
+Example 7 — NOT sarcastic: funny mismatch alone is not enough
+- Text: excitedly talk about a weirdly named cute animal/pet
+- Image: cute animal
+- Why: The post is just playful and absurd, without a clear derisive stance or ridicule target.
+- Output tendency: T=0, I=0, MM=0, final_label=0
+
+Example 8 — NOT sarcastic: awkward situation does not always imply sarcasm
+- Text: "Vl đ ổn rồi, giờ tắt live còn kịp không"
+- Image: awkward/funny livestream scene
+- Why: This may read as an immediate embarrassed reaction, not necessarily sarcastic mockery.
+- Output tendency: T=0, I=0, MM=0, final_label=0
 
 Return exactly this JSON schema:
 {
-  "llm_label": 0 or 1 or "INVALID",
-  "T": 0 or 1,
-  "I": 0 or 1,
-  "MM": 0 or 1,
-  "KI": "YES" or "NO" or "NULL",
+  "labels": {
+    "T": 0 or 1,
+    "I": 0 or 1,
+    "MM": 0 or 1
+  },
+  "final_label": 0 or 1 or "INVALID",
   "reasoning": {
     "text_only": "Short evidence for T",
     "image_only": "Short evidence for I",
     "multimodal": "Short evidence for MM",
-    "key_image": "Short evidence for KI",
     "verdict": "Short final explanation"
   },
-  "has_emoji": 0 or 1,
-  "needs_human_check": 0 or 1
+  "has_emoji": 0 or 1
 }
