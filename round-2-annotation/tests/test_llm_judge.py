@@ -46,7 +46,7 @@ def test_judge_single_async_retries_transient_resource_exhausted_without_exhaust
 
     monkeypatch.setattr("src.llm_judge._load_images", lambda record, max_pixels: ([], False))
 
-    async def fake_judge_once(async_client, model_config, record, temperature, max_image_pixels, max_output_tokens, images_pil=None, image_missing=None, key_index=None):
+    async def fake_judge_once(async_client, model_config, record, temperature, max_image_pixels, max_output_tokens, images_pil=None, image_missing=None, key_index=None, reasoning_override=None):
         attempts["count"] += 1
         if attempts["count"] == 1:
             raise RuntimeError("429 RESOURCE_EXHAUSTED: rate limit")
@@ -76,10 +76,39 @@ def test_judge_single_async_retries_transient_resource_exhausted_without_exhaust
     assert attempts["count"] == 2
 
 
+def test_judge_single_async_retries_openrouter_empty_content_without_reasoning(monkeypatch):
+    seen_reasoning_overrides = []
+
+    monkeypatch.setattr("src.llm_judge._load_images", lambda record, max_pixels: ([], False))
+
+    async def fake_judge_once(async_client, model_config, record, temperature, max_image_pixels, max_output_tokens, images_pil=None, image_missing=None, key_index=None, reasoning_override=None):
+        seen_reasoning_overrides.append(reasoning_override)
+        if len(seen_reasoning_overrides) == 1:
+            raise RuntimeError("OpenRouter response did not contain text content.")
+        return LLMJudgeRecord(id=record.id, label_llm2=1, final_label=1)
+
+    monkeypatch.setattr("src.llm_judge._judge_once_async", fake_judge_once)
+
+    result = asyncio.run(
+        judge_single_async(
+            async_client={"lock": asyncio.Lock(), "api_keys": ["key-a"], "active_key_index": 0, "exhausted_key_indices": set(), "clients": []},
+            model_config={"provider": "openrouter", "tag": "nemotron", "reasoning": {"effort": "medium", "exclude": True}},
+            record=InputRecord(id=1, text="caption", image_path="img.jpg"),
+            temperature=0.1,
+            max_retries=2,
+            retry_delay_seconds=0,
+            max_retry_delay_seconds=0,
+        )
+    )
+
+    assert result.label_llm2 == 1
+    assert seen_reasoning_overrides == [None, {}]
+
+
 def test_judge_single_async_rotates_key_only_on_hard_quota(monkeypatch):
     monkeypatch.setattr("src.llm_judge._load_images", lambda record, max_pixels: ([], False))
 
-    async def fake_judge_once(async_client, model_config, record, temperature, max_image_pixels, max_output_tokens, images_pil=None, image_missing=None, key_index=None):
+    async def fake_judge_once(async_client, model_config, record, temperature, max_image_pixels, max_output_tokens, images_pil=None, image_missing=None, key_index=None, reasoning_override=None):
         if async_client["active_key_index"] == 0:
             raise RuntimeError("insufficient credits")
         return LLMJudgeRecord(id=record.id, label_llm2=1, final_label=1)
@@ -110,7 +139,7 @@ def test_judge_single_async_rotates_key_only_on_hard_quota(monkeypatch):
 def test_judge_single_async_raises_key_exhausted_in_parallel_mode_only_for_hard_quota(monkeypatch):
     monkeypatch.setattr("src.llm_judge._load_images", lambda record, max_pixels: ([], False))
 
-    async def fake_judge_once(async_client, model_config, record, temperature, max_image_pixels, max_output_tokens, images_pil=None, image_missing=None, key_index=None):
+    async def fake_judge_once(async_client, model_config, record, temperature, max_image_pixels, max_output_tokens, images_pil=None, image_missing=None, key_index=None, reasoning_override=None):
         raise RuntimeError("insufficient credits")
 
     monkeypatch.setattr("src.llm_judge._judge_once_async", fake_judge_once)

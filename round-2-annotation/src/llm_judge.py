@@ -39,9 +39,14 @@ _RETRYABLE_ERROR_MARKERS = (
     "temporarily overloaded",
     "rate limit",
     "too many requests",
+    "did not contain text content",
+    "empty response from openrouter api",
+    "zero completion",
+    "no content generated",
 )
 
 _OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+_NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 
 
 class QuotaExceededError(RuntimeError):
@@ -134,6 +139,16 @@ def _resolve_openrouter_api_keys(api_key: Optional[str] = None) -> List[str]:
     return keys
 
 
+def _resolve_nvidia_api_keys(api_key: Optional[str] = None) -> List[str]:
+    raw_value = api_key or os.environ.get("NVIDIA_API_KEYS") or os.environ.get("NVIDIA_API_KEY")
+    if not raw_value:
+        raise ValueError("NVIDIA API key list not found. Set NVIDIA_API_KEYS / NVIDIA_API_KEY or pass --api_key.")
+    keys = _split_api_keys(raw_value)
+    if not keys:
+        raise ValueError("NVIDIA API key list is empty.")
+    return keys
+
+
 def _resolve_gemini_api_keys(api_key: Optional[str] = None) -> List[str]:
     raw_value = (
         api_key
@@ -153,6 +168,8 @@ def _resolve_gemini_api_keys(api_key: Optional[str] = None) -> List[str]:
 def _resolve_api_key(provider: str, api_key: Optional[str] = None) -> str:
     if provider == "openrouter":
         return _resolve_openrouter_api_keys(api_key)[0]
+    if provider == "nvidia_api":
+        return _resolve_nvidia_api_keys(api_key)[0]
     if provider == "gemini_api":
         return _resolve_gemini_api_keys(api_key)[0]
 
@@ -166,6 +183,19 @@ def load_api_client(provider: str, api_key: Optional[str] = None):
     global _CLIENT, _ASYNC_CLIENT, _ACTIVE_PROVIDER
     if provider == "openrouter":
         resolved_keys = _resolve_openrouter_api_keys(api_key)
+        _CLIENT = {
+            "provider": provider,
+            "api_keys": resolved_keys,
+            "active_key_index": 0,
+            "exhausted_key_indices": set(),
+            "lock": None,
+        }
+        _ASYNC_CLIENT = _CLIENT
+        _ACTIVE_PROVIDER = provider
+        return _CLIENT
+
+    if provider == "nvidia_api":
+        resolved_keys = _resolve_nvidia_api_keys(api_key)
         _CLIENT = {
             "provider": provider,
             "api_keys": resolved_keys,
@@ -202,13 +232,17 @@ def load_api_client(provider: str, api_key: Optional[str] = None):
 
 def load_async_api_client(provider: str, api_key: Optional[str] = None):
     load_api_client(provider, api_key)
-    if provider in ("openrouter", "gemini_api") and _ASYNC_CLIENT is not None and _ASYNC_CLIENT.get("lock") is None:
+    if provider in ("openrouter", "nvidia_api", "gemini_api") and _ASYNC_CLIENT is not None and _ASYNC_CLIENT.get("lock") is None:
         _ASYNC_CLIENT["lock"] = asyncio.Lock()
     return _ASYNC_CLIENT
 
 
 def get_openrouter_key_count(api_key: Optional[str] = None) -> int:
     return len(_resolve_openrouter_api_keys(api_key))
+
+
+def get_nvidia_key_count(api_key: Optional[str] = None) -> int:
+    return len(_resolve_nvidia_api_keys(api_key))
 
 
 def get_gemini_key_count(api_key: Optional[str] = None) -> int:
@@ -410,6 +444,45 @@ def _is_hard_quota_error(exc: Exception) -> bool:
     return any(marker in msg for marker in _HARD_QUOTA_ERROR_MARKERS)
 
 
+def _is_empty_openrouter_content_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return any(
+        marker in msg
+        for marker in (
+            "did not contain text content",
+            "empty response from openrouter api",
+            "zero completion",
+            "no content generated",
+        )
+    )
+
+
+def _response_has_finish_reason_length(raw_response: Any) -> bool:
+    if isinstance(raw_response, dict):
+        choices = raw_response.get("choices")
+        if isinstance(choices, list):
+            for choice in choices:
+                if isinstance(choice, dict) and str(choice.get("finish_reason", "")).lower() == "length":
+                    return True
+        for value in raw_response.values():
+            if isinstance(value, (dict, list)) and _response_has_finish_reason_length(value):
+                return True
+        return False
+    if isinstance(raw_response, list):
+        for item in raw_response:
+            if isinstance(item, (dict, list)) and _response_has_finish_reason_length(item):
+                return True
+    return False
+
+
+def _is_nvidia_no_content_or_length_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    if "nvidia response did not contain text content" in msg:
+        return True
+    raw_response = getattr(exc, "raw_response", None)
+    return _response_has_finish_reason_length(raw_response)
+
+
 async def _get_provider_key_state(async_client: Dict[str, Any]) -> tuple[str, int, int]:
     lock = async_client["lock"]
     async with lock:
@@ -484,6 +557,7 @@ def _build_openrouter_payload(
     messages: list[dict[str, Any]],
     temperature: float,
     max_output_tokens: int,
+    reasoning_override: Optional[Dict[str, Any]] = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "model": model_config["model_name"],
@@ -492,10 +566,39 @@ def _build_openrouter_payload(
         "max_tokens": max_output_tokens,
         "response_format": _OPENROUTER_RESPONSE_FORMAT,
     }
-    reasoning = dict(model_config.get("reasoning") or {})
+    reasoning = dict(model_config.get("reasoning") or {}) if reasoning_override is None else dict(reasoning_override)
     if reasoning:
         payload["reasoning"] = reasoning
     return payload
+
+
+def _build_nvidia_payload(
+    model_config: Dict[str, Any],
+    messages: list[dict[str, Any]],
+    temperature: float,
+    max_output_tokens: int,
+    extra_body_override: Optional[Dict[str, Any]] = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "model": model_config["model_name"],
+        "messages": messages,
+        "temperature": temperature,
+        "top_p": 0.95,
+        "max_tokens": max_output_tokens,
+    }
+    extra_body = dict(model_config.get("extra_body") or {}) if extra_body_override is None else dict(extra_body_override)
+    if extra_body:
+        payload.update(extra_body)
+    return payload
+
+
+def _build_nvidia_disable_thinking_extra_body(model_config: Dict[str, Any]) -> Dict[str, Any]:
+    extra_body = dict(model_config.get("extra_body") or {})
+    chat_kwargs = dict(extra_body.get("chat_template_kwargs") or {})
+    chat_kwargs["enable_thinking"] = False
+    extra_body["chat_template_kwargs"] = chat_kwargs
+    extra_body.pop("reasoning_budget", None)
+    return extra_body
 
 
 def _extract_openrouter_text(response_json: dict[str, Any]) -> str:
@@ -512,6 +615,22 @@ def _extract_openrouter_text(response_json: dict[str, Any]) -> str:
         if merged:
             return merged
     raise RawResponseError("OpenRouter response did not contain text content.", raw_response=response_json)
+
+
+def _extract_nvidia_text(response_json: dict[str, Any]) -> str:
+    choices = response_json.get("choices") or []
+    if not choices:
+        raise RawResponseError("Empty response from NVIDIA API.", raw_response=response_json)
+    message = (choices[0] or {}).get("message") or {}
+    content = message.get("content")
+    if isinstance(content, str) and content.strip():
+        return content
+    if isinstance(content, list):
+        texts = [part.get("text", "") for part in content if isinstance(part, dict) and part.get("type") == "text"]
+        merged = "".join(texts).strip()
+        if merged:
+            return merged
+    raise RawResponseError("NVIDIA response did not contain text content.", raw_response=response_json)
 
 
 def _openrouter_request(api_key: str, payload: dict[str, Any]) -> tuple[str, Any]:
@@ -543,6 +662,33 @@ def _openrouter_request(api_key: str, payload: dict[str, Any]) -> tuple[str, Any
     return _extract_openrouter_text(response_json), response_json
 
 
+def _nvidia_request(api_key: str, payload: dict[str, Any]) -> tuple[str, Any]:
+    request = urllib.request.Request(
+        _NVIDIA_API_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=180) as response:
+            body = response.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="ignore")
+        raise RawResponseError(f"NVIDIA HTTP {exc.code}: {body[:300]}", raw_response=body) from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"NVIDIA connection error: {exc}") from exc
+
+    try:
+        response_json = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise RawResponseError(f"NVIDIA returned non-JSON body: {body[:300]}", raw_response=body) from exc
+    return _extract_nvidia_text(response_json), response_json
+
+
 async def _call_openrouter_api_async(
     async_client: Dict[str, Any],
     model_config: Dict[str, Any],
@@ -550,14 +696,39 @@ async def _call_openrouter_api_async(
     temperature: float,
     max_output_tokens: int,
     key_index: Optional[int] = None,
+    reasoning_override: Optional[Dict[str, Any]] = None,
 ) -> tuple[str, Any]:
-    payload = _build_openrouter_payload(model_config, messages, temperature, max_output_tokens)
+    payload = _build_openrouter_payload(model_config, messages, temperature, max_output_tokens, reasoning_override)
     api_key, _, _ = (
         await _get_provider_key_state_for_index(async_client, key_index)
         if key_index is not None
         else await _get_provider_key_state(async_client)
     )
     return await asyncio.to_thread(_openrouter_request, api_key, payload)
+
+
+async def _call_nvidia_api_async(
+    async_client: Dict[str, Any],
+    model_config: Dict[str, Any],
+    messages: list[dict[str, Any]],
+    temperature: float,
+    max_output_tokens: int,
+    key_index: Optional[int] = None,
+    extra_body_override: Optional[Dict[str, Any]] = None,
+) -> tuple[str, Any]:
+    payload = _build_nvidia_payload(
+        model_config,
+        messages,
+        temperature,
+        max_output_tokens,
+        extra_body_override=extra_body_override,
+    )
+    api_key, _, _ = (
+        await _get_provider_key_state_for_index(async_client, key_index)
+        if key_index is not None
+        else await _get_provider_key_state(async_client)
+    )
+    return await asyncio.to_thread(_nvidia_request, api_key, payload)
 
 
 async def _judge_once_async(
@@ -570,6 +741,8 @@ async def _judge_once_async(
     images_pil: Optional[List[Image.Image]] = None,
     image_missing: Optional[bool] = None,
     key_index: Optional[int] = None,
+    reasoning_override: Optional[Dict[str, Any]] = None,
+    nvidia_extra_body_override: Optional[Dict[str, Any]] = None,
 ) -> LLMJudgeRecord:
     provider = model_config["provider"]
     if images_pil is None or image_missing is None:
@@ -577,7 +750,26 @@ async def _judge_once_async(
 
     if provider == "openrouter":
         messages = _build_openrouter_messages(record.text, images_pil, record.ocr_text, record.label_round_1)
-        raw, raw_response = await _call_openrouter_api_async(async_client, model_config, messages, temperature, max_output_tokens, key_index=key_index)
+        raw, raw_response = await _call_openrouter_api_async(
+            async_client,
+            model_config,
+            messages,
+            temperature,
+            max_output_tokens,
+            key_index=key_index,
+            reasoning_override=reasoning_override,
+        )
+    elif provider == "nvidia_api":
+        messages = _build_openrouter_messages(record.text, images_pil, record.ocr_text, record.label_round_1)
+        raw, raw_response = await _call_nvidia_api_async(
+            async_client,
+            model_config,
+            messages,
+            temperature,
+            max_output_tokens,
+            key_index=key_index,
+            extra_body_override=nvidia_extra_body_override,
+        )
     else:
         contents = _build_gemini_contents(record.text, images_pil, record.ocr_text, record.label_round_1)
         raw = await _call_gemini_api_async(async_client, model_config["model_name"], contents, temperature, max_output_tokens, key_index=key_index)
@@ -585,22 +777,35 @@ async def _judge_once_async(
     try:
         result = _validate(_extract_json(raw))
     except (json.JSONDecodeError, ValueError, KeyError):
-        if provider == "openrouter":
+        if provider in ("openrouter", "nvidia_api"):
             raw2: Optional[str] = None
             repair_raw_response: Any = None
             try:
-                raw2, repair_raw_response = await _call_openrouter_api_async(
-                    async_client,
-                    model_config,
-                    _build_openrouter_repair_messages(record.text, images_pil, raw, record.ocr_text, record.label_round_1),
-                    temperature,
-                    max_output_tokens,
-                    key_index=key_index,
-                )
+                repair_messages = _build_openrouter_repair_messages(record.text, images_pil, raw, record.ocr_text, record.label_round_1)
+                if provider == "openrouter":
+                    raw2, repair_raw_response = await _call_openrouter_api_async(
+                        async_client,
+                        model_config,
+                        repair_messages,
+                        temperature,
+                        max_output_tokens,
+                        key_index=key_index,
+                        reasoning_override=reasoning_override,
+                    )
+                else:
+                    raw2, repair_raw_response = await _call_nvidia_api_async(
+                        async_client,
+                        model_config,
+                        repair_messages,
+                        temperature,
+                        max_output_tokens,
+                        key_index=key_index,
+                        extra_body_override=nvidia_extra_body_override,
+                    )
                 result = _validate(_extract_json(raw2))
             except Exception as exc:
                 raise RawResponseError(
-                    f"OpenRouter parse/repair failed: {str(exc)[:220]}",
+                    f"{'OpenRouter' if provider == 'openrouter' else 'NVIDIA'} parse/repair failed: {str(exc)[:220]}",
                     raw_response={
                         "initial_response": raw_response,
                         "initial_text": raw,
@@ -641,25 +846,55 @@ async def judge_single_async(
     last_raw_response: Any = None
     images_pil, image_missing = _load_images(record, max_image_pixels)
     attempt = 1
+    reasoning_override: Optional[Dict[str, Any]] = None
+    nvidia_extra_body_override: Optional[Dict[str, Any]] = None
+    nvidia_fallback_without_thinking = False
 
     while attempt <= max_retries:
         try:
-            return await _judge_once_async(
-                async_client,
-                model_config,
-                record,
-                temperature,
-                max_image_pixels,
-                max_output_tokens,
-                images_pil=images_pil,
-                image_missing=image_missing,
-                key_index=key_index,
-            )
+            judge_kwargs: Dict[str, Any] = {
+                "async_client": async_client,
+                "model_config": model_config,
+                "record": record,
+                "temperature": temperature,
+                "max_image_pixels": max_image_pixels,
+                "max_output_tokens": max_output_tokens,
+                "images_pil": images_pil,
+                "image_missing": image_missing,
+                "key_index": key_index,
+                "reasoning_override": reasoning_override,
+            }
+            if model_config.get("provider") == "nvidia_api":
+                judge_kwargs["nvidia_extra_body_override"] = nvidia_extra_body_override
+
+            return await _judge_once_async(**judge_kwargs)
         except Exception as exc:
             if hasattr(exc, "raw_response"):
                 last_raw_response = getattr(exc, "raw_response")
             provider = model_config.get("provider")
-            if provider in ("openrouter", "gemini_api") and _is_hard_quota_error(exc):
+            if provider == "openrouter" and _is_empty_openrouter_content_error(exc) and model_config.get("reasoning") and reasoning_override is None:
+                reasoning_override = {}
+                logger.warning(
+                    "RetryWithoutReasoning | id=%d | model=%s | attempt=%d/%d | reason=%s",
+                    record.id,
+                    model_config.get("tag", model_config.get("model_name", "unknown")),
+                    attempt,
+                    max_retries,
+                    str(exc)[:120],
+                )
+            if provider == "nvidia_api" and (not nvidia_fallback_without_thinking) and _is_nvidia_no_content_or_length_error(exc):
+                nvidia_extra_body_override = _build_nvidia_disable_thinking_extra_body(model_config)
+                nvidia_fallback_without_thinking = True
+                logger.warning(
+                    "RetryWithoutThinking | id=%d | model=%s | attempt=%d/%d | reason=%s",
+                    record.id,
+                    model_config.get("tag", model_config.get("model_name", "unknown")),
+                    attempt,
+                    max_retries,
+                    str(exc)[:120],
+                )
+                continue
+            if provider in ("openrouter", "nvidia_api", "gemini_api") and _is_hard_quota_error(exc):
                 if key_index is not None and not allow_key_rotation:
                     raise KeyExhaustedError(key_index, str(exc)[:220]) from exc
                 rotated, from_index, to_index, total_keys = await _rotate_provider_api_key(async_client)
@@ -674,7 +909,7 @@ async def judge_single_async(
                         total_keys,
                     )
                     continue
-                provider_name = "OpenRouter" if provider == "openrouter" else "Gemini"
+                provider_name = "OpenRouter" if provider == "openrouter" else ("NVIDIA" if provider == "nvidia_api" else "Gemini")
                 raise QuotaExceededError(f"All {provider_name} API keys exhausted: {str(exc)[:220]}") from exc
             last_error = str(exc)[:200]
             should_retry = attempt < max_retries and _is_retryable_error(exc)
