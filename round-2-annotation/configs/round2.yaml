@@ -23,3 +23,5 @@ retry_delay_seconds: 5
 max_retry_delay_seconds: 20
 concurrency: 3
 checkpoint_every: 10
+stagger_key_starts: true
+key_start_stagger_seconds: 5

@@ -19,7 +19,7 @@ from .utils_logging import get_logger
 
 logger = get_logger(__name__)
 
-DEFAULT_INPUT_DATA = "data/round-2/50-samples.json"
+DEFAULT_INPUT_DATA = "data/round-1/data-round-1.json"
 DEFAULT_TEST_INPUT_DATA = "data/round-2/50-samples-final-label.json"
 RESULTS_FILENAME = "round2_results.jsonl"
 RESULTS_JSON_FILENAME = "round2_results.json"
@@ -291,6 +291,8 @@ async def run_llm_with_checkpoint(
     load_checkpoint_file: bool = True,
     parallel_keys: bool = False,
     per_key_concurrency: int = 1,
+    stagger_key_starts: bool = False,
+    key_start_stagger_seconds: float = 1.0,
     cached_results_by_id: Optional[Dict[int, LLMJudgeRecord]] = None,
     checkpoint_records: Optional[List[InputRecord]] = None,
     checkpoint_base_results_by_id: Optional[Dict[int, LLMJudgeRecord]] = None,
@@ -318,6 +320,7 @@ async def run_llm_with_checkpoint(
             queue.put_nowait(record)
         exhausted_key_indices: set[int] = set(async_client.get("exhausted_key_indices", set()))
         state_lock = asyncio.Lock()
+        key_start_events = [asyncio.Event() for _ in range(key_count)]
 
         def _save_parallel_checkpoint() -> None:
             _save_checkpoint_results(
@@ -327,8 +330,23 @@ async def run_llm_with_checkpoint(
                 router_cfg,
             )
 
-        async def _worker(key_index: int) -> None:
+        async def _worker(key_index: int, worker_slot: int) -> None:
             nonlocal completed_since_save, completed_total
+            if stagger_key_starts:
+                start_event = key_start_events[key_index]
+                if worker_slot == 0:
+                    delay_seconds = max(0.0, float(key_start_stagger_seconds)) * key_index
+                    if delay_seconds > 0:
+                        logger.info(
+                            "StaggerKeyStart | key=%d/%d | wait=%.1fs",
+                            key_index + 1,
+                            key_count,
+                            delay_seconds,
+                        )
+                        await asyncio.sleep(delay_seconds)
+                    start_event.set()
+                else:
+                    await start_event.wait()
             while key_index not in exhausted_key_indices:
                 try:
                     record = await asyncio.wait_for(queue.get(), timeout=0.1)
@@ -393,9 +411,9 @@ async def run_llm_with_checkpoint(
 
         worker_count = key_count * per_key_concurrency
         workers = [
-            asyncio.create_task(_worker(key_index))
+            asyncio.create_task(_worker(key_index, worker_slot))
             for key_index in range(key_count)
-            for _ in range(per_key_concurrency)
+            for worker_slot in range(per_key_concurrency)
         ]
         try:
             await asyncio.gather(*workers)
@@ -500,6 +518,8 @@ async def run_pipeline_async(
     rerun_minus_one: bool = False,
     parallel_keys: bool = False,
     per_key_concurrency: int = 1,
+    stagger_key_starts: Optional[bool] = None,
+    key_start_stagger_seconds: Optional[float] = None,
     test_mode: bool = False,
     test_size: int = 5,
     model_tag: Optional[str] = None,
@@ -516,6 +536,8 @@ async def run_pipeline_async(
     concurrency = int(resolved_model.get("concurrency") or cfg.get("concurrency", DEFAULT_CONCURRENCY))
     checkpoint_every = int(cfg.get("checkpoint_every", 10))
     seed = int(cfg.get("seed", 42))
+    effective_stagger_key_starts = bool(cfg.get("stagger_key_starts", False)) if stagger_key_starts is None else stagger_key_starts
+    effective_key_start_stagger_seconds = float(cfg.get("key_start_stagger_seconds", 1.0)) if key_start_stagger_seconds is None else float(key_start_stagger_seconds)
 
     pipeline_started_at = time.monotonic()
     out_dir = Path(output_dir)
@@ -558,7 +580,7 @@ async def run_pipeline_async(
             return
 
     logger.info(
-        "Start | input=%d | test=%s | from_id=%s | model=%s | provider=%s | concurrency=%d | checkpoint_every=%d | parallel_keys=%s | per_key_concurrency=%d | output=%s",
+        "Start | input=%d | test=%s | from_id=%s | model=%s | provider=%s | concurrency=%d | checkpoint_every=%d | parallel_keys=%s | per_key_concurrency=%d | stagger_key_starts=%s | key_start_stagger_seconds=%.1f | output=%s",
         len(records_for_run),
         test_mode,
         f"{min_record_id if min_record_id is not None else 'start'}..{max_record_id if max_record_id is not None else 'end'}",
@@ -568,6 +590,8 @@ async def run_pipeline_async(
         checkpoint_every,
         parallel_keys,
         per_key_concurrency,
+        effective_stagger_key_starts,
+        effective_key_start_stagger_seconds,
         _results_json_path(out_dir).name,
     )
     logger.info("InputSource | path=%s", effective_input_data)
@@ -598,6 +622,8 @@ async def run_pipeline_async(
             load_checkpoint_file=False,
             parallel_keys=parallel_keys,
             per_key_concurrency=per_key_concurrency,
+            stagger_key_starts=effective_stagger_key_starts,
+            key_start_stagger_seconds=effective_key_start_stagger_seconds,
             cached_results_by_id=cached_results_for_resume,
             checkpoint_records=all_input_records,
             checkpoint_base_results_by_id=cached_results,
@@ -642,6 +668,8 @@ def main() -> None:
     parser.add_argument("--to", dest="max_record_id", type=int, help="Alias of --max-record-id; run records with id<=N")
     parser.add_argument("--parallel-keys", action="store_true", help="Send requests across multiple API keys in parallel and stop using keys that hit quota")
     parser.add_argument("--per-key-concurrency", type=int, default=1, help="Concurrency per API key when --parallel-keys is enabled")
+    parser.add_argument("--stagger-key-starts", action="store_true", help="Stagger the first requests across API keys to avoid hitting the backend at the exact same time")
+    parser.add_argument("--key-start-stagger-seconds", type=float, default=None, help="Delay between the first requests of adjacent API keys when --stagger-key-starts is enabled")
     parser.add_argument("--rerun-minus-one", action="store_true", help="Rerun only records with label_llm2 = -1 from the existing checkpoint and update the same output files")
     parser.add_argument("--no-checkpoint-load", action="store_true", help="Ignore previous round2_results.jsonl")
     args = parser.parse_args()
@@ -660,6 +688,8 @@ def main() -> None:
             rerun_minus_one=args.rerun_minus_one,
             parallel_keys=args.parallel_keys,
             per_key_concurrency=args.per_key_concurrency,
+            stagger_key_starts=True if args.stagger_key_starts else None,
+            key_start_stagger_seconds=args.key_start_stagger_seconds,
             test_mode=args.test_mode,
             test_size=args.test_size,
             model_tag=args.model,

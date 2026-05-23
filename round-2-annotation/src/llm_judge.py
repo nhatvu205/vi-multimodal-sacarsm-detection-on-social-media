@@ -60,16 +60,14 @@ class RawResponseError(RuntimeError):
         self.raw_response = raw_response
 
 
-_QUOTA_EXCEEDED_ERROR_MARKERS = (
-    "quota exceeded",
+_HARD_QUOTA_ERROR_MARKERS = (
     "exceeded your current quota",
     "insufficient credits",
     "payment required",
     "credit balance",
-    "limit_remaining",
+    "billing",
     "free-models-per-day",
-    "resource_exhausted",
-    "quota",
+    "daily limit exceeded",
 )
 
 
@@ -407,9 +405,9 @@ def _is_retryable_error(exc: Exception) -> bool:
     return any(marker in msg for marker in _RETRYABLE_ERROR_MARKERS)
 
 
-def _is_quota_exceeded_error(exc: Exception) -> bool:
+def _is_hard_quota_error(exc: Exception) -> bool:
     msg = str(exc).lower()
-    return any(marker in msg for marker in _QUOTA_EXCEEDED_ERROR_MARKERS)
+    return any(marker in msg for marker in _HARD_QUOTA_ERROR_MARKERS)
 
 
 async def _get_provider_key_state(async_client: Dict[str, Any]) -> tuple[str, int, int]:
@@ -661,7 +659,7 @@ async def judge_single_async(
             if hasattr(exc, "raw_response"):
                 last_raw_response = getattr(exc, "raw_response")
             provider = model_config.get("provider")
-            if provider in ("openrouter", "gemini_api") and _is_quota_exceeded_error(exc):
+            if provider in ("openrouter", "gemini_api") and _is_hard_quota_error(exc):
                 if key_index is not None and not allow_key_rotation:
                     raise KeyExhaustedError(key_index, str(exc)[:220]) from exc
                 rotated, from_index, to_index, total_keys = await _rotate_provider_api_key(async_client)
@@ -678,8 +676,6 @@ async def judge_single_async(
                     continue
                 provider_name = "OpenRouter" if provider == "openrouter" else "Gemini"
                 raise QuotaExceededError(f"All {provider_name} API keys exhausted: {str(exc)[:220]}") from exc
-            if _is_quota_exceeded_error(exc):
-                raise QuotaExceededError(str(exc)[:300]) from exc
             last_error = str(exc)[:200]
             should_retry = attempt < max_retries and _is_retryable_error(exc)
             if should_retry:

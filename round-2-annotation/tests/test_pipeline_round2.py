@@ -1,4 +1,9 @@
-from src.pipeline_round2 import resolve_model_config, select_records_for_run
+from __future__ import annotations
+
+import asyncio
+from pathlib import Path
+
+from src.pipeline_round2 import resolve_model_config, run_llm_with_checkpoint, select_records_for_run
 from src.schemas import InputRecord, LLMJudgeRecord
 
 
@@ -61,7 +66,6 @@ def test_run_pipeline_async_uses_test_input_data_in_test_mode(monkeypatch):
     monkeypatch.setattr("src.pipeline_round2.run_llm_with_checkpoint", fake_run_llm_with_checkpoint)
     monkeypatch.setattr("src.pipeline_round2.write_results", lambda out_dir, routed: None)
 
-    import asyncio
     asyncio.run(
         __import__("src.pipeline_round2", fromlist=["run_pipeline_async"]).run_pipeline_async(
             config_path="unused.yaml",
@@ -107,7 +111,6 @@ def test_run_pipeline_async_does_not_use_config_ocr_path_by_default(monkeypatch)
     monkeypatch.setattr("src.pipeline_round2.run_llm_with_checkpoint", fake_run_llm_with_checkpoint)
     monkeypatch.setattr("src.pipeline_round2.write_results", lambda out_dir, routed: None)
 
-    import asyncio
     asyncio.run(
         __import__("src.pipeline_round2", fromlist=["run_pipeline_async"]).run_pipeline_async(
             config_path="unused.yaml",
@@ -118,3 +121,68 @@ def test_run_pipeline_async_does_not_use_config_ocr_path_by_default(monkeypatch)
     )
 
     assert captured["ocr_path"] is None
+
+
+def test_run_llm_with_checkpoint_staggers_first_requests_across_keys(monkeypatch):
+    records = [_rec(1), _rec(2)]
+    sleep_calls = []
+
+    monkeypatch.setattr(
+        "src.pipeline_round2.load_async_api_client",
+        lambda provider, api_key=None: {
+            "provider": provider,
+            "lock": asyncio.Lock(),
+            "api_keys": ["k1", "k2"],
+            "active_key_index": 0,
+            "exhausted_key_indices": set(),
+        },
+    )
+
+    async def fake_close_async_api_client():
+        return None
+
+    monkeypatch.setattr("src.pipeline_round2.close_async_api_client", fake_close_async_api_client)
+    monkeypatch.setattr("src.pipeline_round2._save_checkpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr("src.pipeline_round2._sync_parse_error_artifact", lambda *args, **kwargs: None)
+
+    async def fake_sleep(delay):
+        sleep_calls.append(delay)
+        return None
+
+    monkeypatch.setattr("src.pipeline_round2.asyncio.sleep", fake_sleep)
+
+    async def fake_judge_single_async(
+        async_client,
+        model_config,
+        record,
+        temperature,
+        max_image_pixels=300_000,
+        max_output_tokens=256,
+        max_retries=3,
+        retry_delay_seconds=5,
+        max_retry_delay_seconds=20,
+        key_index=None,
+        allow_key_rotation=True,
+    ):
+        return LLMJudgeRecord(id=record.id, label_llm2=1, final_label=1, T=1, I=0, MM=1)
+
+    monkeypatch.setattr("src.pipeline_round2.judge_single_async", fake_judge_single_async)
+
+    results = asyncio.run(
+        run_llm_with_checkpoint(
+            records,
+            {"provider": "gemini_api", "tag": "gemma", "model_name": "gemma"},
+            temperature=0.1,
+            output_dir=Path("."),
+            router_cfg=type("Cfg", (), {"random_audit_rate": 0.1, "seed": 42})(),
+            load_checkpoint_file=False,
+            parallel_keys=True,
+            per_key_concurrency=1,
+            stagger_key_starts=True,
+            key_start_stagger_seconds=1.0,
+            checkpoint_every=10,
+        )
+    )
+
+    assert [result.label_llm2 for result in results] == [1, 1]
+    assert sleep_calls == [1.0]
