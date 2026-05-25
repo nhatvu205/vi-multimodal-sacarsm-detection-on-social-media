@@ -159,3 +159,35 @@ def test_judge_single_async_raises_key_exhausted_in_parallel_mode_only_for_hard_
         assert exc.key_index == 0
     else:
         raise AssertionError("Expected KeyExhaustedError")
+
+
+def test_judge_single_async_exhausts_parallel_key_after_two_resource_exhausted(monkeypatch):
+    attempts = {"count": 0}
+
+    monkeypatch.setattr("src.llm_judge._load_images", lambda record, max_pixels: ([], False))
+
+    async def fake_judge_once(async_client, model_config, record, temperature, max_image_pixels, max_output_tokens, images_pil=None, image_missing=None, key_index=None, reasoning_override=None):
+        attempts["count"] += 1
+        raise RuntimeError("429 Resource has been exhausted (e.g. check quota).")
+
+    monkeypatch.setattr("src.llm_judge._judge_once_async", fake_judge_once)
+
+    try:
+        asyncio.run(
+            judge_single_async(
+                async_client={"api_keys": ["key-a"], "active_key_index": 0, "exhausted_key_indices": set(), "lock": asyncio.Lock(), "clients": []},
+                model_config={"provider": "gemini_api", "tag": "gemma"},
+                record=InputRecord(id=1, text="caption", image_path="img.jpg"),
+                temperature=0.1,
+                max_retries=5,
+                retry_delay_seconds=0,
+                max_retry_delay_seconds=0,
+                key_index=0,
+                allow_key_rotation=False,
+            )
+        )
+    except KeyExhaustedError as exc:
+        assert exc.key_index == 0
+        assert attempts["count"] == 2
+    else:
+        raise AssertionError("Expected KeyExhaustedError")

@@ -75,6 +75,12 @@ _HARD_QUOTA_ERROR_MARKERS = (
     "daily limit exceeded",
 )
 
+_RESOURCE_EXHAUSTED_ERROR_MARKERS = (
+    "resource_exhausted",
+    "resource has been exhausted",
+)
+_RESOURCE_EXHAUSTED_RETRY_LIMIT = 2
+
 
 def _load_env_file() -> None:
     repo_root = Path(__file__).resolve().parents[2]
@@ -455,6 +461,11 @@ def _is_empty_openrouter_content_error(exc: Exception) -> bool:
             "no content generated",
         )
     )
+
+
+def _is_resource_exhausted_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return any(marker in msg for marker in _RESOURCE_EXHAUSTED_ERROR_MARKERS)
 
 
 def _response_has_finish_reason_length(raw_response: Any) -> bool:
@@ -849,6 +860,7 @@ async def judge_single_async(
     reasoning_override: Optional[Dict[str, Any]] = None
     nvidia_extra_body_override: Optional[Dict[str, Any]] = None
     nvidia_fallback_without_thinking = False
+    resource_exhausted_attempts = 0
 
     while attempt <= max_retries:
         try:
@@ -894,6 +906,13 @@ async def judge_single_async(
                     str(exc)[:120],
                 )
                 continue
+            if _is_resource_exhausted_error(exc):
+                resource_exhausted_attempts += 1
+                if key_index is not None and not allow_key_rotation and resource_exhausted_attempts >= _RESOURCE_EXHAUSTED_RETRY_LIMIT:
+                    raise KeyExhaustedError(
+                        key_index,
+                        f"resource_exhausted after {_RESOURCE_EXHAUSTED_RETRY_LIMIT} attempts: {str(exc)[:220]}",
+                    ) from exc
             if provider in ("openrouter", "nvidia_api", "gemini_api") and _is_hard_quota_error(exc):
                 if key_index is not None and not allow_key_rotation:
                     raise KeyExhaustedError(key_index, str(exc)[:220]) from exc
@@ -913,6 +932,8 @@ async def judge_single_async(
                 raise QuotaExceededError(f"All {provider_name} API keys exhausted: {str(exc)[:220]}") from exc
             last_error = str(exc)[:200]
             should_retry = attempt < max_retries and _is_retryable_error(exc)
+            if _is_resource_exhausted_error(exc):
+                should_retry = should_retry and resource_exhausted_attempts < _RESOURCE_EXHAUSTED_RETRY_LIMIT
             if should_retry:
                 delay_seconds = _compute_retry_delay_seconds(retry_delay_seconds, attempt, max_retry_delay_seconds)
                 logger.warning(
