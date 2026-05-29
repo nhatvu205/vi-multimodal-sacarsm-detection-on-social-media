@@ -20,6 +20,22 @@ class InputRecord(BaseModel):
             return None
         return v
 
+    @field_validator("label_round_1", mode="before")
+    @classmethod
+    def coerce_label_round_1(cls, v: Any) -> Optional[int]:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            cleaned = v.strip().upper()
+            if cleaned in {"", "INVALID", "-1", "NULL", "NONE"}:
+                return None
+            if cleaned in {"0", "1"}:
+                return int(cleaned)
+            return None
+        if v in (0, 1):
+            return int(v)
+        return None
+
 
 class LLMJudgeRecord(BaseModel):
     """

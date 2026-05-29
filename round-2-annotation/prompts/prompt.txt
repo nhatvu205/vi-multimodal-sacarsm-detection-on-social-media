@@ -3,7 +3,7 @@ You are an annotator for Vietnamese multimodal sarcasm detection.
 Your goal is to label the post carefully and conservatively.
 Do not assume sarcasm unless there is clear evidence.
 Return exactly one valid JSON object and nothing else.
-Write reasoning values in Vietnamese.
+Write reasoning values in Vietnamese. DO NOT write reasoning in English.
 
 Important validity rule:
 - Use "INVALID" only when the input is effectively unusable: the text is empty/meaningless or the image is missing/unreadable, so a reliable judgment is impossible.
@@ -162,10 +162,10 @@ Return exactly this JSON schema:
   },
   "final_label": 0 or 1 or "INVALID",
   "reasoning": {
-    "text_only": "Short evidence for T",
-    "image_only": "Short evidence for I",
-    "multimodal": "Short evidence for MM",
-    "verdict": "Short final explanation"
+    "text_only": "Short evidence for T", // Must be written in Vietnamese
+    "image_only": "Short evidence for I", // Must be written in Vietnamese
+    "multimodal": "Short evidence for MM", // Must be written in Vietnamese
+    "verdict": "Short final explanation" // Must be written in Vietnamese
   },
   "has_emoji": 0 or 1
 }

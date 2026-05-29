@@ -4,7 +4,7 @@ Pipeline Round-2 chạy độc lập trong `round-2-annotation/`.
 
 ## Model hỗ trợ
 - `gemma` → `gemma-4-31b-it` qua Gemini API
-- `nemotron` → `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` qua OpenRouter, bật reasoning
+- `mistral` → `mistralai/mistral-medium-3.5-128b` qua NVIDIA API
 
 ## Chuẩn bị môi trường
 
@@ -33,7 +33,7 @@ OPENROUTER_API_KEY=your_openrouter_key
 Pipeline sẽ ghi lại **cả JSONL và JSON** sau mỗi lần đủ `checkpoint_every` sample hoàn thành, và ghi lần cuối khi run xong.
 
 ## Các option quan trọng
-- `--model {gemma,nemotron}`: chọn VLM
+- `--model {gemma,mistral}`: chọn VLM
 - `--test_mode`: chạy số lượng nhỏ theo thứ tự từ trên xuống
 - `--test_size N`: số record khi test mode
 - `--max_records N`: chỉ lấy N record đầu sau khi lọc
@@ -53,13 +53,13 @@ python3 -m src.pipeline_round2 \
   --no-checkpoint-load
 ```
 
-## Chạy test với Nemotron
+## Chạy test với Mistral (NVIDIA)
 
 ```bash
 python3 -m src.pipeline_round2 \
   --config configs/round2.yaml \
-  --output_dir outputs/test_nemotron \
-  --model nemotron \
+  --output_dir outputs/test_mistral \
+  --model mistral \
   --test_mode \
   --test_size 5 \
   --no-checkpoint-load

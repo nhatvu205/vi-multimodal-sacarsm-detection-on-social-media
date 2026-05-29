@@ -1,48 +1,93 @@
 <View>
+  <Style>
+    .section-human {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 20px;
+    }
+    .section-meta {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 20px;
+    }
+    .section-gemma {
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 20px;
+    }
+    .section-nemotron {
+      background: #faf5ff;
+      border: 1px solid #d8b4fe;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 20px;
+    }
+  </Style>
 
-  <!-- IMAGE -->
   <View style="margin-bottom: 20px;">
-    <Header value="Image"/>
-    <Image name="image" value="$image" maxWidth="400px"/>
-
-    <Header value="Round 1 label"/>
-    <Text name="label_round_1" value="$label_round_1"/>
+    <Header value="Image" size="2" style="color: #111827;"/>
+    <Image name="image" value="$image" maxWidth="450px"/>
   </View>
 
-  <!-- TEXT -->
   <View style="margin-bottom: 20px;">
-    <Header value="Text"/>
+    <Header value="Text" size="2" style="color: #111827;"/>
     <Text name="text" value="$text"/>
   </View>
 
-  <!-- LABELS -->
-  <View style="margin-bottom: 20px;">
-    <Header value="Text label"/>
-    <Choices name="text_sarcasm" toName="text" choice="single" showInline="true">
+  <View className="section-human">
+    <Header value="Human final label" size="2" underline="true" style="color: #1d4ed8;"/>
+    <Choices name="sarcasm_label" toName="text" choice="single" showInline="true">
       <Choice value="sarcastic"/>
       <Choice value="non_sarcastic"/>
     </Choices>
   </View>
 
-  <View style="margin-bottom: 20px;">
-    <Header value="Image label"/>
-    <Choices name="image_sarcasm" toName="image" choice="single" showInline="true">
-      <Choice value="sarcastic"/>
-      <Choice value="non_sarcastic"/>
-    </Choices>
+  <View className="section-meta">
+    <Header value="LLM label" size="2" underline="true" style="color: #334155;"/>
+    <Header value="Sample ID" size="4" style="color: #475569;"/>
+    <Text name="sample_id" value="$id"/>
+    <Header value="Gemma label" size="4" style="color: #475569;"/>
+    <Text name="label_gemma" value="$label_gemma"/>
+    <Header value="Nemotron label" size="4" style="color: #475569;"/>
+    <Text name="label_nemotron" value="$label_nemotron"/>
   </View>
 
-  <View style="margin-bottom: 20px;">
-    <Header value="Multimodal label"/>
-    <Choices name="multimodal_sarcasm" toName="text" choice="single" showInline="true">
-      <Choice value="sarcastic"/>
-      <Choice value="non_sarcastic"/>
-    </Choices>
-  </View>
+  <View className="section-gemma">
+    <Header value="Gemma reasoning" size="2" underline="true" style="color: #b45309;"/>
+    <Header value="Non-sarcastic case" size="4" style="color: #92400e;"/>
+    <Text name="reasoning_gemma_non_sacarstic_case" value="$reasoning_gemma_non_sacarstic_case"/>
+    <Header value="Sarcastic case" size="4" style="color: #92400e;"/>
+    <Text name="reasoning_gemma_sacartic_case" value="$reasoning_gemma_sacartic_case"/>
+    <Header value="Emoji reasoning" size="4" style="color: #92400e;"/>
+    <Text name="reasoning_gemma_emoji_reasoning" value="$reasoning_gemma_emoji_reasoning"/>
+    <Header value="Sarcasm type" size="4" style="color: #92400e;"/>
+    <Text name="reasoning_gemma_sacarsm_type" value="$reasoning_gemma_sacarsm_type"/>
+    <Header value="Verdict" size="4" style="color: #92400e;"/>
+    <Text name="reasoning_gemma_verdict" value="$reasoning_gemma_verdict"/>
+    </View>
 
-  <!-- OPTIONAL: explanation -->
-  <TextArea name="explanation" toName="text"
-            placeholder="Explain your reasoning (optional)"
-            rows="3"/>
+  <View className="section-nemotron">
+    <Header value="Nemotron reasoning" size="2" underline="true" style="color: #7c3aed;"/>
+    <Header value="Non-sarcastic case" size="4" style="color: #6d28d9;"/>
+    <Text name="reasoning_nemotron_non_sacarstic_case" value="$reasoning_nemotron_non_sacarstic_case"/>
+    <Header value="Sarcastic case" size="4" style="color: #6d28d9;"/>
+    <Text name="reasoning_nemotron_sacartic_case" value="$reasoning_nemotron_sacartic_case"/>
+    <Header value="Emoji reasoning" size="4" style="color: #6d28d9;"/>
+    <Text name="reasoning_nemotron_emoji_reasoning" value="$reasoning_nemotron_emoji_reasoning"/>
+    <Header value="Sarcasm type" size="4" style="color: #6d28d9;"/>
+    <Text name="reasoning_nemotron_sacarsm_type" value="$reasoning_nemotron_sacarsm_type"/>
+    <Header value="Verdict" size="4" style="color: #6d28d9;"/>
+    <Text name="reasoning_nemotron_verdict" value="$reasoning_nemotron_verdict"/>
+     </View>
+
+  <TextArea name="annotation_note" toName="text"
+            placeholder="Optional note"
+            rows="4"/>
 
 </View>
