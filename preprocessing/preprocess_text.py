@@ -26,6 +26,18 @@ from typing import Tuple
 DEFAULT_INPUT = Path("data/final-data/data.json")
 DEFAULT_OUTPUT = Path("data/final-data/data.clean.json")
 
+RE_HANDLE = re.compile(r"^@[A-Za-z0-9_.]{2,32}$")
+RE_USERNAME_LITERAL = re.compile(r"^username$", re.I)
+RE_ASCII_HANDLE = re.compile(r"^[A-Za-z0-9_.]{4,32}$")
+RE_REL_TIME = re.compile(
+    r"^(?:\d{1,2}\s*(?:giờ|phút|ngày|tuần|tháng|năm)\s*(?:trước)?|\d{1,2}[:h]\d{0,2}|just\s*now|now)$",
+    re.I,
+)
+RE_UI_TOKEN = re.compile(
+    r"^(?:see\s*more|xem\s*thêm|ẩn\s*bớt|dịch|trả\s*lời|reply|like|thích|bình\s*luận|comment|chia\s*sẻ)$",
+    re.I,
+)
+
 
 def normalize_spaces(text: str) -> str:
     text = (text or "").strip()
@@ -71,14 +83,60 @@ def remove_duplicated_lines(text: str) -> Tuple[str, bool]:
     return cleaned, changed
 
 
+def strip_crawl_artifacts(text: str) -> Tuple[str, bool]:
+    """
+    Remove high-confidence crawl artifacts from top lines:
+      - username / @handle
+      - relative time line
+      - UI tokens (See more, Xem thêm, ...)
+      - username <-> time pair in first two lines
+    """
+    lines = [normalize_spaces(x) for x in (text or "").splitlines() if normalize_spaces(x)]
+    if not lines:
+        return "", False
+
+    drop_idx: set[int] = set()
+
+    first = lines[0]
+    second = lines[1] if len(lines) > 1 else ""
+
+    if (
+        RE_USERNAME_LITERAL.match(first)
+        or RE_HANDLE.match(first)
+        or RE_REL_TIME.match(first)
+        or RE_UI_TOKEN.match(first)
+    ):
+        drop_idx.add(0)
+
+    if len(lines) >= 2 and RE_ASCII_HANDLE.match(first) and RE_REL_TIME.match(second):
+        drop_idx.update({0, 1})
+    if len(lines) >= 2 and RE_REL_TIME.match(first) and RE_ASCII_HANDLE.match(second):
+        drop_idx.update({0, 1})
+
+    # Also drop literal "username" if it appears near the top block.
+    for i, ln in enumerate(lines[:4]):
+        if RE_USERNAME_LITERAL.match(ln):
+            drop_idx.add(i)
+
+    if not drop_idx:
+        return "\n".join(lines).strip(), False
+
+    cleaned = "\n".join(ln for i, ln in enumerate(lines) if i not in drop_idx).strip()
+    if not cleaned:
+        cleaned = "\n".join(lines).strip()
+        return cleaned, False
+    return cleaned, True
+
+
 def preprocess_text_value(text: str) -> Tuple[str, bool]:
     """Main text cleaning routine."""
     before = text or ""
     x = normalize_spaces(before)
+    x, crawl_changed = strip_crawl_artifacts(x)
     x = try_collapse_full_repetition(x)
     x, line_changed = remove_duplicated_lines(x)
     x = normalize_spaces(x)
-    changed = (x != before.strip()) or line_changed
+    changed = (x != before.strip()) or line_changed or crawl_changed
     return x, changed
 
 
