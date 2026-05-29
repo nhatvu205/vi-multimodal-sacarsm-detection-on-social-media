@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 emoji_pipeline.py
 -----------------
@@ -84,7 +85,7 @@ def strip_all_emoji_and_emoticon(text: str) -> str:
     return cleaned
 
 
-def process_sample(sample: dict, text_sentiment: float | None = None) -> dict:
+def process_sample(sample: dict, text_sentiment: Optional[float] = None) -> dict:
     """
     Xử lý một sample, trả về sample bổ sung các field:
       - text_A0: text gốc (không đổi)

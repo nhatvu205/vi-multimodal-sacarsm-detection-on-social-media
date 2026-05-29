@@ -226,11 +226,11 @@ class ModelBase:
 
     name: str = "base"
 
-    def predict(self, texts: list[str], image_paths: list[str] | None = None) -> list[int]:
+    def predict(self, texts: list[str], image_paths: Optional[list] = None) -> list[int]:
         """Trả về nhãn dự đoán (0/1) cho danh sách texts."""
         raise NotImplementedError
 
-    def predict_proba(self, texts: list[str], image_paths: list[str] | None = None) -> list[float]:
+    def predict_proba(self, texts: list[str], image_paths: Optional[list] = None) -> list[float]:
         """Trả về xác suất class=1 cho danh sách texts."""
         raise NotImplementedError
 
@@ -328,7 +328,7 @@ def run_ablation(
     split_ids: dict,                       # {"train": [...], "val": [...], "test": [...]}
     label_field: str = "mm_label",
     image_dir:   str = "data/images",
-    scenarios:   list[str] | None = None,  # None = tất cả [A0, A1, A2, A3]
+    scenarios:   Optional[list] = None,  # None = tất cả [A0, A1, A2, A3]
     save_dir:    str = "results",
 ) -> list[EvalResult]:
     """
