@@ -1,0 +1,5 @@
+model_name,scenario,split,accuracy,f1_macro,f1_weighted,auc,n_samples
+phobert,A0,test,0.5412,0.5375,0.5426,0.5567,1105
+phobert,A1,test,0.5511,0.5488,0.5528,0.5764,1105
+phobert,A2,test,0.5511,0.5488,0.5528,0.5764,1105
+phobert,A3,test,0.5376,0.5349,0.5393,0.5575,1105
