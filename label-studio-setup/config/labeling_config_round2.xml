@@ -1,0 +1,70 @@
+<View>
+  <Style>
+    .section-human {background: #eff6ff; border: 1px solid #93c5fd; border-radius: 8px; padding: 12px; margin-bottom: 16px;}
+    .section-meta {background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; margin-bottom: 16px;}
+    .section-gemma {background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 12px; margin-bottom: 16px;}
+    .section-mistral {background: #faf5ff; border: 1px solid #d8b4fe; border-radius: 8px; padding: 12px; margin-bottom: 16px;}
+  </Style>
+
+  <Header value="Round-2 Conflict Annotation" size="3" style="color:#111827;"/>
+
+  <View style="margin-bottom: 16px;">
+    <Header value="Image" size="2" style="color:#111827;"/>
+    <Image name="image" value="$image" maxWidth="520px"/>
+  </View>
+
+  <View style="margin-bottom: 16px;">
+    <Header value="Text" size="2" style="color:#111827;"/>
+    <Text name="text" value="$text"/>
+    <Header value="OCR" size="4" style="color:#475569;"/>
+    <Text name="ocr_text" value="$ocr_text"/>
+  </View>
+
+  <View className="section-human">
+    <Header value="Human labels (Round-2)" size="2" underline="true" style="color:#1d4ed8;"/>
+
+    <Header value="Text-only (T)" size="4" style="color:#1e3a8a;"/>
+    <Choices name="label_text" toName="text" choice="single" showInline="true">
+      <Choice value="1" alias="sarcastic"/>
+      <Choice value="0" alias="non_sarcastic"/>
+      <Choice value="INVALID" alias="invalid"/>
+    </Choices>
+
+    <Header value="Image-only (I)" size="4" style="color:#1e3a8a;"/>
+    <Choices name="label_image" toName="text" choice="single" showInline="true">
+      <Choice value="1" alias="sarcastic"/>
+      <Choice value="0" alias="non_sarcastic"/>
+      <Choice value="INVALID" alias="invalid"/>
+    </Choices>
+  </View>
+
+  <View className="section-meta">
+    <Header value="LLM summary" size="2" underline="true" style="color:#334155;"/>
+    <Header value="ID" size="4" style="color:#475569;"/>
+    <Text name="sample_id" value="$id"/>
+    <Header value="Gemma combo / final" size="4" style="color:#475569;"/>
+    <Text name="combo_gemma" value="$combo_gemma"/>
+    <Text name="final_label_gemma" value="$final_label_gemma"/>
+    <Header value="Mistral combo / final" size="4" style="color:#475569;"/>
+    <Text name="combo_mistral" value="$combo_mistral"/>
+    <Text name="final_label_mistral" value="$final_label_mistral"/>
+  </View>
+
+  <View className="section-gemma">
+    <Header value="Gemma reasoning" size="2" underline="true" style="color:#b45309;"/>
+    <Header value="Verdict" size="4" style="color:#92400e;"/>
+    <Text name="reasoning_gemma_verdict" value="$reasoning_gemma_verdict"/>
+    <Header value="Full JSON" size="4" style="color:#92400e;"/>
+    <Text name="reasoning_gemma_json" value="$reasoning_gemma_json"/>
+  </View>
+
+  <View className="section-mistral">
+    <Header value="Mistral reasoning" size="2" underline="true" style="color:#7c3aed;"/>
+    <Header value="Verdict" size="4" style="color:#6d28d9;"/>
+    <Text name="reasoning_mistral_verdict" value="$reasoning_mistral_verdict"/>
+    <Header value="Full JSON" size="4" style="color:#6d28d9;"/>
+    <Text name="reasoning_mistral_json" value="$reasoning_mistral_json"/>
+  </View>
+
+  <TextArea name="annotation_note" toName="text" placeholder="Optional note" rows="4"/>
+</View>
