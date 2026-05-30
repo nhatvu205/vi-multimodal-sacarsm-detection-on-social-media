@@ -53,7 +53,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
-
+from sklearn.metrics import f1_score, accuracy_score, roc_auc_score, precision_score, recall_score
 import numpy as np
 import pandas as pd
 from PIL import Image
@@ -367,10 +367,19 @@ def load_checkpoint(path: str, model, optimizer=None):
 
 
 def compute_metrics(labels, preds, probs=None):
-    acc = accuracy_score(labels, preds)
-    f1  = f1_score(labels, preds, average="weighted", zero_division=0)
-    auc = roc_auc_score(labels, probs) if probs is not None else None
-    return {"accuracy": acc, "f1": f1, "auc": auc}
+    acc  = accuracy_score(labels, preds)
+    f1   = f1_score(labels, preds, average="weighted", zero_division=0)
+    prec = precision_score(labels, preds, average="weighted", zero_division=0)
+    rec  = recall_score(labels, preds, average="weighted", zero_division=0)
+    auc  = roc_auc_score(labels, probs) if probs is not None else None
+    
+    return {
+        "accuracy": acc, 
+        "f1": f1, 
+        "precision": prec, 
+        "recall": rec, 
+        "auc": auc
+    }
 
 
 def train_one_epoch(model, loader, optimizer, scheduler, criterion, device):
@@ -1029,18 +1038,21 @@ def save_results(all_results: dict):
         json.dump(all_results, f, indent=2, ensure_ascii=False)
     log.info(f"\n📊 All results saved → {out_path}")
 
-    # Print summary table
-    print("\n" + "="*70)
-    print(f"{'Model':<20} {'Scenario':<8} {'F1':>8} {'Acc':>8} {'AUC':>8}")
-    print("-"*70)
+    # Print summary table (Đã tăng chiều dài từ 70 lên 90 để vừa 2 cột mới)
+    print("\n" + "="*90)
+    print(f"{'Model':<20} {'Scenario':<8} {'F1':>8} {'Acc':>8} {'Prec':>8} {'Rec':>8} {'AUC':>8}")
+    print("-"*90)
     for group, models in all_results.items():
         for model_name, scenarios in models.items():
             for sc, metrics in scenarios.items():
                 auc = f"{metrics['auc']:.4f}" if metrics['auc'] else "  N/A  "
                 print(f"{model_name:<20} {sc:<8} "
-                      f"{metrics['f1']:>8.4f} {metrics['accuracy']:>8.4f} {auc:>8}")
-    print("="*70)
-
+                      f"{metrics['f1']:>8.4f} "
+                      f"{metrics['accuracy']:>8.4f} "
+                      f"{metrics['precision']:>8.4f} "
+                      f"{metrics['recall']:>8.4f} "
+                      f"{auc:>8}")
+    print("="*90)
 
 # =============================================================================
 #  MAIN
