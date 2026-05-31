@@ -91,7 +91,35 @@ def run_pipeline(config: dict, stage: str = 'all') -> None:
 
         for split in config['run']['eval_splits']:
             split_records = {'dev': dev_records, 'test': test_records}[split]
-            predictions = adapter.predict(split_records, scenario, few_shot_examples=few_shot_examples)
+            out_dir = _scenario_output_dir(run_dir, model_name, scenario)
+            checkpoint_every = int(config.get('inference', {}).get('checkpoint_every_samples', 0))
+
+            def progress_callback(predictions: list[dict], processed: int, total: int, split_name: str) -> None:
+                if checkpoint_every <= 0:
+                    return
+                if processed % checkpoint_every != 0 and processed != total:
+                    return
+                checkpoint_path = out_dir / f'predictions_{split_name}.checkpoint.jsonl'
+                _save_predictions(checkpoint_path, split_records, predictions, split_name, scenario)
+                save_json(
+                    out_dir / f'progress_{split_name}.json',
+                    {
+                        'model': model_name,
+                        'scenario': scenario,
+                        'split': split_name,
+                        'processed_samples': processed,
+                        'total_samples': total,
+                        'checkpoint_every_samples': checkpoint_every,
+                    },
+                )
+                print(f"[run] saved inference checkpoint: {checkpoint_path} ({processed}/{total})")
+
+            predictions = adapter.predict(
+                split_records,
+                scenario,
+                few_shot_examples=few_shot_examples,
+                progress_callback=progress_callback,
+            )
             labels = [row['label'] for row in predictions]
             preds = [row['prediction'] for row in predictions]
             probs = [row['probability'] for row in predictions]
@@ -109,7 +137,6 @@ def run_pipeline(config: dict, stage: str = 'all') -> None:
                 f"acc={metrics_row['accuracy']:.4f} f1w={metrics_row['f1_weighted']:.4f}"
             )
 
-            out_dir = _scenario_output_dir(run_dir, model_name, scenario)
             if config['run'].get('save_metrics', True):
                 save_json(out_dir / f'metrics_{split}.json', metrics_row)
             if config['run'].get('save_predictions', True):

@@ -93,7 +93,7 @@ class TextClassifierAdapter(ModelAdapter):
             state = torch.load(ckpt_path, map_location=self.device)
             self.model.load_state_dict(state)
 
-    def predict(self, records: list[dict], scenario: str, few_shot_examples: list[dict] | None = None) -> list[dict]:
+    def predict(self, records: list[dict], scenario: str, few_shot_examples: list[dict] | None = None, progress_callback=None) -> list[dict]:
         if not hasattr(self, 'model'):
             self._setup()
         import torch
@@ -261,7 +261,7 @@ class ImageClassifierAdapter(ModelAdapter):
             state = torch.load(ckpt_path, map_location=self.device)
             self.model.load_state_dict(state)
 
-    def predict(self, records: list[dict], scenario: str, few_shot_examples: list[dict] | None = None) -> list[dict]:
+    def predict(self, records: list[dict], scenario: str, few_shot_examples: list[dict] | None = None, progress_callback=None) -> list[dict]:
         if not hasattr(self, 'model'):
             self._setup()
         import torch

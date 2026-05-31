@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from pathlib import Path
+import time
 
 from ..data import load_image
 from ..prompting import build_prompt, get_system_prompt, get_user_prompt, parse_combo_prediction
@@ -37,6 +39,33 @@ def _maybe_load_adapter(model, config: dict):
     return PeftModel.from_pretrained(model, adapter_path)
 
 
+def _set_pad_token(processor=None, tokenizer=None, model=None):
+    tok = tokenizer
+    if tok is None and processor is not None and hasattr(processor, "tokenizer"):
+        tok = processor.tokenizer
+    if tok is None:
+        return None
+
+    if tok.pad_token_id is None and tok.eos_token_id is not None:
+        tok.pad_token = tok.eos_token
+
+    pad_token_id = tok.pad_token_id
+    if model is not None and pad_token_id is not None:
+        model.config.pad_token_id = pad_token_id
+        if hasattr(model, "generation_config") and model.generation_config is not None:
+            model.generation_config.pad_token_id = pad_token_id
+    return pad_token_id
+
+
+def _log_sample_progress(model_name: str, scenario: str, split: str, index: int, total: int, start_time: float):
+    elapsed_seconds = max(time.monotonic() - start_time, 0.0)
+    average_seconds = elapsed_seconds / max(index, 1)
+    remaining_seconds = max(int(average_seconds * max(total - index, 0)), 0)
+    eta = str(timedelta(seconds=remaining_seconds))
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"[infer] {timestamp} | {model_name} | {scenario} | {split} | sample {index}/{total} | eta {eta}")
+
+
 class LlavaGenerativeAdapter(ModelAdapter):
     def _setup(self):
         import torch
@@ -52,13 +81,18 @@ class LlavaGenerativeAdapter(ModelAdapter):
             **model_kwargs,
         )
         self.model = _maybe_load_adapter(self.model, self.config)
+        self.pad_token_id = _set_pad_token(processor=self.processor, model=self.model)
 
-    def predict(self, records: list[dict], scenario: str, few_shot_examples: list[dict] | None = None) -> list[dict]:
+    def predict(self, records: list[dict], scenario: str, few_shot_examples: list[dict] | None = None, progress_callback=None) -> list[dict]:
         if not hasattr(self, 'model'):
             self._setup()
         results = []
         model_device = _get_model_device(self.model)
-        for record in records:
+        total = len(records)
+        split = records[0].get('split', 'unknown') if records else 'unknown'
+        start_time = time.monotonic()
+        for idx, record in enumerate(records, start=1):
+            _log_sample_progress(self.model_name, scenario, split, idx, total, start_time)
             image = load_image(record, scenario, self.config)
             prompt = build_prompt(record, self.config, few_shot_examples=few_shot_examples)
             messages = [
@@ -80,6 +114,7 @@ class LlavaGenerativeAdapter(ModelAdapter):
                 **inputs,
                 max_new_tokens=int(self.config.get('inference', {}).get('max_new_tokens', 24)),
                 do_sample=False,
+                pad_token_id=self.pad_token_id,
             )
             decoded = self.processor.batch_decode(generated, skip_special_tokens=True)[0]
             combo, raw_output = parse_combo_prediction(decoded)
@@ -91,6 +126,8 @@ class LlavaGenerativeAdapter(ModelAdapter):
                 'probability': None,
                 'raw_output': raw_output,
             })
+            if progress_callback is not None:
+                progress_callback(results, idx, total, split)
         return results
 
     def release(self) -> None:
@@ -115,13 +152,18 @@ class LlavaNextGenerativeAdapter(ModelAdapter):
             **model_kwargs,
         )
         self.model = _maybe_load_adapter(self.model, self.config)
+        self.pad_token_id = _set_pad_token(processor=self.processor, model=self.model)
 
-    def predict(self, records: list[dict], scenario: str, few_shot_examples: list[dict] | None = None) -> list[dict]:
+    def predict(self, records: list[dict], scenario: str, few_shot_examples: list[dict] | None = None, progress_callback=None) -> list[dict]:
         if not hasattr(self, 'model'):
             self._setup()
         results = []
         model_device = _get_model_device(self.model)
-        for record in records:
+        total = len(records)
+        split = records[0].get('split', 'unknown') if records else 'unknown'
+        start_time = time.monotonic()
+        for idx, record in enumerate(records, start=1):
+            _log_sample_progress(self.model_name, scenario, split, idx, total, start_time)
             image = load_image(record, scenario, self.config)
             system_prompt = get_system_prompt(self.config)
             messages = []
@@ -146,6 +188,7 @@ class LlavaNextGenerativeAdapter(ModelAdapter):
                 **inputs,
                 max_new_tokens=int(self.config.get('inference', {}).get('max_new_tokens', 24)),
                 do_sample=False,
+                pad_token_id=self.pad_token_id,
             )
             decoded = self.processor.batch_decode(generated, skip_special_tokens=True)[0]
             combo, raw_output = parse_combo_prediction(decoded)
@@ -157,6 +200,8 @@ class LlavaNextGenerativeAdapter(ModelAdapter):
                 'probability': None,
                 'raw_output': raw_output,
             })
+            if progress_callback is not None:
+                progress_callback(results, idx, total, split)
         return results
 
     def release(self) -> None:
@@ -186,12 +231,17 @@ class QwenVLChatAdapter(ModelAdapter):
             **model_kwargs,
         ).eval()
         self.model = _maybe_load_adapter(self.model, self.config)
+        _set_pad_token(tokenizer=self.tokenizer, model=self.model)
 
-    def predict(self, records: list[dict], scenario: str, few_shot_examples: list[dict] | None = None) -> list[dict]:
+    def predict(self, records: list[dict], scenario: str, few_shot_examples: list[dict] | None = None, progress_callback=None) -> list[dict]:
         if not hasattr(self, 'model'):
             self._setup()
         results = []
-        for record in records:
+        total = len(records)
+        split = records[0].get('split', 'unknown') if records else 'unknown'
+        start_time = time.monotonic()
+        for idx, record in enumerate(records, start=1):
+            _log_sample_progress(self.model_name, scenario, split, idx, total, start_time)
             prompt = build_prompt(record, self.config, few_shot_examples=few_shot_examples)
             image_path = str(Path(record['image_path']).resolve())
             query = self.tokenizer.from_list_format([
@@ -208,6 +258,8 @@ class QwenVLChatAdapter(ModelAdapter):
                 'probability': None,
                 'raw_output': raw_output,
             })
+            if progress_callback is not None:
+                progress_callback(results, idx, total, split)
         return results
 
     def release(self) -> None:
@@ -232,13 +284,18 @@ class Qwen3VLGenerativeAdapter(ModelAdapter):
             **model_kwargs,
         )
         self.model = _maybe_load_adapter(self.model, self.config)
+        self.pad_token_id = _set_pad_token(processor=self.processor, model=self.model)
 
-    def predict(self, records: list[dict], scenario: str, few_shot_examples: list[dict] | None = None) -> list[dict]:
+    def predict(self, records: list[dict], scenario: str, few_shot_examples: list[dict] | None = None, progress_callback=None) -> list[dict]:
         if not hasattr(self, 'model'):
             self._setup()
         results = []
         model_device = _get_model_device(self.model)
-        for record in records:
+        total = len(records)
+        split = records[0].get('split', 'unknown') if records else 'unknown'
+        start_time = time.monotonic()
+        for idx, record in enumerate(records, start=1):
+            _log_sample_progress(self.model_name, scenario, split, idx, total, start_time)
             image = load_image(record, scenario, self.config)
             system_prompt = get_system_prompt(self.config)
             messages = []
@@ -263,6 +320,7 @@ class Qwen3VLGenerativeAdapter(ModelAdapter):
                 **inputs,
                 max_new_tokens=int(self.config.get('inference', {}).get('max_new_tokens', 24)),
                 do_sample=False,
+                pad_token_id=self.pad_token_id,
             )
             decoded = self.processor.batch_decode(generated, skip_special_tokens=True)[0]
             combo, raw_output = parse_combo_prediction(decoded)
@@ -274,6 +332,8 @@ class Qwen3VLGenerativeAdapter(ModelAdapter):
                 'probability': None,
                 'raw_output': raw_output,
             })
+            if progress_callback is not None:
+                progress_callback(results, idx, total, split)
         return results
 
     def release(self) -> None:

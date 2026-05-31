@@ -140,6 +140,18 @@ python -m experiment_setup.main \
   --scenario s4
 ```
 
+Run only on the test split:
+
+```bash
+python -m experiment_setup.main \
+  --config experiment_setup/configs/models/qwen3_vl_8b.yaml \
+  --stage all \
+  --scenario s1 \
+  --eval_splits test \
+  --json_splits /kaggle/input/your-dataset/final-data/train.json /kaggle/input/your-dataset/final-data/dev.json /kaggle/input/your-dataset/final-data/test.json \
+  --image_root /kaggle/input/your-dataset
+```
+
 Run all four scenarios in one command:
 ```bash
 python -m experiment_setup.main \

@@ -19,7 +19,7 @@ class ModelAdapter:
     def train(self, train_records: list[dict], dev_records: list[dict], scenario: str) -> None:
         return None
 
-    def predict(self, records: list[dict], scenario: str, few_shot_examples: list[dict] | None = None) -> list[dict]:
+    def predict(self, records: list[dict], scenario: str, few_shot_examples: list[dict] | None = None, progress_callback=None) -> list[dict]:
         raise NotImplementedError
 
     def release(self) -> None:

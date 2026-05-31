@@ -31,6 +31,12 @@ def parse_args() -> argparse.Namespace:
         "--image_root",
         help="Override image root directory at runtime",
     )
+    parser.add_argument(
+        "--eval_splits",
+        nargs="+",
+        choices=["dev", "test"],
+        help="Override evaluation split(s) at runtime",
+    )
     return parser.parse_args()
 
 
@@ -44,6 +50,9 @@ def main() -> None:
             config["run"]["scenarios"] = ["s1", "s2", "s3", "s4"]
         else:
             config["run"]["scenarios"] = [args.scenario]
+    if args.eval_splits:
+        config.setdefault("run", {})
+        config["run"]["eval_splits"] = args.eval_splits
     run_pipeline(config, stage=args.stage)
 
 
