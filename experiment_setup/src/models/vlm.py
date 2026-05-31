@@ -297,7 +297,14 @@ class Qwen3VLGenerativeAdapter(ModelAdapter):
         model_kwargs = {'device_map': self.config.get('inference', {}).get('device_map', 'auto')}
         if dtype is not None:
             model_kwargs['torch_dtype'] = dtype
-        self.processor = AutoProcessor.from_pretrained(self.config['model']['pretrained_name'])
+        processor_kwargs = {}
+        min_pixels = self.config.get('inference', {}).get('min_pixels')
+        max_pixels = self.config.get('inference', {}).get('max_pixels')
+        if min_pixels is not None:
+            processor_kwargs['min_pixels'] = int(min_pixels)
+        if max_pixels is not None:
+            processor_kwargs['max_pixels'] = int(max_pixels)
+        self.processor = AutoProcessor.from_pretrained(self.config['model']['pretrained_name'], **processor_kwargs)
         self.model = Qwen3VLForConditionalGeneration.from_pretrained(
             self.config['model']['pretrained_name'],
             **model_kwargs,
@@ -334,7 +341,14 @@ class Qwen3VLGenerativeAdapter(ModelAdapter):
                     ],
                 })
                 text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-                inputs = self.processor(text=[text], images=[image], padding=True, return_tensors='pt')
+                processor_kwargs = {}
+                min_pixels = self.config.get('inference', {}).get('min_pixels')
+                max_pixels = self.config.get('inference', {}).get('max_pixels')
+                if min_pixels is not None:
+                    processor_kwargs['min_pixels'] = int(min_pixels)
+                if max_pixels is not None:
+                    processor_kwargs['max_pixels'] = int(max_pixels)
+                inputs = self.processor(text=[text], images=[image], padding=True, return_tensors='pt', **processor_kwargs)
                 inputs = {k: v.to(model_device) for k, v in inputs.items()}
                 generated = self.model.generate(
                     **inputs,

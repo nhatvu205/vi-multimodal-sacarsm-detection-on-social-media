@@ -9,10 +9,12 @@ from .preprocess import build_text_variants
 
 
 SPLIT_NAMES = ('train', 'dev', 'test')
-RAW_TEXT_SCENARIOS = {'s1', 's3'}
-PREPROCESSED_TEXT_SCENARIOS = {'s2', 's4'}
-RAW_IMAGE_SCENARIOS = {'s1', 's2'}
-PREPROCESSED_IMAGE_SCENARIOS = {'s3', 's4'}
+SCENARIO_TEXT_FIELD = {
+    's1': 'raw_text',
+    's2': 'emoji_removed_text',
+    's3': 'preprocessed_text',
+    's4': 'preprocessed_emoji_removed_text',
+}
 
 
 def repo_root(config: dict) -> Path:
@@ -66,7 +68,9 @@ def prepare_cache(config: dict, run_dir: Path) -> dict[str, list[dict]]:
                 },
                 'image_path': str(image_path),
                 'raw_text': text_variants.raw_text,
+                'emoji_removed_text': text_variants.emoji_removed_text,
                 'preprocessed_text': text_variants.preprocessed_text,
+                'preprocessed_emoji_removed_text': text_variants.preprocessed_emoji_removed_text,
             })
 
         save_jsonl(cache_dir / f'{split}.jsonl', cached_rows)
@@ -88,11 +92,10 @@ def load_cached_splits(run_dir: Path) -> dict[str, list[dict]]:
 
 
 def get_text_for_scenario(record: dict, scenario: str) -> str:
-    if scenario in RAW_TEXT_SCENARIOS:
-        return record['raw_text']
-    if scenario in PREPROCESSED_TEXT_SCENARIOS:
-        return record['preprocessed_text']
-    raise ValueError(f'Unknown scenario: {scenario}')
+    field = SCENARIO_TEXT_FIELD.get(scenario)
+    if field is None:
+        raise ValueError(f'Unknown scenario: {scenario}')
+    return record[field]
 
 
 def load_image(record: dict, scenario: str, config: dict):
@@ -102,7 +105,7 @@ def load_image(record: dict, scenario: str, config: dict):
     settings = config.get('preprocessing', {}).get('image', {})
     if settings.get('convert_rgb', True):
         image = image.convert('RGB')
-    if scenario in PREPROCESSED_IMAGE_SCENARIOS and settings.get('enabled', True):
+    if settings.get('enabled', True):
         resize = settings.get('resize')
         if resize:
             image = image.resize(tuple(resize))
@@ -121,6 +124,8 @@ def build_records(records: Iterable[dict], scenario: str, config: dict) -> list[
             'image_path': record['image_path'],
             'text': get_text_for_scenario(record, scenario),
             'raw_text': record['raw_text'],
+            'emoji_removed_text': record['emoji_removed_text'],
             'preprocessed_text': record['preprocessed_text'],
+            'preprocessed_emoji_removed_text': record['preprocessed_emoji_removed_text'],
         })
     return built

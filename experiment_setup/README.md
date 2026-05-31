@@ -10,14 +10,15 @@ Config-driven end-to-end pipeline for sarcasm experiments using the fixed split 
 - support for supervised HF classifiers and generative VLM classifiers
 
 ## Scenarios
-- `s1`: raw text + raw image
-- `s2`: preprocessed text + raw image
-- `s3`: raw text + preprocessed image
-- `s4`: preprocessed text + preprocessed image
+Images are always preprocessed using the active model/image config. The 4 ablation scenarios now only change the text branch:
+- `s1`: raw text, no preprocessing, no emoji removal
+- `s2`: emoji removal only
+- `s3`: text preprocessing, keep emoji
+- `s4`: text preprocessing + emoji removal
 
 Notes:
-- text-only models still run all listed scenarios, but only the text branch changes.
-- image-only models should normally use `s1` only.
+- text-only and multimodal models run all 4 text scenarios.
+- image-only models should normally use `s1` only because the image branch is the same across scenarios.
 
 ## Directory layout
 ```

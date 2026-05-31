@@ -9,6 +9,8 @@ training:
   enabled: false
 inference:
   batch_size: 1
-  max_new_tokens: 12
+  max_new_tokens: 8
   device_map: auto
-  torch_dtype: auto
+  torch_dtype: float16
+  min_pixels: 3136
+  max_pixels: 200704
