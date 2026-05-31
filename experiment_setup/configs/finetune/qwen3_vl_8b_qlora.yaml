@@ -1,6 +1,18 @@
 extends: ../models/qwen3_vl_8b.yaml
 experiment:
   name: qwen3_vl_8b_qlora
+prompt:
+  system: |
+    You are annotating Vietnamese multimodal sarcasm.
+    Use only the given text and image.
+    Predict three binary labels:
+    - T: sarcasm from text alone
+    - I: sarcasm from image alone
+    - MM: sarcasm from the full post
+    Return only one tuple in the format (T,I,MM).
+  user_template: |
+    Text:
+    {text}
 finetune:
   enabled: true
   scenario: s1
@@ -10,18 +22,20 @@ finetune:
   bnb_4bit_use_double_quant: true
   bnb_4bit_compute_dtype: float16
   freeze_vision_tower: true
-  train_mm_projector: true
+  train_mm_projector: false
   learning_rate: 2.0e-4
-  num_train_epochs: 2
+  num_train_epochs: 1
   per_device_train_batch_size: 1
   per_device_eval_batch_size: 1
   gradient_accumulation_steps: 8
   weight_decay: 0.0
   warmup_ratio: 0.03
   logging_steps: 10
-  save_strategy: epoch
-  eval_strategy: epoch
-  save_total_limit: 2
+  save_strategy: steps
+  save_steps: 100
+  eval_strategy: "no"
+  save_total_limit: 1
+  auto_resume: true
   gradient_checkpointing: true
   max_length: 1024
   lora_r: 8
@@ -29,9 +43,4 @@ finetune:
   lora_dropout: 0.05
   target_modules:
     - q_proj
-    - k_proj
     - v_proj
-    - o_proj
-    - up_proj
-    - down_proj
-    - gate_proj

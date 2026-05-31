@@ -205,7 +205,9 @@ def _prepare_lora_model(model, config: dict):
         target_modules=list(finetune_cfg.get('target_modules', ['q_proj', 'v_proj'])),
         task_type='CAUSAL_LM',
     )
-    return get_peft_model(model, lora_config)
+    model = get_peft_model(model, lora_config)
+    model.print_trainable_parameters()
+    return model
 
 
 def _build_training_args(output_dir: Path, finetune_cfg: dict):
@@ -221,9 +223,10 @@ def _build_training_args(output_dir: Path, finetune_cfg: dict):
         weight_decay=float(finetune_cfg.get('weight_decay', 0.0)),
         warmup_ratio=float(finetune_cfg.get('warmup_ratio', 0.03)),
         logging_steps=int(finetune_cfg.get('logging_steps', 10)),
-        save_strategy=str(finetune_cfg.get('save_strategy', 'epoch')),
-        eval_strategy=str(finetune_cfg.get('eval_strategy', 'epoch')),
-        save_total_limit=int(finetune_cfg.get('save_total_limit', 2)),
+        save_strategy=str(finetune_cfg.get('save_strategy', 'steps')),
+        save_steps=int(finetune_cfg.get('save_steps', 100)),
+        eval_strategy=str(finetune_cfg.get('eval_strategy', 'no')),
+        save_total_limit=int(finetune_cfg.get('save_total_limit', 3)),
         bf16=bool(finetune_cfg.get('bf16', False)),
         fp16=bool(finetune_cfg.get('fp16', True)),
         remove_unused_columns=False,
@@ -234,7 +237,25 @@ def _build_training_args(output_dir: Path, finetune_cfg: dict):
     )
 
 
-def finetune_multimodal_model(config: dict, scenario: str | None = None) -> Path:
+def _find_latest_checkpoint(output_dir: Path) -> str | None:
+    checkpoints = []
+    for path in output_dir.glob('checkpoint-*'):
+        try:
+            step = int(path.name.split('-')[-1])
+        except ValueError:
+            continue
+        checkpoints.append((step, path))
+    if not checkpoints:
+        return None
+    checkpoints.sort(key=lambda item: item[0])
+    return str(checkpoints[-1][1])
+
+
+def finetune_multimodal_model(
+    config: dict,
+    scenario: str | None = None,
+    resume_from_checkpoint: str | None = None,
+) -> Path:
     from transformers import Trainer
 
     run_dir = build_run_dir(config)
@@ -264,7 +285,12 @@ def finetune_multimodal_model(config: dict, scenario: str | None = None) -> Path
         eval_dataset=eval_dataset,
         data_collator=collator,
     )
-    trainer.train()
+    checkpoint_path = resume_from_checkpoint
+    if checkpoint_path is None and finetune_cfg.get('auto_resume', True):
+        checkpoint_path = _find_latest_checkpoint(output_dir)
+    if checkpoint_path:
+        print(f'[finetune] resuming from checkpoint: {checkpoint_path}')
+    trainer.train(resume_from_checkpoint=checkpoint_path)
 
     adapter_dir = output_dir / 'adapter'
     trainer.model.save_pretrained(adapter_dir)

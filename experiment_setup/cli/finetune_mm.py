@@ -11,6 +11,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", required=True, help="Path to YAML config")
     parser.add_argument("--scenario", default=None, help="Override ablation scenario for fine-tuning")
     parser.add_argument(
+        "--resume_from_checkpoint",
+        default=None,
+        help="Resume from a specific checkpoint path. If omitted, auto-resume from the latest checkpoint when available.",
+    )
+    parser.add_argument(
         "--json_splits",
         nargs=3,
         metavar=("TRAIN_JSON", "DEV_JSON", "TEST_JSON"),
@@ -24,7 +29,11 @@ def main() -> None:
     args = parse_args()
     config = load_config(Path(args.config))
     apply_path_overrides(config, json_splits=args.json_splits, image_root=args.image_root)
-    finetune_multimodal_model(config, scenario=args.scenario)
+    finetune_multimodal_model(
+        config,
+        scenario=args.scenario,
+        resume_from_checkpoint=args.resume_from_checkpoint,
+    )
 
 
 if __name__ == "__main__":

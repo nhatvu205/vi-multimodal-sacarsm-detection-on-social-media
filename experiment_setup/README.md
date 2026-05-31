@@ -179,8 +179,25 @@ python -m experiment_setup.cli.finetune_mm \
 
 The fine-tune command saves a LoRA adapter under:
 - `experiment_setup/runs/<experiment_name>/finetune/<model_key>/<scenario>/adapter`
+- intermediate checkpoints under:
+  - `experiment_setup/runs/<experiment_name>/finetune/<model_key>/<scenario>/checkpoint-*`
+
+The default QLoRA configs are tuned for faster Kaggle runs:
+- shorter finetune prompt
+- `num_train_epochs: 1`
+- LoRA target modules reduced to `q_proj`, `v_proj`
+- checkpoint saving every `100` update steps
+- auto-resume from the latest checkpoint
 
 To evaluate a fine-tuned adapter with the normal inference pipeline, set `model.adapter_path` in the model config.
+
+Resume manually from a specific checkpoint if needed:
+```bash
+python -m experiment_setup.cli.finetune_mm \
+  --config experiment_setup/configs/finetune/llava_next_mistral_7b_qlora.yaml \
+  --scenario s1 \
+  --resume_from_checkpoint /kaggle/working/.../checkpoint-100
+```
 
 ### Evaluate with a saved adapter
 ```bash
