@@ -22,20 +22,14 @@ def repo_root(config: dict) -> Path:
 def resolve_image_path(raw_path: str, config: dict) -> Path:
     raw = Path(str(raw_path))
     root = repo_root(config)
-    image_root = root / config['data'].get('image_root', '.')
-    candidates = []
-    if raw.is_absolute():
-        candidates.append(raw)
-    else:
-        candidates.extend([
-            root / raw,
-            image_root / raw,
-            image_root / raw.name,
-        ])
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate.resolve()
-    raise FileNotFoundError(f'Cannot resolve image path: {raw_path}')
+    image_root = Path(config['data'].get('image_root', '.'))
+    if not image_root.is_absolute():
+        image_root = root / image_root
+
+    candidate = image_root / 'images' / raw.name
+    if candidate.exists():
+        return candidate.resolve()
+    raise FileNotFoundError(f'Cannot resolve image path: {raw_path} -> expected {candidate}')
 
 
 def build_run_dir(config: dict) -> Path:
