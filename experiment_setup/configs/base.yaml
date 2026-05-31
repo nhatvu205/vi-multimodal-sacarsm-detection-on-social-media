@@ -41,7 +41,7 @@ model:
 
 training:
   enabled: true
-  epochs: 3
+  epochs: 10
   batch_size: 16
   eval_batch_size: 32
   learning_rate: 2.0e-5
