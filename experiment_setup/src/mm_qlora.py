@@ -92,16 +92,12 @@ class MMQLoRADataCollator:
             text=full_texts,
             images=images,
             padding=True,
-            truncation=True,
-            max_length=self.max_length,
             return_tensors='pt',
         )
         prompt_inputs = self.processor(
             text=prompt_texts,
             images=images,
             padding=True,
-            truncation=True,
-            max_length=self.max_length,
             return_tensors='pt',
         )
 
