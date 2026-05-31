@@ -226,7 +226,7 @@ def _build_training_args(output_dir: Path, finetune_cfg: dict):
         warmup_ratio=float(finetune_cfg.get('warmup_ratio', 0.03)),
         logging_steps=int(finetune_cfg.get('logging_steps', 10)),
         save_strategy=str(finetune_cfg.get('save_strategy', 'epoch')),
-        evaluation_strategy=str(finetune_cfg.get('eval_strategy', 'epoch')),
+        eval_strategy=str(finetune_cfg.get('eval_strategy', 'epoch')),
         save_total_limit=int(finetune_cfg.get('save_total_limit', 2)),
         bf16=bool(finetune_cfg.get('bf16', False)),
         fp16=bool(finetune_cfg.get('fp16', True)),
