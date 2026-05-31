@@ -334,10 +334,15 @@ class CIRMAdapter(ModelAdapter):
         patience = 0
         ckpt_path = self._checkpoint_path(scenario)
         ckpt_path.parent.mkdir(parents=True, exist_ok=True)
+        epochs = int(cfg['epochs'])
+        batch_size = int(cfg['batch_size'])
+        total_batches = max(1, (len(train_records) + batch_size - 1) // batch_size)
+        log_every = int(cfg.get('log_every_batches', 1))
 
-        for _epoch in range(int(cfg['epochs'])):
+        for epoch in range(epochs):
+            print(f"[cirm-train] scenario={scenario} | epoch {epoch + 1}/{epochs}")
             self.model.train()
-            for batch in self._build_batches(train_records, int(cfg['batch_size'])):
+            for batch_idx, batch in enumerate(self._build_batches(train_records, batch_size), start=1):
                 text_inputs, pixel_values = self._encode_batch(batch, scenario)
                 labels = torch.tensor([item['label'] for item in batch], dtype=torch.long, device=self.device)
                 text_inputs = {k: v.to(self.device) for k, v in text_inputs.items()}
@@ -353,6 +358,11 @@ class CIRMAdapter(ModelAdapter):
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), float(cfg.get('gradient_clip_norm', 1.0)))
                 optimizer.step()
                 optimizer.zero_grad()
+                if batch_idx == 1 or batch_idx % log_every == 0 or batch_idx == total_batches:
+                    print(
+                        f"[cirm-train] scenario={scenario} | epoch {epoch + 1}/{epochs} | "
+                        f"batch {batch_idx}/{total_batches} | loss={loss.item():.4f}"
+                    )
 
             dev_predictions = self.predict(dev_records, scenario)
             dev_labels = [row['label'] for row in dev_predictions]
