@@ -1,4 +1,5 @@
 from .base import ModelAdapter
+from .cirm import CIRMAdapter
 from .classification import ImageClassifierAdapter, TextClassifierAdapter
 from .vlm import (
     LlavaGenerativeAdapter,
@@ -9,6 +10,7 @@ from .vlm import (
 
 __all__ = [
     'ModelAdapter',
+    'CIRMAdapter',
     'TextClassifierAdapter',
     'ImageClassifierAdapter',
     'LlavaGenerativeAdapter',

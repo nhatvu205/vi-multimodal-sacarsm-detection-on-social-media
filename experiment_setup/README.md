@@ -57,6 +57,31 @@ python -m experiment_setup.main \
   --stage all
 ```
 
+### 3) Run a supervised MMSD3/CIRM-style multimodal model
+This pipeline now includes a single-image adaptation of the MMSD3.0 CIRM method:
+- core `SequentialModeling` and `DualStageBridgeModule` are integrated from the official MMSD3.0 implementation, so no extra repo checkout is required
+- the wrapper is adapted for this project: single image, no OCR, binary sarcasm classification
+
+PhoBERT-based CIRM:
+```bash
+python -m experiment_setup.main \
+  --config experiment_setup/configs/models/cirm_phobert.yaml \
+  --stage all \
+  --scenario s1
+```
+
+mBERT-based CIRM:
+```bash
+python -m experiment_setup.main \
+  --config experiment_setup/configs/models/cirm_mbert.yaml \
+  --stage all \
+  --scenario s1
+```
+
+Notes:
+- unlike LLaVA/Qwen zero-shot, CIRM is a supervised model and will train by default
+- if you only want final evaluation on `test`, pass `--eval_splits test`; training still uses `train` and early stopping still checks `dev` internally
+
 ### 3) Run a multimodal zero-shot model
 LLaVA-NeXT Mistral 7B:
 ```bash

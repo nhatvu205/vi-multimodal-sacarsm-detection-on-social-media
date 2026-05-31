@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .models import (
+    CIRMAdapter,
     ImageClassifierAdapter,
     LlavaGenerativeAdapter,
     LlavaNextGenerativeAdapter,
@@ -15,6 +16,7 @@ from .models import (
 REGISTRY = {
     'text_classifier': TextClassifierAdapter,
     'image_classifier': ImageClassifierAdapter,
+    'cirm_classifier': CIRMAdapter,
     'llava_generative': LlavaGenerativeAdapter,
     'llava_next_generative': LlavaNextGenerativeAdapter,
     'qwen_vl_chat': QwenVLChatAdapter,

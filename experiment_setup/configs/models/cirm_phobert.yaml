@@ -1,0 +1,26 @@
+extends: ../base.yaml
+experiment:
+  name: cirm_phobert_mm
+model:
+  key: cirm-phobert
+  family: cirm_classifier
+  pretrained_name: vinai/phobert-base
+  vision_pretrained_name: google/vit-base-patch16-224-in21k
+  embedding_dim: 768
+  fusion_dim: 512
+  freeze_text_layers: 4
+  freeze_vision_layers: 4
+  dropout: 0.1
+training:
+  enabled: true
+  epochs: 3
+  batch_size: 4
+  eval_batch_size: 8
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.0
+  max_length: 256
+  num_workers: 0
+  gradient_clip_norm: 1.0
+  early_stopping_patience: 2
+  device: cuda
