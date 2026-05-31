@@ -1,0 +1,14 @@
+extends: ../base.yaml
+experiment:
+  name: qwen3_vl_8b_mm
+model:
+  key: qwen3-vl-8b
+  family: qwen3_vl_generative
+  pretrained_name: Qwen/Qwen3-VL-8B-Instruct
+training:
+  enabled: false
+inference:
+  batch_size: 1
+  max_new_tokens: 12
+  device_map: auto
+  torch_dtype: auto

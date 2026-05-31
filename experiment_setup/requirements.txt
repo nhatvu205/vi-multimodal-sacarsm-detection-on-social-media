@@ -1,0 +1,17 @@
+PyYAML>=6.0
+Pillow>=10.0.0
+tqdm>=4.66.0
+numpy>=1.24.0
+scikit-learn>=1.3.0
+pandas>=2.0.0
+emoji>=2.10.0
+torch>=2.1.0
+torchvision>=0.16.0
+accelerate>=0.29.0
+safetensors>=0.4.0
+visonorm>=0.1.4
+datasets>=2.20.0
+peft>=0.11.0
+trl>=0.9.0
+bitsandbytes>=0.43.0
+transformers>=4.57.0

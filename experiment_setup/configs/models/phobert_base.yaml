@@ -1,0 +1,7 @@
+extends: ../base.yaml
+experiment:
+  name: phobert_base_mm
+model:
+  key: phobert-base
+  family: text_classifier
+  pretrained_name: vinai/phobert-base
