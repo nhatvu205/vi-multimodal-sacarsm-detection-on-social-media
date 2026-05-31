@@ -7,7 +7,7 @@ Config-driven end-to-end pipeline for sarcasm experiments using the fixed split 
 - one config format for text-only, image-only, and multimodal models
 - built-in ablation scenarios from `experiment_guide.md`
 - reusable metrics, logging, predictions, checkpoints, and summaries
-- support for supervised HF classifiers and generative VLM classifiers
+- support for supervised HF classifiers, paper-inspired multimodal architectures, and generative VLM classifiers
 
 ## Scenarios
 Images are always preprocessed using the active model/image config. The 4 ablation scenarios now only change the text branch:
@@ -83,7 +83,32 @@ Notes:
 - unlike LLaVA/Qwen zero-shot, CIRM is a supervised model and will train by default
 - if you only want final evaluation on `test`, pass `--eval_splits test`; training still uses `train` and early stopping still checks `dev` internally
 
-### 3) Run a multimodal zero-shot model
+### 4) Run the DT4MID architecture
+This pipeline now also includes a Vietnamese DT4MID-style supervised multimodal model:
+- text encoder: PhoBERT
+- vision encoder: ViT
+- branch projection with `LeakyReLU` + `BatchNorm1d`
+- early fusion by concatenation followed by an MLP classifier
+
+Current integration covers the core DT4MID setting with one text input and one image input. The extended OCR-aware EDT4MID variant from the paper is not wired into the cache/data flow yet.
+
+PhoBERT + ViT DT4MID:
+```bash
+python -m experiment_setup.main \
+  --config experiment_setup/configs/models/dt4mid_phobert.yaml \
+  --stage all \
+  --scenario s1
+```
+
+Run all four text ablation scenarios:
+```bash
+python -m experiment_setup.main \
+  --config experiment_setup/configs/models/dt4mid_phobert.yaml \
+  --stage all \
+  --scenario all
+```
+
+### 5) Run a multimodal zero-shot model
 LLaVA-NeXT Mistral 7B:
 ```bash
 python -m experiment_setup.main \
@@ -100,7 +125,7 @@ python -m experiment_setup.main \
   --scenario s1
 ```
 
-### 4) Run each ablation scenario separately
+### 6) Run each ablation scenario separately
 Inference now supports a runtime `--scenario` argument:
 - `--scenario s1`
 - `--scenario s2`

@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .models import (
     CIRMAdapter,
+    DT4MIDAdapter,
     ImageClassifierAdapter,
     LlavaGenerativeAdapter,
     LlavaNextGenerativeAdapter,
@@ -17,6 +18,7 @@ REGISTRY = {
     'text_classifier': TextClassifierAdapter,
     'image_classifier': ImageClassifierAdapter,
     'cirm_classifier': CIRMAdapter,
+    'dt4mid_classifier': DT4MIDAdapter,
     'llava_generative': LlavaGenerativeAdapter,
     'llava_next_generative': LlavaNextGenerativeAdapter,
     'qwen_vl_chat': QwenVLChatAdapter,
