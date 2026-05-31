@@ -62,75 +62,90 @@ LLaVA-NeXT Mistral 7B:
 ```bash
 python -m experiment_setup.main \
   --config experiment_setup/configs/models/llava_next_mistral_7b.yaml \
-  --stage all
+  --stage all \
+  --scenario s1
 ```
 
 Qwen3-VL 8B:
 ```bash
 python -m experiment_setup.main \
   --config experiment_setup/configs/models/qwen3_vl_8b.yaml \
-  --stage all
+  --stage all \
+  --scenario s1
 ```
 
 ### 4) Run each ablation scenario separately
-The pipeline reads scenarios from the config file.  
-Fastest way: create one config per scenario, or temporarily edit:
-
-```yaml
-run:
-  scenarios: [s1]
-```
-
-Then repeat with `s2`, `s3`, `s4`.
+Inference now supports a runtime `--scenario` argument:
+- `--scenario s1`
+- `--scenario s2`
+- `--scenario s3`
+- `--scenario s4`
+- `--scenario all`
 
 Example commands for LLaVA-NeXT:
 ```bash
 python -m experiment_setup.main \
   --config experiment_setup/configs/models/llava_next_mistral_7b.yaml \
-  --stage all
+  --stage all \
+  --scenario s1
+```
+
+```bash
+python -m experiment_setup.main \
+  --config experiment_setup/configs/models/llava_next_mistral_7b.yaml \
+  --stage all \
+  --scenario s2
+```
+
+```bash
+python -m experiment_setup.main \
+  --config experiment_setup/configs/models/llava_next_mistral_7b.yaml \
+  --stage all \
+  --scenario s3
+```
+
+```bash
+python -m experiment_setup.main \
+  --config experiment_setup/configs/models/llava_next_mistral_7b.yaml \
+  --stage all \
+  --scenario s4
 ```
 
 Example commands for Qwen3-VL:
 ```bash
 python -m experiment_setup.main \
   --config experiment_setup/configs/models/qwen3_vl_8b.yaml \
-  --stage all
+  --stage all \
+  --scenario s1
 ```
 
-Recommended scenario-specific config names:
-- `experiment_setup/configs/models/llava_next_mistral_7b_s1.yaml`
-- `experiment_setup/configs/models/llava_next_mistral_7b_s2.yaml`
-- `experiment_setup/configs/models/llava_next_mistral_7b_s3.yaml`
-- `experiment_setup/configs/models/llava_next_mistral_7b_s4.yaml`
-- `experiment_setup/configs/models/qwen3_vl_8b_s1.yaml`
-- `experiment_setup/configs/models/qwen3_vl_8b_s2.yaml`
-- `experiment_setup/configs/models/qwen3_vl_8b_s3.yaml`
-- `experiment_setup/configs/models/qwen3_vl_8b_s4.yaml`
-
-Template for a single-scenario config:
-```yaml
-extends: ../base.yaml
-
-experiment:
-  name: llava_next_mistral_7b_s1
-
-run:
-  scenarios: [s1]
-
-model:
-  key: llava-next-mistral-7b
-  family: llava_next_generative
-  pretrained_name: llava-hf/llava-v1.6-mistral-7b-hf
-
-training:
-  enabled: false
-```
-
-Then run:
 ```bash
 python -m experiment_setup.main \
-  --config experiment_setup/configs/models/llava_next_mistral_7b_s1.yaml \
-  --stage all
+  --config experiment_setup/configs/models/qwen3_vl_8b.yaml \
+  --stage all \
+  --scenario s2
+```
+
+```bash
+python -m experiment_setup.main \
+  --config experiment_setup/configs/models/qwen3_vl_8b.yaml \
+  --stage all \
+  --scenario s3
+```
+
+```bash
+python -m experiment_setup.main \
+  --config experiment_setup/configs/models/qwen3_vl_8b.yaml \
+  --stage all \
+  --scenario s4
+```
+
+Run all four scenarios in one command:
+```bash
+python -m experiment_setup.main \
+  --config experiment_setup/configs/models/qwen3_vl_8b.yaml \
+  --stage all \
+  --scenario all
 ```
 
 ## Outputs
@@ -154,6 +169,7 @@ You can override the dataset JSON paths and image root from the command line:
 python -m experiment_setup.main \
   --config experiment_setup/configs/models/qwen3_vl_8b.yaml \
   --stage all \
+  --scenario s1 \
   --json_splits /kaggle/input/.../train.json /kaggle/input/.../dev.json /kaggle/input/.../test.json \
   --image_root /kaggle/input/.../
 ```
