@@ -50,6 +50,7 @@ def _save_summary(run_dir: Path, model_name: str, rows: list[dict]) -> None:
             'precision_weighted',
             'recall_weighted',
             'auc',
+            'confusion_matrix',
             'num_samples',
         ],
     )

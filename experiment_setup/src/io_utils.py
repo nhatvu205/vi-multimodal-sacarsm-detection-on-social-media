@@ -50,6 +50,6 @@ def load_jsonl(path: Path) -> list[dict]:
 def save_csv(path: Path, rows: list[dict], fieldnames: list[str]) -> None:
     ensure_dir(path.parent)
     with path.open('w', newline='', encoding='utf-8') as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction='ignore')
         writer.writeheader()
         writer.writerows(rows)
