@@ -45,3 +45,5 @@ annotator-agreement/
 AGENT.md
 50-images/
 human_annotation/
+report/
+prediction_test/
