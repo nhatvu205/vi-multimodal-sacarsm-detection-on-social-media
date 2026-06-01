@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ...dt4mid import DT4MID
+from .dt4mid_arch import DT4MID
 from ..data import load_image
 from .base import ModelAdapter
 

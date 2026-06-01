@@ -1,6 +1,7 @@
 from .base import ModelAdapter
 from .cirm import CIRMAdapter
 from .dt4mid import DT4MIDAdapter
+from .dt4mid_arch import DT4MID
 from .classification import ImageClassifierAdapter, TextClassifierAdapter
 from .vlm import (
     LlavaGenerativeAdapter,
@@ -13,6 +14,7 @@ __all__ = [
     'ModelAdapter',
     'CIRMAdapter',
     'DT4MIDAdapter',
+    'DT4MID',
     'TextClassifierAdapter',
     'ImageClassifierAdapter',
     'LlavaGenerativeAdapter',
