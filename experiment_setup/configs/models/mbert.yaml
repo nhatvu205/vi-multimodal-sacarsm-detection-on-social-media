@@ -1,0 +1,7 @@
+extends: ../base.yaml
+experiment:
+  name: mbert_mm
+model:
+  key: mbert
+  family: text_classifier
+  pretrained_name: bert-base-multilingual-cased

@@ -1,0 +1,14 @@
+extends: ../base.yaml
+experiment:
+  name: llava_next_mistral_7b_mm
+model:
+  key: llava-next-mistral-7b
+  family: llava_next_generative
+  pretrained_name: llava-hf/llava-v1.6-mistral-7b-hf
+training:
+  enabled: false
+inference:
+  batch_size: 1
+  max_new_tokens: 12
+  device_map: auto
+  torch_dtype: auto

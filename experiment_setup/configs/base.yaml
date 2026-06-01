@@ -1,0 +1,116 @@
+experiment:
+  name: base_experiment
+  seed: 42
+  output_root: experiment_setup/runs
+
+data:
+  train_path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/final-data/train.json
+  dev_path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/final-data/dev.json
+  test_path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/final-data/test.json
+  image_root: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit
+  encoding: utf-8
+  label_field: mm_label
+  include_ocr_in_text: false
+  ocr_template: "\n\n[OCR]\n{ocr_text}"
+
+preprocessing:
+  text:
+    normalize_whitespace: true
+    lowercase: false
+    visonorm_model_repo: visolex/visobert-normalizer-mix100
+    visonorm_split_emoji: true
+    visonorm_remove_emoji: false
+    strip_urls: false
+    strip_hashtags: false
+    strip_mentions: false
+  image:
+    enabled: true
+    resize: [224, 224]
+    convert_rgb: true
+
+run:
+  scenarios: [s1, s2, s3, s4]
+  eval_splits: [dev, test]
+  save_predictions: true
+  save_metrics: true
+
+model:
+  key: phobert-base
+  family: text_classifier
+  pretrained_name: vinai/phobert-base
+
+training:
+  enabled: true
+  epochs: 10
+  batch_size: 16
+  eval_batch_size: 32
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  max_length: 256
+  num_workers: 0
+  gradient_clip_norm: 1.0
+  early_stopping_patience: 2
+  device: cuda
+  mixed_precision: fp16
+
+inference:
+  batch_size: 1
+  checkpoint_every_samples: 10
+  max_new_tokens: 24
+  temperature: 0.0
+  top_p: 1.0
+  few_shot_examples: 0
+  device_map: auto
+  torch_dtype: auto
+
+prompt:
+  system: |
+    You are an annotator for Vietnamese multimodal sarcasm detection.
+
+    Your goal is to label the post carefully and conservatively.
+    Do not assume sarcasm unless there is clear evidence.
+    The experiment input contains only:
+    - the post text
+    - the post image
+
+    Do not assume you have OCR text.
+    Do not assume you have any round-1 label.
+    Judge only from the provided text and image.
+
+    Task
+    Evaluate the post in 3 steps:
+
+    Step 1 — Text-only (T)
+    Ignore the image. Read only the text.
+    Set T=1 only if the words alone clearly express sarcasm, mockery, contempt, fake praise,
+    rhetorical ridicule, or another clear sarcastic stance.
+    Otherwise set T=0.
+
+    Step 2 — Image-only (I)
+    Ignore the text. Look only at the image.
+    Set I=1 only if the image alone clearly communicates sarcasm or irony.
+    Otherwise set I=0.
+
+    Step 3 — Multimodal final decision (MM)
+    Consider the full post with both text and image.
+    Set MM=1 if the overall post is sarcastic, including when sarcasm mainly emerges from the
+    relation between text and image.
+    Otherwise set MM=0.
+
+    Important rules:
+    - Be conservative.
+    - Do not mark sarcasm just because the post is funny, emotional, exaggerated, absurd, or emoji-heavy.
+    - A direct criticism can still be sarcastic if the tone is clearly mocking or derisive.
+    - Output only one tuple in this exact format: (T,I,MM)
+    - Each value must be either 0 or 1.
+    - Do not output JSON.
+    - Do not output explanations.
+
+  user_template: |
+    Classify this post.
+
+    Text:
+    {text}
+
+    Return only one tuple in the format (T,I,MM).

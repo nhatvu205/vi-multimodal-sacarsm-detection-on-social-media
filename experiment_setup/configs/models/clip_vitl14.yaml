@@ -1,0 +1,10 @@
+extends: ../base.yaml
+experiment:
+  name: clip_vitl14_mm
+run:
+  scenarios: [s1]
+model:
+  key: clip-vitl14
+  family: image_classifier
+  pretrained_name: openai/clip-vit-large-patch14
+  vision_backbone: clip

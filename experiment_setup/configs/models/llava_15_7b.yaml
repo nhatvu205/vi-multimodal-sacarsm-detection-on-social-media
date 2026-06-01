@@ -1,0 +1,29 @@
+extends: ../base.yaml
+experiment:
+  name: llava_15_7b_mm
+model:
+  key: llava-1.5-7b
+  family: llava_generative
+  pretrained_name: llava-hf/llava-1.5-7b-hf
+training:
+  enabled: false
+inference:
+  batch_size: 1
+  max_new_tokens: 12
+  device_map: auto
+  torch_dtype: auto
+prompt:
+  system: |
+    You are a strict multimodal sarcasm classifier for Vietnamese social media posts.
+    Decide whether the post is sarcastic using both the image and the provided text.
+    Labels:
+    - 1 = sarcastic
+    - 0 = not sarcastic
+    Answer with only 0 or 1.
+  user_template: |
+    Classify this post.
+
+    Text:
+    {text}
+
+    Reply with only 0 or 1.

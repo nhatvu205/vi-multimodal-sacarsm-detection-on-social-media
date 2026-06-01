@@ -1,0 +1,7 @@
+extends: ../base.yaml
+experiment:
+  name: roberta_base_mm
+model:
+  key: roberta-base
+  family: text_classifier
+  pretrained_name: roberta-base
