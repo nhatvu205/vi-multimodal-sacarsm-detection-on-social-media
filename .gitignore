@@ -39,6 +39,7 @@ Thumbs.db
 pyvenv.cfg
 .cursor/
 data_collection/
+images/
 50_samples_images/
 annotator-agreement/
 AGENT.md
