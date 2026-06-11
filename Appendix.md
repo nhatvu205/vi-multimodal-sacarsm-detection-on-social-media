@@ -50,6 +50,29 @@ This appendix provides supplementary material for the paper, including experimen
 
 *Table: Full results on the* `test` *set (Accuracy / F1-macro / AUC).*
 
+## Detailed multimodal results
+
+| Model | Scenario | F1-macro | Accuracy | Precision | Recall | AUC |
+|---|---|---:|---:|---:|---:|---:|
+| DT4MID | s1 | 0.6864 | 0.6929 | 0.6917 | 0.6929 | 0.7449 |
+| DT4MID | s2 | 0.6841 | 0.6848 | 0.6956 | 0.6848 | 0.7621 |
+| DT4MID | s3 | 0.6730 | 0.6807 | 0.6790 | 0.6807 | 0.7476 |
+| DT4MID | s4 | **0.6884** | **0.6943** | 0.6935 | **0.6943** | 0.7529 |
+| ViMMSD [1] (staged gating) | s1 | 0.3019 | 0.5815 | 0.3784 | 0.5815 | -- |
+| ViMMSD [1] (staged gating) | s2 | 0.2731 | 0.5761 | 0.3794 | 0.5761 | -- |
+| ViMMSD [1] (staged gating) | s3 | 0.2850 | 0.5666 | 0.3624 | 0.5666 | -- |
+| ViMMSD [1] (staged gating) | s4 | 0.3131 | 0.5829 | 0.3758 | 0.5829 | -- |
+| ViMMSD [2] (hier. cross-attn.) | s1 | 0.3043 | 0.6155 | 0.4884 | 0.6155 | -- |
+| ViMMSD [2] (hier. cross-attn.) | s2 | 0.3053 | 0.6087 | 0.4793 | 0.6087 | -- |
+| ViMMSD [2] (hier. cross-attn.) | s3 | 0.3020 | 0.6155 | 0.4960 | 0.6155 | -- |
+| ViMMSD [2] (hier. cross-attn.) | s4 | 0.2881 | 0.6073 | 0.4887 | 0.6073 | -- |
+| ViMMSD [3] (multimodal fusion) | s1 | 0.3459 | 0.5095 | 0.4478 | 0.5095 | -- |
+| ViMMSD [3] (multimodal fusion) | s2 | 0.4038 | 0.6182 | 0.5310 | 0.6182 | -- |
+| ViMMSD [3] (multimodal fusion) | s3 | 0.4780 | 0.6087 | 0.5845 | 0.6087 | -- |
+| ViMMSD [3] (multimodal fusion) | s4 | 0.4163 | 0.5883 | 0.5288 | 0.5883 | -- |
+
+*Table: Detailed multimodal results on the test set for DT4MID and the three ViMMSD architectures across four scenarios.*
+
 ## Hard samples by scenario
 
 This appendix visualizes *hard samples* (instances misclassified by many models simultaneously) for each *ablation* scenario. For each sample, we report (i) the gold label, (ii) the label combination $(T,I,M)$, and (iii) the list of models that made incorrect predictions under the corresponding scenario.
