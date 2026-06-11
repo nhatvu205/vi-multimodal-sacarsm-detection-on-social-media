@@ -1,0 +1,26 @@
+extends: ../base.yaml
+experiment:
+  name: sarcasm_detection_hierarchical_cross_attention
+data:
+  include_ocr_in_text: true
+model:
+  key: sarcasm-detection-hierarchical-cross-attention
+  family: sarcasm_detection_hierarchical_cross_attention
+  pretrained_name: vinai/phobert-base-v2
+  vision_pretrained_name: openai/clip-vit-large-patch14
+  model1_hidden_dim: 512
+  model2_hidden_dim: 256
+  nhead: 4
+  dropout: 0.3
+training:
+  enabled: true
+  epochs: 10
+  batch_size: 8
+  eval_batch_size: 16
+  learning_rate: 2.0e-5
+  model2_learning_rate: 2.0e-5
+  weight_decay: 0.01
+  max_length: 128
+  gradient_clip_norm: 1.0
+  early_stopping_patience: 2
+  device: cuda

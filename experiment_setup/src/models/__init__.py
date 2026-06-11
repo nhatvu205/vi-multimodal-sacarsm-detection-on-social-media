@@ -3,6 +3,11 @@ from .cirm import CIRMAdapter
 from .dt4mid import DT4MIDAdapter
 from .dt4mid_arch import DT4MID
 from .classification import ImageClassifierAdapter, TextClassifierAdapter
+from .sarcasm_detection import (
+    SarcasmDetectionHierarchicalCrossAttentionAdapter,
+    SarcasmDetectionMultimodalFusionAdapter,
+    SarcasmDetectionStagedGatingAdapter,
+)
 from .vlm import (
     LlavaGenerativeAdapter,
     LlavaNextGenerativeAdapter,
@@ -17,6 +22,9 @@ __all__ = [
     'DT4MID',
     'TextClassifierAdapter',
     'ImageClassifierAdapter',
+    'SarcasmDetectionMultimodalFusionAdapter',
+    'SarcasmDetectionStagedGatingAdapter',
+    'SarcasmDetectionHierarchicalCrossAttentionAdapter',
     'LlavaGenerativeAdapter',
     'LlavaNextGenerativeAdapter',
     'QwenVLChatAdapter',

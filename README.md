@@ -66,7 +66,21 @@ We use a 2×2 ablation design that changes only **text preprocessing** and **emo
 ### Model families
 - **Text-only** encoders: RoBERTa-base, PhoBERT-base, mBERT (trained/evaluated under s1–s4)
 - **Image-only** classifiers: ViT-B/32, CLIP ViT-L/14 (evaluated in **s1 only** since images are unchanged across scenarios)
-- **Multimodal** models: DT4MID, CIRM, LLaVA-1.6-7B, Qwen3-VL-8B (evaluated under s1–s4)
+- **Multimodal** models: DT4MID, CIRM, LLaVA-1.6-7B, Qwen3-VL-8B, and 3 additional `sarcasm_detection` baselines (evaluated under s1–s4 where applicable)
+
+### Additional integrated baselines
+The repo now also exposes the 3 modeling approaches from `sarcasm_detection/` through the unified `experiment_setup/` pipeline:
+- **Multimodal Fusion**: direct multimodal fusion (PhoBERT/LM + CLIP image encoder → MLP, 4-way classification)
+- **Staged Gating**: 3-phase pipeline (text binary branch + multimodal binary branch + gating network, 4-way classification)
+- **Hierarchical Cross-Attention**: hierarchical multimodal model (binary multi-sarcasm stage + 3-way cross-attention stage)
+
+Because the main dataset in this repo is stored as modality labels (`mm_label`, `text_label`, `image_label`) rather than the original 4-class target used by `sarcasm_detection/`, `experiment_setup` derives a compatible 4-way label during training/evaluation:
+- `0` = non-sarcasm (`MM=0`)
+- `1` = multi-sarcasm / interaction-driven sarcasm (all remaining `MM=1` cases not assigned below)
+- `2` = text-sarcasm (`MM=1, T=1, I=0`)
+- `3` = image-sarcasm (`MM=1, T=0, I=1`)
+
+This keeps the methods runnable inside the current repo, but it is an adaptation of the original setup rather than a byte-for-byte reproduction.
 
 ### Metrics
 - Primary: **Accuracy**, **F1-macro**
@@ -129,8 +143,10 @@ For additional metrics (e.g., AUC where available), see:
 | `data/` | Processed dataset JSONs + images (images not committed; see `data/README.md`). |
 | `data_collection/` | Crawling/collection utilities (Threads/Facebook). |
 | `preprocessing/` | Cleaning, normalization, deduplication, OCR mapping, etc. |
+| `experiment_setup/` | Unified config-driven experiment runner for text, image, multimodal, VLM, and integrated `sarcasm_detection` baselines. |
 | `round-1-annotation/` | Round-1 pipeline: binary sarcasm annotation (LLM-as-annotator). |
 | `round-2-annotation/` | Round-2 pipeline: modality-level fine-grained annotation (LLM-as-annotator). |
+| `sarcasm_detection/` | Original standalone implementations of 3 additional multimodal baselines later adapted into `experiment_setup/`. |
 
 ---
 
@@ -148,6 +164,34 @@ pip install -r requirements.txt
 
 ### 2) Dataset files
 See `data/README.md` for how to obtain images and where to place them locally.
+
+### 3) Unified experiment runner
+Install experiment dependencies:
+```bash
+pip install -r experiment_setup/requirements.txt
+```
+
+Example runs for the integrated `sarcasm_detection` methods:
+```bash
+python -m experiment_setup.main \
+  --config experiment_setup/configs/models/sarcasm_detection_multimodal_fusion.yaml \
+  --stage all \
+  --scenario s1
+```
+
+```bash
+python -m experiment_setup.main \
+  --config experiment_setup/configs/models/sarcasm_detection_staged_gating.yaml \
+  --stage all \
+  --scenario s1
+```
+
+```bash
+python -m experiment_setup.main \
+  --config experiment_setup/configs/models/sarcasm_detection_hierarchical_cross_attention.yaml \
+  --stage all \
+  --scenario s1
+```
 
 ---
 

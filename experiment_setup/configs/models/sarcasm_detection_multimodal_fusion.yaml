@@ -1,0 +1,24 @@
+extends: ../base.yaml
+experiment:
+  name: sarcasm_detection_multimodal_fusion
+data:
+  include_ocr_in_text: true
+model:
+  key: sarcasm-detection-multimodal-fusion
+  family: sarcasm_detection_multimodal_fusion
+  pretrained_name: vinai/phobert-base-v2
+  vision_pretrained_name: openai/clip-vit-large-patch14
+  hidden_dim: 512
+  dropout: 0.3
+  num_labels: 4
+training:
+  enabled: true
+  epochs: 10
+  batch_size: 8
+  eval_batch_size: 16
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  max_length: 128
+  gradient_clip_norm: 1.0
+  early_stopping_patience: 2
+  device: cuda

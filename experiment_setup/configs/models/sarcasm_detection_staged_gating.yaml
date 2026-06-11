@@ -1,0 +1,27 @@
+extends: ../base.yaml
+experiment:
+  name: sarcasm_detection_staged_gating
+data:
+  include_ocr_in_text: true
+model:
+  key: sarcasm-detection-staged-gating
+  family: sarcasm_detection_staged_gating
+  pretrained_name: vinai/phobert-base-v2
+  vision_pretrained_name: openai/clip-vit-large-patch14
+  phase1_hidden_dim: 256
+  phase2_hidden_dim: 512
+  gating_hidden_dim: 128
+  dropout: 0.3
+  num_labels: 4
+training:
+  enabled: true
+  epochs: 10
+  batch_size: 8
+  eval_batch_size: 16
+  learning_rate: 2.0e-5
+  gating_learning_rate: 2.0e-5
+  weight_decay: 0.01
+  max_length: 128
+  gradient_clip_norm: 1.0
+  early_stopping_patience: 2
+  device: cuda
