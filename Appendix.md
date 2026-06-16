@@ -2,22 +2,7 @@
 
 This appendix provides supplementary material for the paper, including experimental settings, full results, hard-sample analyses, and the annotation prompts used in the two-round labeling process.
 
-> Note: In figure-heavy sections, image entries are provided as placeholders with paths and captions so the document can be reviewed and finalized more easily.
-
-## Experimental hyperparameters
-
-| Item | Setting |
-|---|---|
-| Data split | Train/Dev/Test = 80/10/10 (fixed) |
-| Target label | `mm_label` |
-| Max epochs | 10 |
-| Early stopping | By *weighted F1* on Dev; patience = 2 |
-| Learning rate | $2\times10^{-5}$ |
-| Max length (text) | 256 |
-| Batch size (train/eval) | 4 / 8 (default for trained models) |
-| LLM inference | `temperature` = 0.0 |
-
-*Table: Summary of experimental hyperparameters (condensed from the run configuration).*
+> Note: Hard-sample entries are listed by sample ID only; images are not embedded in this Markdown appendix.
 
 ## Full results table
 
@@ -73,49 +58,36 @@ This appendix provides supplementary material for the paper, including experimen
 
 *Table: Detailed multimodal results on the test set for DT4MID and the three ViMMSD architectures across four scenarios.*
 
+## Experimental hyperparameters
+
+| Item | Setting |
+|---|---|
+| Data split | Train/Dev/Test = 80/10/10 (fixed) |
+| Target label | `mm_label` |
+| Max epochs | 10 |
+| Early stopping | By *weighted F1* on Dev; patience = 2 |
+| Learning rate | $2\times10^{-5}$ |
+| Max length (text) | 256 |
+| Batch size (train/eval) | 4 / 8 (default for trained models) |
+| LLM inference | `temperature` = 0.0 |
+
+*Table: Summary of experimental hyperparameters (condensed from the run configuration).*
+
 ## Hard samples by scenario
 
-This appendix visualizes *hard samples* (instances misclassified by many models simultaneously) for each *ablation* scenario. For each sample, we report (i) the gold label, (ii) the label combination $(T,I,M)$, and (iii) the list of models that made incorrect predictions under the corresponding scenario.
+This appendix lists *hard samples* (instances misclassified by many models simultaneously) for each *ablation* scenario. For each sample, we report the sample ID and a short description of the dominant error pattern.
 
 ### s1 (no preprocessing, emoji kept)
 
-**Figure**
-
-- Image path: `figures/hard_samples/hs_id00595`
-  - Suggested embed path: `![Figure](figures/hard_samples/hs_id00595)`
-- Caption: s1 hard sample: false negative on a community/context-dependent case (ID 595).
-
-**Figure**
-
-- Image path: `figures/hard_samples/hs_id05990`
-  - Suggested embed path: `![Figure](figures/hard_samples/hs_id05990)`
-- Caption: s1 hard sample: false positive on a neutral background post (ID 5990).
-
-**Figure**
-
-- Image path: `figures/hard_samples/hs_id02861`
-  - Suggested embed path: `![Figure](figures/hard_samples/hs_id02861)`
-- Caption: s1 hard sample: the ``Tôi ...:'' pattern with a reaction image tends to trigger positive predictions (ID 2861).
+- ID 595: false negative on a community/context-dependent case.
+- ID 5990: false positive on a neutral background post.
+- ID 2861: the "Tôi ...:" pattern with a reaction image tends to trigger positive predictions.
 
 ### s2 (no preprocessing, emoji removed)
 
-**Figure**
-
-- Image path: `figures/hard_samples/hs_id05803`
-  - Suggested embed path: `![Figure](figures/hard_samples/hs_id05803)`
-- Caption: s2 hard sample: an everyday complaint/humor post misread as sarcasm by many models (ID 5803).
-
-**Figure**
-
-- Image path: `figures/hard_samples/hs_id05990`
-  - Suggested embed path: `![Figure](figures/hard_samples/hs_id05990)`
-- Caption: s2 hard sample: a recurrent false positive across multiple scenarios (ID 5990).
-
-**Figure**
-
-- Image path: `figures/hard_samples/hs_id04170`
-  - Suggested embed path: `![Figure](figures/hard_samples/hs_id04170)`
-- Caption: s2 hard sample: heavy laughter markers and text-rich images can be misleading, but the gold label is non-sarcastic (ID 4170).
+- ID 5803: an everyday complaint/humor post is misread as sarcasm by many models.
+- ID 5990: recurrent false positive across multiple scenarios.
+- ID 4170: heavy laughter markers and text-rich images can be misleading, but the gold label is non-sarcastic.
 
 ### s3 (preprocessed, emoji kept)
 
@@ -123,23 +95,9 @@ Hard samples in s3 largely overlap with those in s2 on the *test* set (IDs 5803,
 
 ### s4 (preprocessed, emoji removed)
 
-**Figure**
-
-- Image path: `figures/hard_samples/hs_id03587`
-  - Suggested embed path: `![Figure](figures/hard_samples/hs_id03587)`
-- Caption: s4 hard sample: requires contextual reasoning and text--image comparison to detect sarcasm (ID 3587).
-
-**Figure**
-
-- Image path: `figures/hard_samples/hs_id01602`
-  - Suggested embed path: `![Figure](figures/hard_samples/hs_id01602)`
-- Caption: s4 hard sample: sarcasm relies on community knowledge and evaluative stance, and is easily missed (ID 1602).
-
-**Figure**
-
-- Image path: `figures/hard_samples/hs_id01703`
-  - Suggested embed path: `![Figure](figures/hard_samples/hs_id01703)`
-- Caption: s4 hard sample: sarcasm/criticism depends on event context and text-rich screenshots (ID 1703).
+- ID 3587: requires contextual reasoning and text--image comparison to detect sarcasm.
+- ID 1602: sarcasm relies on community knowledge and evaluative stance, and is easily missed.
+- ID 1703: sarcasm/criticism depends on event context and text-rich screenshots.
 
 ## Prompts used in the two annotation rounds
 
