@@ -1,0 +1,34 @@
+extends: ../base.yaml
+
+experiment:
+  name: viclsr_mm
+
+run:
+  scenarios: [s1, s2, s3, s4]
+
+model:
+  key: viclsr
+  family: viclsr_classifier
+  pretrained_name: huynhtin/ViCLSR
+  checkpoint_filename: pytorch_model.bin
+  projection_weight_key: mlp.dense.weight
+  projection_bias_key: mlp.dense.bias
+  classifier_dropout: 0.1
+
+# ViCLSR is based on XLM-RoBERTa-Large. Conservative batch sizes avoid OOM on
+# common 16 GB GPUs; increase them when the available VRAM allows it.
+training:
+  enabled: true
+  epochs: 10
+  batch_size: 2
+  eval_batch_size: 8
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  max_length: 256
+  num_workers: 0
+  gradient_clip_norm: 1.0
+  early_stopping_patience: 2
+  device: cuda
+  mixed_precision: fp16
+

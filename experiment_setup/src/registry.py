@@ -14,11 +14,13 @@ from .models import (
     SarcasmDetectionMultimodalFusionAdapter,
     SarcasmDetectionStagedGatingAdapter,
     TextClassifierAdapter,
+    ViCLSRClassifierAdapter,
 )
 
 
 REGISTRY = {
     'text_classifier': TextClassifierAdapter,
+    'viclsr_classifier': ViCLSRClassifierAdapter,
     'image_classifier': ImageClassifierAdapter,
     'cirm_classifier': CIRMAdapter,
     'dt4mid_classifier': DT4MIDAdapter,

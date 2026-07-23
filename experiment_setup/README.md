@@ -58,6 +58,19 @@ python -m experiment_setup.main \
   --stage all
 ```
 
+Run ViCLSR on all four text preprocessing scenarios:
+```bash
+python -m experiment_setup.main \
+  --config experiment_setup/configs/models/viclsr.yaml \
+  --stage all \
+  --scenario all
+```
+
+ViCLSR uses its contrastive-learning projection head before the binary
+sarcasm classifier. It is based on XLM-RoBERTa-Large, so its default config
+uses conservative batch sizes. The four scenarios are trained independently
+and saved under `experiment_setup/runs/viclsr_mm/viclsr/`.
+
 ### 3) Run a supervised MMSD3/CIRM-style multimodal model
 This pipeline now includes a single-image adaptation of the MMSD3.0 CIRM method:
 - core `SequentialModeling` and `DualStageBridgeModule` are integrated from the official MMSD3.0 implementation, so no extra repo checkout is required
