@@ -28,10 +28,28 @@ def resolve_image_path(raw_path: str, config: dict) -> Path:
     if not image_root.is_absolute():
         image_root = root / image_root
 
-    candidate = image_root / 'images' / raw.name
-    if candidate.exists():
-        return candidate.resolve()
-    raise FileNotFoundError(f'Cannot resolve image path: {raw_path} -> expected {candidate}')
+    candidates = []
+    if raw.is_absolute():
+        candidates.append(raw)
+    else:
+        # Preserve paths stored in the dataset, e.g.
+        # data/images/post03261.jpg relative to the Kaggle dataset root.
+        candidates.extend([
+            image_root / raw,
+            root / raw,
+            # Backward compatibility for datasets/configs whose image_root
+            # points directly above an `images` directory.
+            image_root / 'images' / raw.name,
+        ])
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate.resolve()
+
+    attempted = ', '.join(str(candidate) for candidate in candidates)
+    raise FileNotFoundError(
+        f'Cannot resolve image path: {raw_path}. Tried: {attempted}'
+    )
 
 
 def build_run_dir(config: dict) -> Path:
