@@ -4,9 +4,9 @@ experiment:
   output_root: experiment_setup/runs
 
 data:
-  train_path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/final-data/train.json
-  dev_path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/final-data/dev.json
-  test_path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/final-data/test.json
+  train_path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/data/final-data/train.json
+  dev_path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/data/final-data/dev.json
+  test_path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/data/final-data/test.json
   image_root: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit
   encoding: utf-8
   label_field: mm_label
