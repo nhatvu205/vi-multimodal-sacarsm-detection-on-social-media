@@ -50,6 +50,7 @@ training:
   max_length: 256
   num_workers: 0
   gradient_clip_norm: 1.0
+  log_every_batches: 50
   early_stopping_patience: 2
   device: cuda
   mixed_precision: fp16

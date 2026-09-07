@@ -25,6 +25,7 @@ class CameraReadyDataTests(unittest.TestCase):
             Path('/kaggle/working/camera_ready'),
         )
         self.assertIn('--seed', command)
+        self.assertIn('-u', command)
         self.assertIn('42', command)
         self.assertIn('/kaggle/input/data/images', command)
         self.assertIn('ocr/phobert-caption/seed-42', command)

@@ -24,7 +24,7 @@ def build_command(
     output_root: Path,
 ) -> list[str]:
     return [
-        sys.executable, '-m', 'experiment_setup.main',
+        sys.executable, '-u', '-m', 'experiment_setup.main',
         '--config', config,
         '--stage', 'all',
         '--seed', str(seed),
@@ -51,11 +51,28 @@ def _run_one(
     environment = os.environ.copy()
     environment['CUDA_VISIBLE_DEVICES'] = str(gpu)
     environment['TOKENIZERS_PARALLELISM'] = 'false'
+    label = f'{study} | seed={seed} | gpu={gpu}'
+    print(f'[{label}] Started', flush=True)
     with (run_dir / 'launcher.log').open('w', encoding='utf-8') as log:
-        process = subprocess.run(command, cwd=_repo_root(), env=environment, stdout=log, stderr=subprocess.STDOUT)
-    if process.returncode:
+        process = subprocess.Popen(
+            command,
+            cwd=_repo_root(),
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+        assert process.stdout is not None
+        for line in process.stdout:
+            log.write(line)
+            log.flush()
+            print(f'[{label}] {line}', end='', flush=True)
+        returncode = process.wait()
+    if returncode:
         raise RuntimeError(f'Run failed: {run_name}; see {run_dir / "launcher.log"}')
     save_json(run_dir / 'run_manifest.json', build_manifest(' '.join(command)))
+    print(f'[{label}] Finished', flush=True)
     return run_dir
 
 
