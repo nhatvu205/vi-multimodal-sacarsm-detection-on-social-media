@@ -13,3 +13,6 @@ run:
 
 training:
   max_length: 256
+
+inference:
+  checkpoint_every_samples: 0

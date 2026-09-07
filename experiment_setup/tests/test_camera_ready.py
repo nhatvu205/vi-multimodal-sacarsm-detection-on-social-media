@@ -8,7 +8,7 @@ from pathlib import Path
 import yaml
 
 from experiment_setup.camera_ready.analyze import analyze
-from experiment_setup.camera_ready.run_jobs import build_command
+from experiment_setup.camera_ready.run_jobs import build_command, compact_run_output
 from experiment_setup.src.data import build_run_dir, prepare_cache
 from experiment_setup.src.preprocess import build_text_variants
 from experiment_setup.src.runtime_overrides import apply_path_overrides
@@ -101,6 +101,54 @@ class CameraReadyAnalyzerTests(unittest.TestCase):
             self.assertTrue((output / 'error_slices.csv').exists())
             candidates = (output / 'candidate_examples.csv').read_text(encoding='utf-8')
             self.assertIn('error_001', candidates)
+
+    def test_compact_output_keeps_only_final_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            run = Path(directory) / 'ocr' / 'seed-42'
+            output = run / 'phobert-base' / 's1'
+            output.mkdir(parents=True)
+            (output / 'predictions_test.jsonl').write_text('{}\n', encoding='utf-8')
+            (output / 'metrics_test.json').write_text('{}', encoding='utf-8')
+            (run / 'phobert-base' / 'summary.json').write_text('[]', encoding='utf-8')
+            (output / 'checkpoint.pt').write_bytes(b'checkpoint')
+            (run / 'cache').mkdir()
+            (run / 'cache' / 'test.jsonl').write_text('{}\n', encoding='utf-8')
+            (run / 'launcher.log').write_text('log', encoding='utf-8')
+
+            compact_run_output(run)
+
+            self.assertEqual(
+                sorted(path.name for path in run.iterdir()),
+                ['metrics_test.json', 'predictions_test.jsonl', 'summary.json'],
+            )
+
+    def test_analyzer_uses_prediction_metadata_without_config(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            run = root / 'ocr' / 'caption' / 'seed-42'
+            output = root / 'analysis'
+            run.mkdir(parents=True)
+            rows = [
+                {
+                    'id': 1, 'label': 1, 'prediction': 1, 'seed': 42,
+                    'experiment_name': 'ocr/caption', 'model': 'phobert-base',
+                    'input_mode': 'caption', 'source': 'facebook', 'has_ocr': True,
+                    'labels': {'text_label': 0, 'image_label': 0, 'mm_label': 1},
+                },
+                {
+                    'id': 2, 'label': 0, 'prediction': 0, 'seed': 42,
+                    'experiment_name': 'ocr/caption', 'model': 'phobert-base',
+                    'input_mode': 'caption', 'source': 'threads', 'has_ocr': False,
+                    'labels': {'text_label': 0, 'image_label': 0, 'mm_label': 0},
+                },
+            ]
+            (run / 'predictions_test.jsonl').write_text('\n'.join(json.dumps(row) for row in rows), encoding='utf-8')
+
+            analyze(root, output, bootstrap_iterations=20)
+
+            metrics = (output / 'seed_metrics.csv').read_text(encoding='utf-8')
+            self.assertIn('ocr/caption', metrics)
+            self.assertIn('phobert-base', metrics)
 
 
 if __name__ == '__main__':

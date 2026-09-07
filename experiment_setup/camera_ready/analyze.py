@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 from collections import defaultdict
 from pathlib import Path
 
@@ -19,7 +20,23 @@ def _resolved_config(prediction_path: Path) -> dict:
         candidate = parent / 'resolved_config.yaml'
         if candidate.exists():
             return yaml.safe_load(candidate.read_text(encoding='utf-8')) or {}
-    raise FileNotFoundError(f'No resolved_config.yaml found above {prediction_path}')
+    return {}
+
+
+def _study_name(value: str) -> str:
+    path = Path(value)
+    return str(path.parent) if re.fullmatch(r'seed-\d+', path.name) else value
+
+
+def _summary_model(prediction_path: Path) -> str:
+    summary_path = prediction_path.parent / 'summary.json'
+    if not summary_path.exists():
+        return ''
+    try:
+        rows = json.loads(summary_path.read_text(encoding='utf-8'))
+    except json.JSONDecodeError:
+        return ''
+    return rows[0].get('model', '') if rows else ''
 
 
 def _metric(rows: list[dict]) -> dict:
@@ -190,12 +207,18 @@ def analyze(runs_root: Path, output_dir: Path, bootstrap_iterations: int = 10_00
         config = _resolved_config(path)
         split = path.stem.removeprefix('predictions_')
         metadata = {
-            'experiment_name': config.get('experiment', {}).get('name', ''),
-            'model': config.get('model', {}).get('key', ''),
+            'experiment_name': rows[0].get('experiment_name') or config.get('experiment', {}).get('name', ''),
+            'model': rows[0].get('model') or config.get('model', {}).get('key', ''),
             'input_mode': rows[0].get('input_mode'),
             'seed': int(rows[0].get('seed', config.get('experiment', {}).get('seed', 0))),
             'split': split,
         }
+        if not metadata['experiment_name']:
+            parent = path.parent
+            metadata['experiment_name'] = parent.parent.name if re.fullmatch(r'seed-\d+', parent.name) else parent.name
+        if not metadata['model']:
+            metadata['model'] = _summary_model(path) or (path.parents[1].name if len(path.parents) > 1 else '')
+        metadata['experiment_name'] = _study_name(metadata['experiment_name'])
         metadata_by_path[path] = metadata
         for row in rows:
             row['_path'] = str(path)

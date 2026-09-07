@@ -7,6 +7,11 @@ from .io_utils import ensure_dir, save_csv, save_json, save_jsonl, save_yaml
 from .reproducibility import seed_everything
 
 
+def _study_name(run_name: str) -> str:
+    path = Path(run_name)
+    return str(path.parent) if path.name.startswith('seed-') else run_name
+
+
 def _write_resolved_config(config: dict, run_dir: Path) -> None:
     clean = {k: v for k, v in config.items() if k != '_meta'}
     save_yaml(run_dir / 'resolved_config.yaml', clean)
@@ -16,7 +21,15 @@ def _scenario_output_dir(run_dir: Path, model_name: str, scenario: str) -> Path:
     return ensure_dir(run_dir / model_name / scenario)
 
 
-def _save_predictions(path: Path, source_records: list[dict], predictions: list[dict], split: str, scenario: str) -> None:
+def _save_predictions(
+    path: Path,
+    source_records: list[dict],
+    predictions: list[dict],
+    split: str,
+    scenario: str,
+    experiment_name: str,
+    model_name: str,
+) -> None:
     by_id = {record['id']: record for record in source_records}
     rows = []
     for pred in predictions:
@@ -30,6 +43,8 @@ def _save_predictions(path: Path, source_records: list[dict], predictions: list[
             'probability': pred['probability'],
             'predicted_combo': pred.get('predicted_combo'),
             'raw_output': pred['raw_output'],
+            'experiment_name': experiment_name,
+            'model': model_name,
             'seed': source.get('seed'),
             'input_mode': source.get('input_mode'),
             'source': source['source'],
@@ -125,7 +140,10 @@ def run_pipeline(config: dict, stage: str = 'all') -> None:
                 if processed % checkpoint_every != 0 and processed != total:
                     return
                 checkpoint_path = out_dir / f'predictions_{split_name}.checkpoint.jsonl'
-                _save_predictions(checkpoint_path, split_records, predictions, split_name, scenario)
+                _save_predictions(
+                    checkpoint_path, split_records, predictions, split_name, scenario,
+                    _study_name(config['experiment']['name']), model_name,
+                )
                 save_json(
                     out_dir / f'progress_{split_name}.json',
                     {
@@ -169,7 +187,10 @@ def run_pipeline(config: dict, stage: str = 'all') -> None:
             if config['run'].get('save_metrics', True):
                 save_json(out_dir / f'metrics_{split}.json', metrics_row)
             if config['run'].get('save_predictions', True):
-                _save_predictions(out_dir / f'predictions_{split}.jsonl', split_records, predictions, split, scenario)
+                _save_predictions(
+                    out_dir / f'predictions_{split}.jsonl', split_records, predictions, split, scenario,
+                    _study_name(config['experiment']['name']), model_name,
+                )
 
         adapter.release()
 

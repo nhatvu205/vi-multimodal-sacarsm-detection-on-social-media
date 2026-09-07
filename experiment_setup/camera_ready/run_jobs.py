@@ -2,14 +2,11 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-
-from .write_manifest import build_manifest
-from experiment_setup.src.io_utils import save_json
-
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
@@ -33,6 +30,32 @@ def build_command(
         '--json_splits', str(data_root / 'train.json'), str(data_root / 'dev.json'), str(data_root / 'test.json'),
         '--image_root', str(image_root),
     ]
+
+
+def compact_run_output(run_dir: Path) -> None:
+    """Keep only completed evaluation artifacts after a successful camera-ready run."""
+    patterns = ('summary.json', 'metrics_*.json', 'predictions_*.jsonl')
+    artifacts = sorted({path for pattern in patterns for path in run_dir.rglob(pattern)})
+    if not artifacts:
+        raise FileNotFoundError(f'No final artifacts found in {run_dir}')
+
+    names = [path.name for path in artifacts]
+    if len(names) != len(set(names)):
+        raise ValueError(f'Final artifact names collide in {run_dir}: {names}')
+
+    staging_dir = run_dir / '.final-artifacts'
+    staging_dir.mkdir(exist_ok=False)
+    for path in artifacts:
+        shutil.move(str(path), str(staging_dir / path.name))
+    for path in list(run_dir.iterdir()):
+        if path != staging_dir:
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+    for path in staging_dir.iterdir():
+        shutil.move(str(path), str(run_dir / path.name))
+    staging_dir.rmdir()
 
 
 def _run_one(
@@ -71,7 +94,7 @@ def _run_one(
         returncode = process.wait()
     if returncode:
         raise RuntimeError(f'Run failed: {run_name}; see {run_dir / "launcher.log"}')
-    save_json(run_dir / 'run_manifest.json', build_manifest(' '.join(command)))
+    compact_run_output(run_dir)
     print(f'[{label}] Finished', flush=True)
     return run_dir
 
