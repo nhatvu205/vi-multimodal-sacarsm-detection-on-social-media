@@ -8,12 +8,27 @@ from pathlib import Path
 import yaml
 
 from experiment_setup.camera_ready.analyze import analyze
+from experiment_setup.camera_ready.run_jobs import build_command
 from experiment_setup.src.data import build_run_dir, prepare_cache
 from experiment_setup.src.preprocess import build_text_variants
 from experiment_setup.src.runtime_overrides import apply_path_overrides
 
 
 class CameraReadyDataTests(unittest.TestCase):
+    def test_launcher_builds_a_self_contained_kaggle_command(self) -> None:
+        command = build_command(
+            'experiment_setup/configs/camera_ready/ocr_phobert_caption.yaml',
+            'ocr/phobert-caption/seed-42',
+            42,
+            Path('/kaggle/input/data/final-data'),
+            Path('/kaggle/input/data/images'),
+            Path('/kaggle/working/camera_ready'),
+        )
+        self.assertIn('--seed', command)
+        self.assertIn('42', command)
+        self.assertIn('/kaggle/input/data/images', command)
+        self.assertIn('ocr/phobert-caption/seed-42', command)
+
     def test_text_input_modes_and_legacy_flag(self) -> None:
         sample = {'text': 'caption', 'ocr_text': 'image words'}
         settings = {'preprocessing': {'text': {}}}
