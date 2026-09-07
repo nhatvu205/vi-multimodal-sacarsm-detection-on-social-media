@@ -34,16 +34,25 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--eval_splits",
         nargs="+",
-        choices=["dev", "test"],
         help="Override evaluation split(s) at runtime",
     )
+    parser.add_argument('--seed', type=int, help='Override experiment seed')
+    parser.add_argument('--output_root', help='Override output root directory')
+    parser.add_argument('--run_name', help='Override experiment name within the output root')
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     config = load_config(Path(args.config))
-    apply_path_overrides(config, json_splits=args.json_splits, image_root=args.image_root)
+    apply_path_overrides(
+        config,
+        json_splits=args.json_splits,
+        image_root=args.image_root,
+        output_root=args.output_root,
+        run_name=args.run_name,
+        seed=args.seed,
+    )
     if args.scenario:
         config.setdefault("run", {})
         if args.scenario == "all":

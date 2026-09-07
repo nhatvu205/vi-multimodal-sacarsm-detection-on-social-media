@@ -79,7 +79,7 @@ class TextClassifierAdapter(ModelAdapter):
             dev_predictions = self.predict(dev_records, scenario)
             dev_labels = [p['label'] for p in dev_predictions]
             dev_preds = [p['prediction'] for p in dev_predictions]
-            dev_f1 = float(f1_score(dev_labels, dev_preds, average='weighted', zero_division=0))
+            dev_f1 = float(f1_score(dev_labels, dev_preds, average='macro', zero_division=0))
             if dev_f1 > best_f1:
                 best_f1 = dev_f1
                 patience = 0

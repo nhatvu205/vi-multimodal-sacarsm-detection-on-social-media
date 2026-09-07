@@ -1,0 +1,12 @@
+extends: base.yaml
+
+experiment:
+  name: camera_ready/ocr/phobert-caption-ocr
+
+data:
+  text_input: caption_ocr
+
+model:
+  key: phobert-base
+  family: text_classifier
+  pretrained_name: vinai/phobert-base

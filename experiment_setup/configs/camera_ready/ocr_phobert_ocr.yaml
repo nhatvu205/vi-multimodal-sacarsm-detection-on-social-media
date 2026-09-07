@@ -1,0 +1,12 @@
+extends: base.yaml
+
+experiment:
+  name: camera_ready/ocr/phobert-ocr
+
+data:
+  text_input: ocr
+
+model:
+  key: phobert-base
+  family: text_classifier
+  pretrained_name: vinai/phobert-base

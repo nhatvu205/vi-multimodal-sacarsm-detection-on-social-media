@@ -1,0 +1,7 @@
+extends: ocr_dt4mid_caption.yaml
+
+experiment:
+  name: camera_ready/ocr/dt4mid-caption-ocr
+
+data:
+  text_input: caption_ocr

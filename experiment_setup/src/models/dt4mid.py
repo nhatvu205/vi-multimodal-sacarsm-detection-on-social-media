@@ -126,7 +126,7 @@ class DT4MIDAdapter(ModelAdapter):
             dev_predictions = self.predict(dev_records, scenario)
             dev_labels = [row['label'] for row in dev_predictions]
             dev_preds = [row['prediction'] for row in dev_predictions]
-            dev_score = float(f1_score(dev_labels, dev_preds, average='weighted', zero_division=0))
+            dev_score = float(f1_score(dev_labels, dev_preds, average='macro', zero_division=0))
             if dev_score > best_score:
                 best_score = dev_score
                 patience = 0
