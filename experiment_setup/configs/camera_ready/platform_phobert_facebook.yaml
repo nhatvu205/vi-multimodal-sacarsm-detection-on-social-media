@@ -7,16 +7,16 @@ data:
   text_input: caption
   splits:
     train:
-      path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/final-data/train.json
+      path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/data/final-data/train.json
       source: facebook
     dev:
-      path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/final-data/dev.json
+      path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/data/final-data/dev.json
       source: facebook
     source_test:
-      path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/final-data/test.json
+      path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/data/final-data/test.json
       source: facebook
     target_test:
-      path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/final-data/test.json
+      path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/data/final-data/test.json
       source: threads
 
 run:
