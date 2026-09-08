@@ -1,0 +1,18 @@
+extends: ../base.yaml
+
+experiment:
+  name: camera_ready/default
+
+data:
+  label_field: mm_label
+  text_input: caption
+
+run:
+  scenarios: [s1]
+  eval_splits: [test]
+
+training:
+  max_length: 256
+
+inference:
+  checkpoint_every_samples: 0

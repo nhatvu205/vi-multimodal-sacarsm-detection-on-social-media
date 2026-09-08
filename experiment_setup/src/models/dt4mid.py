@@ -98,11 +98,13 @@ class DT4MIDAdapter(ModelAdapter):
         ckpt_path.parent.mkdir(parents=True, exist_ok=True)
         epochs = int(cfg['epochs'])
         batch_size = int(cfg['batch_size'])
+        num_batches = max(1, (len(train_records) + batch_size - 1) // batch_size)
+        log_every = max(1, int(cfg.get('log_every_batches', 50)))
 
         for epoch in range(epochs):
             print(f"[dt4mid-train] scenario={scenario} | epoch {epoch + 1}/{epochs}")
             self.model.train()
-            for batch in self._build_batches(train_records, batch_size):
+            for batch_index, batch in enumerate(self._build_batches(train_records, batch_size), start=1):
                 text_inputs, pixel_values = self._encode_batch(batch, scenario)
                 labels = torch.tensor([item['label'] for item in batch], dtype=torch.long, device=self.device)
 
@@ -122,18 +124,25 @@ class DT4MIDAdapter(ModelAdapter):
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), float(cfg.get('gradient_clip_norm', 1.0)))
                 optimizer.step()
                 optimizer.zero_grad()
+                if batch_index % log_every == 0 or batch_index == num_batches:
+                    print(f'[dt4mid-train] epoch {epoch + 1} | batch {batch_index}/{num_batches} | loss={loss.item():.4f}')
 
             dev_predictions = self.predict(dev_records, scenario)
             dev_labels = [row['label'] for row in dev_predictions]
             dev_preds = [row['prediction'] for row in dev_predictions]
-            dev_score = float(f1_score(dev_labels, dev_preds, average='weighted', zero_division=0))
+            dev_score = float(f1_score(dev_labels, dev_preds, average='macro', zero_division=0))
             if dev_score > best_score:
                 best_score = dev_score
                 patience = 0
                 torch.save(self.model.state_dict(), ckpt_path)
+                checkpoint_status = 'saved'
             else:
                 patience += 1
+                checkpoint_status = f'not improved ({patience}/{cfg.get("early_stopping_patience", 2)})'
+            print(f'[dt4mid-train] epoch {epoch + 1} | dev_f1_macro={dev_score:.4f} | checkpoint={checkpoint_status}')
+            if checkpoint_status != 'saved':
                 if patience >= int(cfg.get('early_stopping_patience', 2)):
+                    print(f'[dt4mid-train] early stopping at epoch {epoch + 1}')
                     break
 
         if ckpt_path.exists():

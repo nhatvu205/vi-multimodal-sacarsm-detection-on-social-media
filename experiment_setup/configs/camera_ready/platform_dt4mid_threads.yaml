@@ -1,0 +1,19 @@
+extends: platform_dt4mid_facebook.yaml
+
+experiment:
+  name: camera_ready/platform/dt4mid-threads-source
+
+data:
+  splits:
+    train:
+      path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/data/final-data/train.json
+      source: threads
+    dev:
+      path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/data/final-data/dev.json
+      source: threads
+    source_test:
+      path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/data/final-data/test.json
+      source: threads
+    target_test:
+      path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/data/final-data/test.json
+      source: facebook

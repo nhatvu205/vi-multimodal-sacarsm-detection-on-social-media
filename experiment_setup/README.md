@@ -221,6 +221,9 @@ Each run saves:
 - per-model summary (`json` + `csv`)
 - checkpoints for trainable models
 
+For the camera-ready OCR, cross-platform, and error-analysis workflow on Kaggle,
+see [CAMERA_READY_KAGGLE.md](CAMERA_READY_KAGGLE.md).
+
 ## Recommended configs
 The guide mentions `Qwen-VL-Chat`. That config is included for compatibility. If you want a stronger newer replacement, add a config using the same pipeline for `Qwen2-VL` or `Qwen2.5-VL`.
 

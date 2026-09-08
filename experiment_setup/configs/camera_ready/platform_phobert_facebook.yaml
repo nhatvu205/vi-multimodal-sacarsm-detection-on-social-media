@@ -1,0 +1,28 @@
+extends: base.yaml
+
+experiment:
+  name: camera_ready/platform/phobert-facebook-source
+
+data:
+  text_input: caption
+  splits:
+    train:
+      path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/data/final-data/train.json
+      source: facebook
+    dev:
+      path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/data/final-data/dev.json
+      source: facebook
+    source_test:
+      path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/data/final-data/test.json
+      source: facebook
+    target_test:
+      path: /kaggle/input/datasets/nhatvu205/sacasm-dataset-uit/data/final-data/test.json
+      source: threads
+
+run:
+  eval_splits: [source_test, target_test]
+
+model:
+  key: phobert-base
+  family: text_classifier
+  pretrained_name: vinai/phobert-base

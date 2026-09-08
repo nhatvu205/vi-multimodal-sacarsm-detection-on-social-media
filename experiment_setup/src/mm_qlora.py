@@ -260,7 +260,7 @@ def finetune_multimodal_model(
 
     run_dir = build_run_dir(config)
     prepare_cache(config, run_dir)
-    cached = load_cached_splits(run_dir)
+    cached = load_cached_splits(run_dir, config)
 
     finetune_cfg = config.setdefault('finetune', {})
     scenario = scenario or finetune_cfg.get('scenario', 's1')

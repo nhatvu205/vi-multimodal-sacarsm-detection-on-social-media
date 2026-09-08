@@ -140,21 +140,31 @@ def preprocess_text(text: str, settings: dict, remove_emoji: bool = False) -> st
     return value
 
 
-def compose_text(sample: dict, include_ocr: bool, ocr_template: str) -> str:
-    text = str(sample.get('text', '') or '')
-    if include_ocr:
-        ocr_text = str(sample.get('ocr_text', '') or '').strip()
-        if ocr_text:
-            text = text + ocr_template.format(ocr_text=ocr_text)
-    return normalize_whitespace(text)
+def _text_input_mode(data_config: dict) -> str:
+    mode = data_config.get('text_input')
+    if mode is None:
+        return 'caption_ocr' if data_config.get('include_ocr_in_text', True) else 'caption'
+    if mode not in {'caption', 'ocr', 'caption_ocr'}:
+        raise ValueError(f'Unsupported data.text_input: {mode}')
+    return mode
+
+
+def compose_text(sample: dict, data_config: dict) -> str:
+    caption = str(sample.get('text', '') or '')
+    ocr_text = str(sample.get('ocr_text', '') or '').strip()
+    mode = _text_input_mode(data_config)
+    if mode == 'caption':
+        return normalize_whitespace(caption)
+    if mode == 'ocr':
+        return normalize_whitespace(ocr_text)
+    if not ocr_text:
+        return normalize_whitespace(caption)
+    template = data_config.get('ocr_template', '\n\n[OCR]\n{ocr_text}')
+    return normalize_whitespace(caption + template.format(ocr_text=ocr_text))
 
 
 def build_text_variants(sample: dict, config: dict) -> TextVariants:
-    raw_text = compose_text(
-        sample=sample,
-        include_ocr=config['data'].get('include_ocr_in_text', True),
-        ocr_template=config['data'].get('ocr_template', '\n\n[OCR]\n{ocr_text}'),
-    )
+    raw_text = compose_text(sample, config['data'])
     settings = config.get('preprocessing', {}).get('text', {})
     emoji_removed_text = _remove_emoji_only(_apply_basic_cleanup(raw_text, settings), settings)
     preprocessed_text = preprocess_text(raw_text, settings, remove_emoji=False)

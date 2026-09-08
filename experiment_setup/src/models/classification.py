@@ -55,10 +55,14 @@ class TextClassifierAdapter(ModelAdapter):
         patience = 0
         ckpt_path = self.run_dir / self.model_name / scenario / 'checkpoint.pt'
         ckpt_path.parent.mkdir(parents=True, exist_ok=True)
+        batch_size = int(cfg['batch_size'])
+        num_batches = max(1, (len(train_records) + batch_size - 1) // batch_size)
+        log_every = max(1, int(cfg.get('log_every_batches', 50)))
 
-        for _epoch in range(int(cfg['epochs'])):
+        for epoch in range(int(cfg['epochs'])):
+            print(f'[text-train] scenario={scenario} | epoch {epoch + 1}/{cfg["epochs"]}')
             self.model.train()
-            for batch in self._build_batches(train_records, int(cfg['batch_size'])):
+            for batch_index, batch in enumerate(self._build_batches(train_records, batch_size), start=1):
                 inputs = self.tokenizer(
                     [x['text'] for x in batch],
                     padding=True,
@@ -75,18 +79,25 @@ class TextClassifierAdapter(ModelAdapter):
                 optimizer.step()
                 scheduler.step()
                 optimizer.zero_grad()
+                if batch_index % log_every == 0 or batch_index == num_batches:
+                    print(f'[text-train] epoch {epoch + 1} | batch {batch_index}/{num_batches} | loss={outputs.loss.item():.4f}')
 
             dev_predictions = self.predict(dev_records, scenario)
             dev_labels = [p['label'] for p in dev_predictions]
             dev_preds = [p['prediction'] for p in dev_predictions]
-            dev_f1 = float(f1_score(dev_labels, dev_preds, average='weighted', zero_division=0))
+            dev_f1 = float(f1_score(dev_labels, dev_preds, average='macro', zero_division=0))
             if dev_f1 > best_f1:
                 best_f1 = dev_f1
                 patience = 0
                 torch.save(self.model.state_dict(), ckpt_path)
+                checkpoint_status = 'saved'
             else:
                 patience += 1
+                checkpoint_status = f'not improved ({patience}/{cfg.get("early_stopping_patience", 2)})'
+            print(f'[text-train] epoch {epoch + 1} | dev_f1_macro={dev_f1:.4f} | checkpoint={checkpoint_status}')
+            if checkpoint_status != 'saved':
                 if patience >= int(cfg.get('early_stopping_patience', 2)):
+                    print(f'[text-train] early stopping at epoch {epoch + 1}')
                     break
 
         if ckpt_path.exists():

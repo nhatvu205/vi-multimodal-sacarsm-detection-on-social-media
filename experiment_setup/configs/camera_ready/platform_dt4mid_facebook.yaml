@@ -1,0 +1,20 @@
+extends: platform_phobert_facebook.yaml
+
+experiment:
+  name: camera_ready/platform/dt4mid-facebook-source
+
+model:
+  key: dt4mid-phobert
+  family: dt4mid_classifier
+  pretrained_name: vinai/phobert-base
+  vision_pretrained_name: google/vit-base-patch16-224-in21k
+  projection_dim: 64
+  hidden_dim: 32
+  dropout: 0.3
+  freeze_text_layers: 0
+  freeze_vision_layers: 0
+
+training:
+  batch_size: 8
+  eval_batch_size: 16
+  warmup_ratio: 0.0

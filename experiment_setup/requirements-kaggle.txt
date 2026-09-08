@@ -1,0 +1,7 @@
+# The camera-ready Kaggle runbook intentionally does not install this file.
+# Kaggle's current GPU image supplies PyTorch, Transformers, NumPy, Pillow,
+# PyYAML and scikit-learn. Installing broad `>=` constraints can replace the
+# CUDA-compatible package set and produce dependency-resolver conflicts.
+#
+# ViSoNorm is optional for these s1 camera-ready experiments: the pipeline uses
+# its built-in fallback when it is unavailable.
