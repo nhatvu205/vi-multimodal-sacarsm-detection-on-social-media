@@ -72,7 +72,11 @@ def _bootstrap_f1(rows: list[dict], seed: int, iterations: int) -> tuple[float, 
     values = np.empty(iterations, dtype=float)
     for index in range(iterations):
         sample = generator.integers(0, len(rows), len(rows))
-        values[index] = _f1_macro(labels[sample], predictions[sample])
+        gold, pred = labels[sample], predictions[sample]
+        tp = np.count_nonzero((gold == 1) & (pred == 1))
+        tn = np.count_nonzero((gold == 0) & (pred == 0))
+        wrong = np.count_nonzero(gold != pred)
+        values[index] = (tp / (2 * tp + wrong) if 2 * tp + wrong else 0.0) + (tn / (2 * tn + wrong) if 2 * tn + wrong else 0.0)
     return tuple(float(value) for value in np.percentile(values, [2.5, 97.5]))
 
 
@@ -168,7 +172,7 @@ def _candidate_examples(rows: list[dict], metadata_by_path: dict[Path, dict]) ->
             caption, caption_ocr = inputs['caption'][sample_id], inputs['caption_ocr'][sample_id]
             if not caption['has_ocr']:
                 continue
-            meta = metadata_by_path[Path(caption['_path'])]
+            meta = metadata_by_path[Path(caption_ocr['_path'])]
             if caption['prediction'] != caption['label'] and caption_ocr['prediction'] == caption_ocr['label']:
                 candidates.append(_candidate('ocr_improves', caption_ocr, meta, comparison_prediction=caption['prediction']))
             if caption['prediction'] == caption['label'] and caption_ocr['prediction'] != caption_ocr['label']:
