@@ -45,6 +45,7 @@ annotator-agreement/
 AGENT.md
 50-images/
 human_annotation/
-report/
+report/*
+!report/main.tex
 prediction_test/
 error_analysis_output/

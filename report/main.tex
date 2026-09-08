@@ -1,0 +1,845 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% Template version as of 6/27/2024
+\usepackage{iftex}
+\ifPDFTeX
+  % Use T5 as the default encoding to support Vietnamese diacritics
+  % (e.g., author names) under pdfTeX.
+  \usepackage[T5,T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage[english,vietnamese]{babel}
+\else
+  \usepackage{fontspec}
+  \setmainfont{TeX Gyre Termes}
+  \usepackage{polyglossia}
+  \setdefaultlanguage{english}
+  \setotherlanguage{vietnamese}
+\fi
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{latexsym}
+\usepackage{microtype}
+\usepackage{inconsolata}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{subcaption}
+\usepackage{fancyvrb}
+\usepackage{fvextra}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+ \setlength{\textfloatsep}{10pt}
+  \setlength{\floatsep}{8pt}
+  \setlength{\intextsep}{8pt}
+  \setlength{\abovecaptionskip}{6pt}
+  \setlength{\belowcaptionskip}{0pt}
+\renewcommand{\encodingdefault}{T5}
+\title{ViMMSarc-Fine: Building a Modality-Level Fine-Grained Dataset for Vietnamese Multimodal Sarcasm Detection}
+\author{
+    \IEEEauthorblockN{
+       Nhat Dinh Vu\IEEEauthorrefmark{1}\IEEEauthorrefmark{2}\IEEEauthorrefmark{3}\IEEEauthorrefmark{4},
+        Nhi Huynh-Thu Ho\IEEEauthorrefmark{1}\IEEEauthorrefmark{2}\IEEEauthorrefmark{3}\IEEEauthorrefmark{4},
+        Han Ngoc Tran\IEEEauthorrefmark{1}\IEEEauthorrefmark{2}\IEEEauthorrefmark{3}\IEEEauthorrefmark{4},
+        Nhu Diem-Quynh Le\IEEEauthorrefmark{1}\IEEEauthorrefmark{2}\IEEEauthorrefmark{3}\IEEEauthorrefmark{4},
+        Tin Van Huynh\IEEEauthorrefmark{1}\IEEEauthorrefmark{2}\IEEEauthorrefmark{3}\IEEEauthorrefmark{5},\\
+    }
+    \IEEEauthorblockA{
+        \IEEEauthorrefmark{1}Faculty of Information Science and Engineering\\
+        \IEEEauthorrefmark{2}University of Information Technology, Ho Chi Minh City, Vietnam\\
+        \IEEEauthorrefmark{3}Vietnam National University, Ho Chi Minh City, Vietnam\\
+        \IEEEauthorrefmark{4}\texttt{\{23521104, 23521107, 23520437, 23521122\}@gm.uit.edu.vn}\\
+        \IEEEauthorrefmark{5}\texttt{tinhv@uit.edu.vn}
+    }
+}
+\usepackage[T5,T1]{fontenc} % Khai báo cả 2 font encoding
+\usepackage[vietnamese,english]{babel} % Tiếng Anh làm chủ đạo, hỗ trợ tiếng Việt
+\begin{document}
+\maketitle
+\begingroup
+\renewcommand\thefootnote{}
+\footnotetext{Supplementary details, including prompts, detailed results, model hyperparameters, and hard-sample IDs, are provided at \url{https://anonymous.4open.science/r/vi-multimodal-sacarsm-detection-on-social-media-B0D0/Appendix.md}.}
+\endgroup
+
+\selectlanguage{english}
+\begin{abstract}
+This paper presents \textbf{ViMMSarc-Fine}, a novel Vietnamese multimodal sarcasm detection dataset comprising 7{,}355 curated samples from Threads and Facebook. The dataset delivers fine-grained annotations across textual, visual, and multimodal levels, complemented by auxiliary OCR text. To mitigate cognitive bias, a two-round coarse-to-fine annotation workflow systematically isolates unimodal cues from cross-modal integration. Empirical analysis reveals a strong multimodal dependency: 49.71\% of sarcastic instances rely strictly on the synergistic alignment of text and imagery to manifest (the $(0,0,1)$ combination). We establish a standardized evaluation protocol using text, image, and hybrid models under four text-preprocessing and emoji ablation scenarios. Benchmarking indicates that the DT4MID framework sets the leading baseline with an F1-macro score of 68.84\% in the fully preprocessed, emoji-removed setting (s4). ViMMSarc-Fine thus provides a solid empirical foundation for advancing multimodal figurative language understanding in Vietnamese.
+\end{abstract}
+\begin{IEEEkeywords}
+Vietnamese sarcasm detection, multimodal learning, social media mining, dataset construction, modality-level annotation.
+\end{IEEEkeywords}
+\section{Introduction}
+Sarcasm is ambiguous because surface meaning often diverges from the speaker's intended attitude. On social media, this ambiguity is amplified by images, reaction memes, screenshots, in-image text, emoji, and shared context. Models that rely on a single modality may therefore miss sarcasm cues that only emerge jointly.
+We define sarcasm as an expression whose surface meaning is not aligned with, and can be opposite to, the author's intended stance. In multimodal posts, sarcasm may appear in one modality or emerge only from cross-modal composition, such as a neutral caption whose meaning is flipped by the image.
+Following SarcNet~\cite{yue-etal-2024-sarcnet}, we decompose multimodal sarcasm into Text (T), Image (I), and Multimodal (M) outputs. As illustrated in Figure~\ref{fig:intro-combos}, these instances underscore the high cognitive complexity of the task. Specifically, subfigure (a) exhibits a pure cross-modal emergence $(0,0,1)$, where a popular meme element (a candle and a rose signifying mourning or irony) paired with the exclamation "\foreignlanguage{vietnamese}{UÁ}" does not convey explicit sarcasm in isolation, but flips into a sarcastic expression when combined. Conversely, subfigure (b) presents a $(1,0,1)$ configuration where the textual narrative ("\foreignlanguage{vietnamese}{Nhìn kỹ hoá ra là người yêu cũ}") already delivers a bitter, sarcastic stance, which is further reinforced by the visual framing of a text-rich conversation screenshot.
+\begin{figure}[t]
+\centering
+\begin{subfigure}[b]{0.48\linewidth}
+\centering
+\includegraphics[width=\linewidth]{figures/example_c001_post06635.pdf}
+\caption{\((0,0,1)\)}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\linewidth}
+\centering
+\includegraphics[width=\linewidth]{figures/example_c101_post07154.pdf}
+\caption{\((1,0,1)\)}
+\end{subfigure}
+\caption{Two representative examples of the two most frequent sarcasm label combinations in our data.}
+\label{fig:intro-combos}
+\end{figure}
+\selectlanguage{english}
+For Vietnamese, multimodal sarcasm resources remain limited in scale and label granularity. Existing datasets often focus on binary labels, leaving unclear whether sarcasm comes from text, image, or their interaction, and how emoji, OCR text, and preprocessing affect the task.
+Motivated by these gaps, this study pursues three objectives. \textbf{First}, we construct a medium-scale Vietnamese dataset with fine-grained modality-aware labels for multimodal sarcasm detection. \textbf{Second}, we design a two-round annotation procedure that separates coarse binary labels from fine-grained modality labels. \textbf{Third}, we study how text-preprocessing \textit{ablation} scenarios affect model performance across model families, from text encoders and image classifiers to modern \textit{vision-language} models.
+Beyond labels, the benchmark is designed for diagnosis: a global label shows whether a model is correct, while modality-level labels help reveal whether it ignored the caption, misread the image, or missed the cross-modal relation.
+\section{Related Work}
+Early sarcasm and irony detection treats the task as social-media figurative-language recognition, where lexical, affective, and contextual cues make literal sentiment unreliable~\cite{reyes_humor_2012,farias_irony_2016,ahmed_hamza_computational_2023,maladry_limitations_2024}. Multimodal Sarcasm Detection (MSD) extends this setting to semantic incongruity across text, images, emoji, OCR text, and social context. SarcNet highlights text--image interaction and motivates separating unimodal from multimodal evidence~\cite{yue-etal-2024-sarcnet}; later work also shows that emoji, non-standard writing, and local conventions matter~\cite{Wahyuni_Suryanto_Arviani_2025}.
+Recent LLM- and LMM-based methods shift MSD toward reasoning-oriented annotation and prediction. CoFiPara uses a coarse-to-fine framework to generate rationales~\cite{chen-etal-2024-cofipara}, but such work usually focuses on final classification, targets, or explanations rather than explicitly labeling whether sarcasm originates from text, image, or their interaction.
+For Vietnamese, recent work has begun to study multimodal sarcasm and modality disentanglement~\cite{10.1007/978-981-96-8892-0_31}. Still, existing resources remain limited in label granularity, OCR usage, and systematic analysis of preprocessing effects. These gaps motivate a Vietnamese dataset with modality-aware labels and a controlled evaluation protocol.
+\section{Dataset}
+\label{sec:dataset}
+\subsection{Dataset overview}
+Each record contains the following main fields: \texttt{id}, \texttt{text}, \texttt{image\_path}, \texttt{source}, \texttt{ocr\_text}, \texttt{text\_label}, \texttt{image\_label}, and \texttt{MM}. Here, \texttt{text\_label} indicates sarcasm based on text only, \texttt{image\_label} indicates sarcasm based on image only, and \texttt{MM} is the final multimodal target label.
+Table~\ref{tab:dataset-summary} summarizes dataset sizes at major stages. Starting from 8{,}177 raw posts, after cleaning, normalization, removal of invalid/low-quality samples, and the two-round annotation procedure, the final dataset contains 7{,}355 samples. Among them, 4{,}941 samples (67.18\%) include \textit{OCR text}, indicating that in-image text is a substantial component of the task.
+\begin{table}[t]
+\centering
+\footnotesize
+\begin{tabular}{lr}
+\toprule
+\textbf{Component} & \textbf{Count} \\
+\midrule
+Raw collected posts & 8{,}177 \\
+After cleaning/processing  & 7{,}355 \\
+Samples with \textit{OCR text} & 4{,}941 \\
+\bottomrule
+\end{tabular}
+\caption{Dataset statistics before and after cleaning/processing.}
+\label{tab:dataset-summary}
+\end{table}
+\subsection{Data collection and preprocessing}
+We collected posts from Threads and Facebook between March and May 2026. We consolidated the data by removing duplicate texts, UI fragments, \textit{crawl artifacts}, empty samples, and missing images.
+After consolidation, the final dataset contains 4{,}456 Threads samples (60.58\%) and 2{,}899 Facebook samples (39.42\%). The two sources cover diverse expression styles, from short colloquial comments to screenshots, longer posts, memes, and text-rich images.
+A key design choice is to preserve the post context: images are never detached from their corresponding captions. Each sample maintains a \textit{text--image} pair, while OCR text is stored as auxiliary information. This is especially important for screenshots, posters, and memes with embedded text, where the implied meaning is hard to recover from surface appearance alone.
+OCR text is included but not concatenated into textual inputs by default. This keeps captions separate from in-image text, supports fairer \textit{text-only}, \textit{image-only}, and \textit{multimodal} comparisons, and leaves OCR available for future modality-specific extensions.
+\subsection{Sarcasm taxonomy used for annotation}
+\label{sec:sarcasm-def}
+To standardize LLM annotation, we compiled a social media sarcasm taxonomy Table~\ref{tab:sarcasm-taxonomy} informed by SarcNet~\cite{yue-etal-2024-sarcnet}, to characterize semantic incongruity.
+\begin{table}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{p{0.11\linewidth}p{0.83\linewidth}}
+\toprule
+\textbf{Code} & \textbf{Short description} \\
+\midrule
+1 & \textit{Verbal}: sarcasm expressed mainly in the text (text alone suffices to reveal incongruity). \\
+2 & \textit{Image--Text Conflict}: direct contradiction between text and image when paired. \\
+3 & \textit{Emoji--Text Conflict}: emoji flips or negates the stance in the text. \\
+4 & \textit{Contextual}: requires background/social or event knowledge to recognize sarcasm. \\
+5 & \textit{Self-deprecating}: self-mockery via expectation--reality contrast. \\
+6 & \textit{Hyperbolic}: exaggerated expression used for implicit criticism. \\
+7 & \textit{Multimodal}: requires at least two modalities to infer the sarcastic implication. \\
+\bottomrule
+\end{tabular}
+\caption{Sarcasm taxonomy used during annotation. A sample may exhibit multiple types simultaneously.}
+\label{tab:sarcasm-taxonomy}
+\end{table}
+\subsection{Two-round annotation}
+To improve reliability, we adopt a two-round coarse-to-fine annotation strategy~\cite{chen-etal-2024-cofipara}. Round 1 uses Gemma-4-31B-it~\cite{google2026gemma4} and Nemotron-3-Nano-30B-A3B~\cite{nvidia2025nvidianemotron3efficient} to assign a binary sarcasm label. Round 2 uses Gemma-4-31B-it and Mistral-Medium-3.5-128B~\cite{mistral2026medium35} to attribute sarcasm to text, image, or their combination. This hierarchy reduces cognitive load: annotators first decide whether sarcasm exists, then localize its source.
+Prompts are tuned on a 50-sample human-labeled subset, and disagreements between LLMs are manually adjudicated. Following CoFiPara, prompts encourage divergent reasoning by requiring models to weigh both literal and sarcastic interpretations, counteracting misleading cues like emojis or reaction memes. LLM--human agreement on the tuning set is shown in Table~\ref{tab:llm-human-agreement}.
+The two rounds serve different purposes. Round 1 prioritizes a reliable global decision, while Round 2 forces the annotator to reason under restricted evidence: text only, image only, and then the full multimodal post. This reduces the risk that a strong multimodal impression is copied into all modality labels.
+\begin{table}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lc}          % Bảng 1 chỉ cần 2 cột (l và c)
+\toprule
+\textbf{Round / Model} & \textbf{Cohen's $\kappa$ with humans} \\
+\midrule
+Round 1 -- Gemma & 0.68 \\
+Round 1 -- Nemotron & 0.62 \\
+\midrule
+Round 2 -- Gemma  & 0.82 \\
+Round 2 -- Mistral & 0.76 \\
+\bottomrule
+\end{tabular}
+\caption{Cohen's Kappa between LLM-generated labels and human annotations on the 50 gold samples used for prompt tuning in each annotation round.}
+\label{tab:llm-human-agreement}
+\end{table}
+\noindent We randomly selected 736 samples (10\% of the final dataset) as a gold test set for manual verification. As detailed in Table~\ref{tab:human_llm_agreement}, agreement between the LLM-generated labels and the human-validated labels reaches Cohen's $\kappa=0.7600$ for text, $0.7436$ for image, and $0.7987$ for the multimodal target. These values indicate substantial agreement on this verified subset; they do not by themselves establish independent human--human reliability or the quality of all training labels.
+\begin{table}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lll}          % Đổi thành lll (căn trái hết) để chữ và số ép sát nhau
+\toprule
+\textbf{Label Type} & \textbf{Cohen's $\kappa$} & \textbf{Agreement Level} \\
+\midrule
+Text Sarcasm        & 0.7600 & Substantial \\
+Image Sarcasm       & 0.7436 & Substantial \\
+Multimodal Sarcasm  & 0.7987 & Substantial \\
+\bottomrule
+\end{tabular}
+\caption{Cohen's Kappa between human-validated labels and LLM-generated labels on a randomly selected subset of 736 samples.}
+\label{tab:human_llm_agreement}
+\end{table}
+\subsection{Exploratory data analysis}
+\subsubsection{Dataset split and sources}
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{0pt} % Để tabular* tự giãn khoảng cách cột vừa khít
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lrrrrrrrr}
+\toprule
+\multirow{2}{*}{\textbf{Split}} & \multirow{2}{*}{\textbf{\#Samples}} & \multicolumn{2}{c}{\textbf{MM}} & \multicolumn{2}{c}{\textbf{Text}} & \multicolumn{2}{c}{\textbf{Image}} & \multicolumn{1}{c}{\textbf{Threads / FB}} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}\cmidrule(lr){7-8}\cmidrule(l){9-9}
+ &  & 0 & 1 & 0 & 1 & 0 & 1 & \multicolumn{1}{c}{\textbf{(\%)}} \\
+\midrule
+Train & 5{,}884 & 3{,}305 & 2{,}579 & 4{,}882 & 1{,}002 & 5{,}197 & 687 & 60{.}54 / 39{.}46 \\
+Dev   & 735     & 413     & 322     & 610     & 125     & 649     & 86  & 61{.}09 / 38{.}91 \\
+Test  & 736     & 414     & 322     & 611     & 125     & 650     & 86  & 60{.}46 / 39{.}54 \\
+\midrule
+All & 7{,}355 & 4{,}132 & 3{,}223 & 6{,}103 & 1{,}252 & 6{,}496 & 859 & 60{.}58 / 39{.}42 \\
+\bottomrule
+\end{tabular*}
+\caption{Sample counts by split and by label. The last column shows the Threads/Facebook ratio in each split.}
+\label{tab:split-stats}
+\end{table}
+\begin{figure}[t]
+\centering
+\begin{subfigure}[b]{0.95\linewidth} % Tăng kích thước để chiếm trọn chiều ngang
+\centering
+\includegraphics[width=\linewidth]{figures/fig_label_counts.pdf}
+\caption{Label distribution by modalities.}
+\end{subfigure}
+\\ \vspace{10pt} % Xuống dòng và tạo một khoảng cách nhỏ giữa 2 hình
+\begin{subfigure}[b]{0.95\linewidth}
+\centering
+\includegraphics[width=\linewidth]{figures/fig_label_combos.pdf}
+\caption{Label distribution by combos \,(T, I, MM).}
+\end{subfigure}
+\caption{Label distribution in final dataset.}
+\label{fig:label-eda}
+\end{figure}
+The comprehensive breakdown of label distributions across different granularities is visually categorized in Figure~\ref{fig:label-eda}. As demonstrated in subfigure (a), sarcasm labels at individual modality levels (Text and Image) exhibit a much higher class imbalance compared to the unified multimodal target ($MM$). Furthermore, subfigure (b) reveals the exact density of the seven possible label combinations, emphasizing that non-sarcastic samples $(0,0,0)$ form the majority ($3{,}775$ samples), while the joint cross-modal sarcastic class $(0,0,1)$ stands as the most prominent positive signal with $1{,}602$ instances. The final dataset is deterministically split into 5{,}884 \textit{train} samples, 735 \textit{dev} samples, and 736 \textit{test} samples, corresponding to an approximate 8:1:1 ratio. The test split corresponds to the manually verified subset described in Section III.D. Table~\ref{tab:split-stats} shows that label distributions and the Threads/Facebook ratio are largely preserved across splits, reducing evaluation bias on \textit{dev} and \textit{test}.
+\subsubsection{Language distribution and emoji}
+Figure~\ref{fig:language-distribution} shows that most samples are pure Vietnamese ($4{,}099$), followed by Vietnamese--English code-switching ($2{,}994$), with only 256 English and 6 unknown-language samples. This reflects common Vietnamese social-media code-switching and creates additional challenges for monolingual models.
+\subsubsection{Linguistic difficulty characteristics.}
+%Figure~\ref{fig:emoji-distribution} shows frequent non-standard cues: emoji ($27.6\%$), character elongation ($23.0\%$), and emoticons ($16.8\%$). These features motivate our controlled text-preprocessing and emoji ablations.
+As illustrated in Figure~\ref{fig:emoji-distribution}, the dataset exhibits a high prevalence of non-standard linguistic cues that complicate text processing. Specifically, \textbf{emojis} appear in $27.6\%$ of the samples, followed closely by \textbf{character elongation} ($23.0\%$), and \textbf{emoticons} ($16.8\%$). The significant presence of these informal expressions directly justifies and motivates our controlled text-preprocessing configurations and emoji ablation scenarios.
+\begin{figure}[t]
+\centering
+\begin{subfigure}[b]{0.95\linewidth} % Tăng kích thước để chiếm trọn chiều ngang
+\centering
+    \includegraphics[width=\linewidth]{figures/language_distribution.pdf}
+    \caption{Language distribution in ViMMSarc-Fine dataset.}
+    \label{fig:language-distribution}
+\end{subfigure}
+\\ \vspace{10pt} % Xuống dòng và tạo một khoảng cách nhỏ giữa 2 hình
+\begin{subfigure}[b]{0.95\linewidth}
+\centering
+    \includegraphics[width=\linewidth]{figures/new.png}
+    \caption{Distribution of linguistic difficulty characteristics.}
+    \label{fig:emoji-distribution}
+\end{subfigure}
+\caption{Characteristics distribution in final dataset.}
+\label{fig:language-emoji-distribution}
+\end{figure}
+\subsubsection{Multimodal signals and text's language}
+Another notable observation is the cross-platform variance. The positive rate of \texttt{MM}=1 on Facebook reaches $67.06\%$, considerably higher than on Threads ($28.70\%$). This discrepancy suggests that Facebook samples contain higher densities of screenshots, memes, and explicit semantic incongruity, whereas Threads posts skew toward everyday colloquial utterances less dependent on visual context.
+Analysis of the label combinations in Table~\ref{tab:mm1-combos} shows substantial annotated cross-modal dependence. The implicit $(0,0,1)$ combination accounts for 1{,}602 positive instances (49.71\%), where individual modalities are annotated as neutral but the paired post is annotated as sarcastic. Conversely, the $(1,0,1)$ configuration (26.65\%) represents cases where the visual context reinforces an already sarcastic caption. The distribution motivates studying joint interpretation, but it does not by itself establish that a unimodal predictor cannot predict the final label.
+\begin{table}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Combination (T,I,MM)} & \textbf{Count} & \textbf{\% within MM=1} \\
+\midrule
+(0,0,1) & 1{,}602 & 49.71 \\
+(1,0,1) & 859 & 26.65 \\
+(0,1,1) & 629 & 19.52 \\
+(1,1,1) & 133 & 4.13 \\
+\bottomrule
+\end{tabular}
+\caption{Summary of label combinations when \texttt{MM}=1.}
+\label{tab:mm1-combos}
+\end{table}
+In summary, the EDA yields three key insights. First, the dataset is inherently multimodal, as evidenced by the large proportion of $(0,0,1)$ samples. Second, text-only and image-only labels exhibit higher class imbalance than \texttt{MM}, validating our choice of macro-averaged metrics. Third, platform-specific characteristics and localized linguistic cues demonstrate that text-preprocessing configurations must carefully account for emojis, non-standard text, and text-rich imagery.
+\section{Experiments}
+\label{sec:experiments}
+\subsection{Goals and general setup}
+The original benchmark reports model-family-specific diagnostic tasks. For the controlled camera-ready OCR and cross-platform experiments below, all models instead predict the same final binary \texttt{mm\_label} on fixed train, development, and test IDs. We use scenario s1 (raw text with emoji retained), a maximum length of 256 tokens, seeds 42, 123, and 2026, and select the best checkpoint by development macro-F1. Models train for at most 10 epochs with early stopping (patience two). We report the mean and sample standard deviation across seeds. For test-set uncertainty, we use 10{,}000 bootstrap resamples of test IDs; OCR comparisons resample the same IDs and seeds for both inputs. These camera-ready results should not be read as a re-estimation of every original s1--s4 baseline.
+\subsection{Ablation scenarios}
+The four \textit{ablation} scenarios modify only the text branch, while the image branch remains unchanged. Specifically:
+\begin{itemize}[leftmargin=1.2em]
+    \item \textbf{s1}: raw text, no preprocessing, emoji kept;
+    \item \textbf{s2}: raw text, emoji removed;
+    \item \textbf{s3}: preprocessed text, emoji kept;
+    \item \textbf{s4}: preprocessed text, emoji removed.
+\end{itemize}
+These scenarios form a 2$\times$2 design (preprocessing on/off $\times$ emoji on/off) to isolate and jointly assess the effects of text normalization and emoji. Images are kept identical across scenarios so that all models receive the same visual input.
+\subsection{Model groups}
+We consider text models (RoBERTa-base, PhoBERT-base, mBERT, XLM-RoBERTa-base, ViCLSR~\cite{huynh2026viclsr}), image models (ViT-B/32, CLIP ViT-L/14), and multimodal models (Qwen3-VL-8B-Instruct, CIRM~\cite{zhao2025mmsd3}, DT4MID~\cite{tomas_transformer-based_2023}, and three ViMMSD approaches~\cite{10.1007/978-981-96-8892-0_31}). Text and multimodal models are evaluated under all four ablations, while image-only models are evaluated once because images are unchanged.
+This grouping is intended to separate three questions: how much signal exists in the caption, how much can be inferred from the image alone, and how much additional benefit comes from explicit multimodal fusion. The same data split is used across all settings to keep comparisons consistent.
+\subsection{Evaluation metrics}
+We report Accuracy, F1-macro, and AUC when available. F1-macro is the primary metric because the modality-specific labels are imbalanced and minority sarcastic cases are central to the task. Table~\ref{tab:all-results} reports the main Accuracy/F1-macro results across model groups and ablation scenarios.
+\begin{table*}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{2.2pt}
+\renewcommand{\arraystretch}{0.9}
+\resizebox{0.8\textwidth}{!}{%
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Model} & \textbf{s1} & \textbf{s2} & \textbf{s3} & \textbf{s4} \\
+\midrule
+\multicolumn{5}{l}{\textbf{Text-only}} \\
+\midrule
+RoBERTa-base & 0.6685 / 0.6627 & 0.6712 / 0.6680 & 0.6726 / 0.6660 & 0.6726 / 0.6638 \\
+PhoBERT-base & \textbf{0.6848 / 0.6838} & \textbf{0.6848 / 0.6838} & 0.6821 / 0.6798 & 0.6793 / 0.6776 \\
+mBERT & 0.6671 / 0.6650 & 0.6386 / 0.6385 & 0.6576 / 0.6353 & 0.6399 / 0.6368 \\
+XLM-RoBERTa-base & 0.6848 / 0.6756 & 0.6535 / 0.6533 & 0.6753 / 0.6748 & \textbf{0.6943 / 0.6877} \\
+ViCLSR & 0.5625 / 0.3600 & 0.6046 / 0.6045 & 0.6209 / 0.6207 & 0.5625 / 0.3600 \\
+\midrule
+\multicolumn{5}{l}{\textbf{Image-only}} \\
+\midrule
+ViT-B/32      & 0.5666 / 0.5666 & -- & -- & -- \\
+CLIP ViT-L/14 & \textbf{0.6603 / 0.6456} & -- & -- & -- \\
+\midrule
+\multicolumn{5}{l}{\textbf{Multimodal}} \\
+\midrule
+DT4MID & 0.6929 / 0.6864 & 0.6848 / 0.6841 & 0.6807 / 0.6730 & \textbf{0.6943 / 0.6884} \\
+CIRM & 0.6318 / 0.6292 & 0.4375 / 0.3043 & 0.4375 / 0.3043 & 0.6128 / 0.5943 \\
+Qwen3-VL-8B-Instruct & 0.5734 / 0.5734 & 0.5910 / 0.5908 & 0.5734 / 0.5734 & 0.5910 / 0.5908 \\
+ViMMSD-A [8] (staged gating) & 0.5815 / 0.3019 & 0.5761 / 0.2731 & 0.5666 / 0.2850 & 0.5829 / 0.3131 \\
+ViMMSD-B [8] (hier.\ cross-attn.) & 0.6155 / 0.3043 & 0.6087 / 0.3053 & 0.6155 / 0.3020 & 0.6073 / 0.2881 \\
+ViMMSD-C [8] (multimodal fusion) & 0.5095 / 0.3459 & 0.6182 / 0.4038 & 0.6087 / 0.4780 & 0.5883 / 0.4163 \\
+\bottomrule
+\end{tabular}
+}
+\caption{Results on the \textit{test} set (Accuracy / F1-macro). Bold marks the best result within each model group and scenario; identical scenario values reflect deterministic or prompt-insensitive outputs, not duplicated entries.}
+\label{tab:all-results}
+\end{table*}
+\subsection{Results on the test set}
+PhoBERT is the strongest text-only baseline in s1 and s2, while XLM-RoBERTa-base obtains the best text-only result in s4. This highlights the importance of language pre-training choices for noisy Vietnamese social-media text~\cite{nguyen-tuan-nguyen-2020-phobert}. ViCLSR is the weakest text-only model, with F1-macro dropping to 0.3600 in s1/s4 despite 0.5625 accuracy, indicating majority-class-biased predictions in these two scenarios. For image-only models, CLIP outperforms ViT-B/32, suggesting that contrastive vision-language pre-training transfers better to sarcasm-related visual cues~\cite{radford_learning_2021}. DT4MID achieves the best overall multimodal result, consistent with the value of explicit cross-modal interaction modeling~\cite{tomas_transformer-based_2023}.
+Among the ViMMSD variants, multimodal fusion performs best (F1-macro up to 0.4780), while staged gating is weakest in this reimplementation. This ranking is descriptive because the models and input settings differ. Together with the camera-ready controlled results below, it motivates further study of joint text--image interpretation but does not establish a general multimodal advantage.
+However, the modest gap between unimodal and multimodal models suggests current architectures do not fully exploit annotated cross-modal cases, leaving substantial room for models that explicitly compare caption intent, visual context, and OCR content.
+\subsection{Effect of ablations}
+\label{sec:text-ablation}
+The ablation study shows different sensitivities across models. DT4MID and PhoBERT are relatively stable, whereas mBERT~\cite{pires_how_2019} fluctuates more, likely because its multilingual pre-training is less specialized for Vietnamese social-media language. ViCLSR is the most volatile text-only model, with F1-macro swinging between 0.3600 (s1, s4) and 0.6045--0.6207 (s2, s3), suggesting its predictions are highly sensitive to the specific preprocessing/emoji combination rather than either factor alone. Among ViMMSD variants, hierarchical cross-attention is most robust, while multimodal fusion benefits most from preprocessing, improving from 0.3459 F1-macro (s1) to 0.4780 (s3). This indicates that reducing textual noise improves shared multimodal representations, though emojis still provide useful stance signals. Qwen3-VL-8B-Instruct~\cite{bai_qwen3-vl_2025} performs better in the emoji-removed settings (s2/s4) than in the corresponding emoji-kept settings (s1/s3). The repeated scores for some multimodal models suggest limited sensitivity to the text-ablation variants under the current prompting and evaluation setup, so we interpret these ablation trends cautiously.
+\subsection{OCR input ablation}
+\label{sec:ocr-ablation}
+We evaluate five inputs on the common \texttt{mm\_label}: caption-only, OCR-only, caption+OCR, image+caption, and image+caption+OCR. We use the supplied \texttt{ocr\_text} rather than running a new OCR engine. OCR-only receives an empty string when OCR is unavailable, and caption+OCR falls back to the caption in those cases. The test set contains 736 posts: 486 with OCR text and 250 without it.
+
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Input} & \textbf{Full} & \textbf{OCR present} & \textbf{OCR absent} \\
+\midrule
+PhoBERT caption & $68.19\pm0.77$ & $64.75\pm1.25$ & $74.88\pm0.76$ \\
+PhoBERT OCR & $56.55\pm0.49$ & $59.62\pm0.76$ & $36.39\pm0.00$ \\
+PhoBERT caption+OCR & $70.05\pm1.25$ & $66.61\pm1.63$ & $76.31\pm1.37$ \\
+DT4MID image+caption & $67.24\pm1.39$ & $64.75\pm1.72$ & $71.84\pm1.25$ \\
+DT4MID image+caption+OCR & $67.17\pm0.83$ & $63.73\pm2.09$ & $73.45\pm1.33$ \\
+\bottomrule
+\end{tabular}
+\caption{Macro-F1 (\%, mean $\pm$ sample SD over three seeds) for the OCR ablation.}
+\label{tab:ocr-results}
+\end{table}
+
+Table~\ref{tab:ocr-results} shows a positive average change for PhoBERT when OCR is appended to the caption ($+1.86$ percentage points); its paired bootstrap 95\% CI is $[-0.64,4.33]$, so the present data do not establish a consistent improvement. OCR-only reaches $56.55\pm0.49$ macro-F1 and therefore does not replace caption input. For DT4MID, adding OCR changes macro-F1 by $-0.07$ points (95\% CI $[-2.28,2.05]$). The benefit of OCR consequently depends on the model and input configuration rather than being uniform. On the OCR-absent subset, OCR-only predicts class 0 for every sample in all three seeds, yielding $36.39\pm0.00$ macro-F1; this follows directly from the empty input and explains the repeated score for this subset.
+
+\subsection{Cross-platform evaluation}
+\label{sec:cross-platform}
+We train and choose checkpoints using only the source platform's train/development partitions, then evaluate the same checkpoint on source and target test subsets. Facebook contributes 291 test posts (193 MM-positive), while Threads contributes 445 (129 MM-positive). Thus, source--target gaps are descriptive: the test IDs, class prevalences, and available training-set sizes differ across platforms.
+
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{2.3pt}
+\begin{tabular}{llrc}
+\toprule
+\textbf{Model} & \textbf{Train $\rightarrow$ test} & $N$ & \textbf{F1} \\
+\midrule
+PhoBERT & Facebook $\rightarrow$ Facebook & 291 & $60.96\pm0.36$ \\
+PhoBERT & Facebook $\rightarrow$ Threads & 445 & $47.77\pm4.39$ \\
+PhoBERT & Threads $\rightarrow$ Threads & 445 & $60.71\pm2.10$ \\
+PhoBERT & Threads $\rightarrow$ Facebook & 291 & $52.45\pm4.75$ \\
+DT4MID & Facebook $\rightarrow$ Facebook & 291 & $53.09\pm8.63$ \\
+DT4MID & Facebook $\rightarrow$ Threads & 445 & $31.59\pm8.62$ \\
+DT4MID & Threads $\rightarrow$ Threads & 445 & $59.75\pm4.77$ \\
+DT4MID & Threads $\rightarrow$ Facebook & 291 & $47.73\pm3.70$ \\
+\bottomrule
+\end{tabular}
+\caption{Cross-platform macro-F1 (\%, mean $\pm$ sample SD over three seeds).}
+\label{tab:cross-platform-results}
+\end{table}
+
+As shown in Table~\ref{tab:cross-platform-results}, both models lose macro-F1 when evaluated on the other platform. PhoBERT drops by 13.19 points from Facebook to Threads and by 8.26 points from Threads to Facebook; the corresponding DT4MID drops are 21.50 and 12.02 points. The large DT4MID variation, especially after Facebook training, also calls for caution when comparing individual seeds. These results indicate limited transfer under this protocol, but do not attribute the gaps to a single platform property.
+\subsection{Cross-Dataset Comparison with ViMMSD}
+We reimplement the three ViMMSD architectures~\cite{10.1007/978-981-96-8892-0_31} to compare relative behavior across datasets. Metrics are not directly comparable because ViMMSD reports F1-micro for a four-class private test set, whereas ViMMSarc-Fine reports F1-macro on binary \texttt{mm\_label}. Still, the ranking changes: the staged-gating approach is strongest on ViMMSD but weakest on ViMMSarc-Fine, while multimodal fusion becomes strongest. We attribute this to label structure: ViMMSD explicitly separates text- and image-sarcasm classes, favoring modality routing, whereas ViMMSarc-Fine collapses modality evidence into a multimodal decision. The F1-macro range on ViMMSarc-Fine ($0.27$--$0.48$) also suggests that the binary formulation remains difficult, especially due to many \((0,0,1)\) cases where sarcasm appears only after combining modalities.
+This comparison underscores the utility of controlled ablations: on ViMMSarc-Fine, the fusion-based approach improves substantially under s3, whereas the other variants remain flatter across scenarios. This suggests that early text-vision fusion models are more sensitive to textual noise, whereas routing or cross-attention designs may trade peak performance for robustness.
+\section{Error analysis}
+We analyze camera-ready prediction errors by the annotated $(T,I,MM)$ combination, OCR availability, and platform. The test set contains 160 $(0,0,1)$ posts, or 49.69\% of its 322 MM-positive posts. Since this combination contains only positive MM labels, we report its false-negative rate rather than treating an undefined false-positive rate as zero.
+
+Adding OCR to DT4MID reduces the mean false-negative rate on $(0,0,1)$ from 39.17\% to 33.75\%, but increases its full-test false-positive rate from 27.13\% to 33.74\%. PhoBERT's overall OCR trend does not transfer uniformly to this group: its $(0,0,1)$ false-negative rate rises from 28.75\% to 31.67\% after OCR is added. These patterns motivate reporting subset errors with overall F1; they do not show that the difficult cross-modal cases have been solved, nor that a unimodal predictor cannot predict the final MM label.
+
+Our qualitative audit includes missed contextual incongruity, screenshot text that changes a correct prediction, incidental OCR associated with an error, a false positive on a neutral post, and a correct contextual case. We retain their IDs and predictions in the supplementary material. We do not reproduce their original social-media images here because an anonymized, release-approved version is required before inclusion.
+\section{Conclusion and future directions}
+We introduced ViMMSarc-Fine, a curated dataset of 7{,}355 Vietnamese multimodal social-media posts from Threads and Facebook, with modality-level labels and auxiliary OCR text. On the manually verified test subset, the reported $\kappa$ values describe agreement between LLM-generated and human-validated labels; they do not alone establish independent human--human reliability for all training labels.
+The $(0,0,1)$ distribution indicates that joint interpretation is important under the annotation protocol, while the camera-ready results show that current models can still predict some of these cases from limited inputs. OCR produces a positive but inconclusive average change for PhoBERT and no consistent gain for DT4MID. The cross-platform results further show limited transfer and substantial seed sensitivity. These findings support a cautious use of the resource for studying multimodal interpretation, OCR, and platform variation rather than a claim of general model superiority. Future work should extend human validation, release anonymized qualitative examples under verified conditions, and evaluate broader cross-platform settings.
+\section*{Acknowledgment}
+This research was supported by The VNUHCM-University of Information Technology's Scientific Research Support Fund.
+\nocite{huynh-etal-2022-vinli}
+\renewcommand{\refname}{References}
+\bibliographystyle{IEEEtran}
+\bibliography{custom}
+% \clearpage
+% \onecolumn
+% \appendix
+% \subsection{Full results table}
+% \label{app:full-results}
+% \begin{table*}[h]
+% \centering
+% \scriptsize
+% \setlength{\tabcolsep}{2.8pt}
+% \resizebox{\textwidth}{!}{%
+% \begin{tabular}{lcccc}
+% \toprule
+% \textbf{Model} & \textbf{s1} & \textbf{s2} & \textbf{s3} & \textbf{s4} \\
+% \midrule
+% \multicolumn{5}{l}{\textbf{Text-only}} \\
+% \midrule
+% RoBERTa-base & 0.6685 / 0.6627 / 0.7125 & 0.6712 / 0.6680 / 0.7160 & 0.6726 / 0.6660 / 0.7165 & 0.6726 / 0.6638 / 0.7130 \\
+% PhoBERT-base & \textbf{0.6848 / 0.6838 / 0.7518} & \textbf{0.6848 / 0.6838 / 0.7518} & 0.6821 / 0.6798 / 0.7301 & 0.6793 / 0.6776 / 0.7340 \\
+% mBERT & 0.6671 / 0.6650 / 0.7168 & 0.6386 / 0.6385 / 0.6970 & 0.6576 / 0.6353 / 0.7112 & 0.6399 / 0.6368 / 0.7015 \\
+% \midrule
+% \multicolumn{5}{l}{\textbf{Image-only}} \\
+% \midrule
+% ViT-B/32      & 0.5666 / 0.5666 / 0.5983 & -- & -- & -- \\
+% CLIP ViT-L/14 & \textbf{0.6603 / 0.6456 / 0.7101} & -- & -- & -- \\
+% \midrule
+% \multicolumn{5}{l}{\textbf{Multimodal}} \\
+% \midrule
+% DT4MID & 0.6929 / 0.6864 / 0.7449 & 0.6848 / 0.6841 / 0.7621 & 0.6807 / 0.6730 / 0.7476 & \textbf{0.6943 / 0.6884 / 0.7529} \\
+% CIRM & 0.6318 / 0.6292 / 0.6629 & 0.4375 / 0.3043 / 0.5336 & 0.4375 / 0.3043 / 0.5280 & 0.6128 / 0.5943 / 0.5772 \\
+% LLaVA-1.6-7B & 0.5639 / 0.3634 / -- & 0.5639 / 0.3634 / -- & 0.5639 / 0.3634 / -- & 0.5639 / 0.3634 / -- \\
+% Qwen3-VL-8B & 0.5734 / 0.5734 / -- & 0.5910 / 0.5908 / -- & 0.5734 / 0.5734 / -- & 0.5910 / 0.5908 / -- \\
+% ViMMSD-A [8] (staged gating) & 0.5815 / 0.3019 & 0.5761 / 0.2731 & 0.5666 / 0.2850 & 0.5829 / 0.3131 \\
+% ViMMSD-B [8] (hier. cross-attn.) & 0.6155 / 0.3043 & 0.6087 / 0.3053 & 0.6155 / 0.3020 & 0.6073 / 0.2881 \\
+% ViMMSD-C [8] (multimodal fusion) & 0.5095 / 0.3459 & 0.6182 / 0.4038 & 0.6087 / 0.4780 & 0.5883 / 0.4163 \\
+% \bottomrule
+% \end{tabular}
+% }
+% \caption{Full results on the \textit{test} set (Accuracy / F1-macro / AUC).}
+% \label{tab:all-results-full}
+% \end{table*}
+% \subsection{Detailed multimodal results}
+% \label{app:detailed-multimodal-results}
+% \begin{table*}[h]
+% \centering
+% \scriptsize
+% \setlength{\tabcolsep}{3pt}
+% \resizebox{\textwidth}{!}{%
+% \begin{tabular}{llccccc}
+% \toprule
+% \textbf{Model} & \textbf{Scenario} & \textbf{F1-macro} & \textbf{Accuracy} & \textbf{Precision} & \textbf{Recall} & \textbf{AUC} \\
+% \midrule
+% \multirow{4}{*}{DT4MID}
+%  & s1 & 0.6864 & 0.6929 & 0.6917 & 0.6929 & 0.7449 \\
+%  & s2 & 0.6841 & 0.6848 & 0.6956 & 0.6848 & 0.7621 \\
+%  & s3 & 0.6730 & 0.6807 & 0.6790 & 0.6807 & 0.7476 \\
+%  & s4 & \textbf{0.6884} & \textbf{0.6943} & 0.6935 & \textbf{0.6943} & 0.7529 \\
+% \midrule
+% \multirow{4}{*}{\shortstack[l]{ViMMSD-A [8] (staged gating) \\ 2 binary classifiers + gating network}}
+%  & s1 & 0.3019 & 0.5815 & 0.3784 & 0.5815 & -- \\
+%  & s2 & 0.2731 & 0.5761 & 0.3794 & 0.5761 & -- \\
+%  & s3 & 0.2850 & 0.5666 & 0.3624 & 0.5666 & -- \\
+%  & s4 & 0.3131 & 0.5829 & 0.3758 & 0.5829 & -- \\
+% \midrule
+% \multirow{4}{*}{\shortstack[l]{ViMMSD-B [8] (hier.\ cross-attn.) \\ hierarchical cross-attention \\ + 2-stage classification}}
+%  & s1 & 0.3043 & 0.6155 & 0.4884 & 0.6155 & -- \\
+%  & s2 & 0.3053 & 0.6087 & 0.4793 & 0.6087 & -- \\
+%  & s3 & 0.3020 & 0.6155 & 0.4960 & 0.6155 & -- \\
+%  & s4 & 0.2881 & 0.6073 & 0.4887 & 0.6073 & -- \\
+% \midrule
+% \multirow{4}{*}{\shortstack[l]{ViMMSD-C [8] (multimodal fusion) \\ FLAVA + feature concatenation}}
+%  & s1 & 0.3459 & 0.5095 & 0.4478 & 0.5095 & -- \\
+%  & s2 & 0.4038 & 0.6182 & 0.5310 & 0.6182 & -- \\
+%  & s3 & 0.4780 & 0.6087 & 0.5845 & 0.6087 & -- \\
+%  & s4 & 0.4163 & 0.5883 & 0.5288 & 0.5883 & -- \\
+% \bottomrule
+% \end{tabular}
+% }
+% \caption{Detailed multimodal results on the test set for DT4MID and the three ViMMSD architectures across four scenarios.}
+% \label{tab:detailed-multimodal-results}
+% \end{table*}
+% \clearpage
+% \twocolumn
+% \section{Experimental hyperparameters}
+% \label{app:exp-params}
+% \begin{table}[htbp]
+% \centering
+% \footnotesize
+% \setlength{\tabcolsep}{4pt}
+% \begin{tabular}{lY}
+% \toprule
+% \textbf{Item} & \textbf{Setting} \\
+% \midrule
+% Data split & Train/Dev/Test = 80/10/10 (fixed) \\
+% Target label & \texttt{MM} \\
+% Max epochs & 10 \\
+% Early stopping & By \textit{weighted F1} on Dev; patience = 2 \\
+% Learning rate & $2\times10^{-5}$ \\
+% Max length (text) & 256 \\
+% Batch size (train/eval) & 4 / 8 (default for trained models) \\
+% LLM inference & \texttt{temperature}=0.0 \\
+% \bottomrule
+% \end{tabular}
+% \caption{Summary of experimental hyperparameters (condensed from the run configuration).}
+% \label{tab:exp-params}
+% \end{table}
+% \section{Hard samples by scenario}
+% \label{app:hard-samples}
+% This appendix visualizes \textit{hard samples} (instances misclassified by many models simultaneously) for each \textit{ablation} scenario. For each sample, we report (i) the gold label, (ii) the label combination \((T,I,M)\), and (iii) the list of models that made incorrect predictions under the corresponding scenario.
+% \subsection{s1 (no preprocessing, emoji kept)}
+% \begin{figure}[h]
+% \centering
+% \begin{tabular}{@{}m{0.28\linewidth}@{\hspace{0.02\linewidth}}m{0.70\linewidth}@{}}
+% \centering\includegraphics[width=\linewidth]{figures/hard_samples/hs_id00595} &
+% \footnotesize\raggedright
+% \textbf{ID 595} (FN). \textbf{Gold:} 1. \textbf{Combo:} \((1,0,1)\). \textbf{Source:} Threads.\\
+% \textbf{Text:} ``cách người lướt linkedln 181p mỗi ngày code wordpress (emoji)''.\\
+% \textbf{OCR (abridged):} ``Celine Wang ... Trái Đất, Hệ Mặt Trời ... Hơn 50o kết nối''.\\
+% \textbf{Incorrect models (7/9):} CIRM, DT4MID, LLaVA-1.6-7B, PhoBERT-base, Qwen3-VL-8B, XLM-R-base, mBERT.
+% \end{tabular}
+% \caption{s1 hard sample: false negative on a community/context-dependent case (ID 595).}
+% \end{figure}
+% \begin{figure}[h]
+% \centering
+% \begin{tabular}{@{}m{0.28\linewidth}@{\hspace{0.02\linewidth}}m{0.70\linewidth}@{}}
+% \centering\includegraphics[width=\linewidth]{figures/hard_samples/hs_id05990} &
+% \footnotesize\raggedright
+% \textbf{ID 5990} (FP). \textbf{Gold:} 0. \textbf{Combo:} \((0,0,0)\). \textbf{Source:} Facebook.\\
+% \textbf{Text:} ``Tôi ở công ti cố gắng sinh tồn đến hết thứ 6:''.\\
+% \textbf{OCR:} ``stars''.\\
+% \textbf{Incorrect models (8/9):} CIRM, CLIP ViT-L/14, DT4MID, PhoBERT-base, Qwen3-VL-8B, ViT-B/32, XLM-R-base, mBERT.
+% \end{tabular}
+% \caption{s1 hard sample: false positive on a neutral background post (ID 5990).}
+% \end{figure}
+% \begin{figure}[h]
+% \centering
+% \begin{tabular}{@{}m{0.28\linewidth}@{\hspace{0.02\linewidth}}m{0.70\linewidth}@{}}
+% \centering\includegraphics[width=\linewidth]{figures/hard_samples/hs_id02861} &
+% \footnotesize\raggedright
+% \textbf{ID 2861} (FP). \textbf{Gold:} 0. \textbf{Combo:} \((0,0,0)\). \textbf{Source:} Facebook.\\
+% \textbf{Text:} ``Tôi xuất hiện mỗi khi nghe thấy hai tiếng “Dookki”:''.\\
+% \textbf{OCR:} (empty).\\
+% \textbf{Incorrect models (8/9):} CIRM, CLIP ViT-L/14, DT4MID, PhoBERT-base, Qwen3-VL-8B, ViT-B/32, XLM-R-base, mBERT.
+% \end{tabular}
+% \caption{s1 hard sample: the ``Tôi ...:'' pattern with a reaction image tends to trigger positive predictions (ID 2861).}
+% \end{figure}
+% \subsection{s2 (no preprocessing, emoji removed)}
+% \begin{figure}[H]
+% \centering
+% \begin{tabular}{@{}m{0.28\linewidth}@{\hspace{0.02\linewidth}}m{0.70\linewidth}@{}}
+% \centering\includegraphics[width=\linewidth]{figures/hard_samples/hs_id05803} &
+% \footnotesize\raggedright
+% \textbf{ID 5803} (FP). \textbf{Gold:} 0. \textbf{Combo:} \((0,0,0)\). \textbf{Source:} Facebook.\\
+% \textbf{Text:} ``Tôi đi ngủ biết rằng ngày mai vẫn chưa phải cuối tuần:''.\\
+% \textbf{OCR:} ``I(''.\\
+% \textbf{Incorrect models (6/7):} CIRM, DT4MID, PhoBERT-base, Qwen3-VL-8B, XLM-R-base, mBERT.
+% \end{tabular}
+% \caption{s2 hard sample: an everyday complaint/humor post misread as sarcasm by many models (ID 5803).}
+% \end{figure}
+% \begin{figure}[H]
+% \centering
+% \begin{tabular}{@{}m{0.28\linewidth}@{\hspace{0.02\linewidth}}m{0.70\linewidth}@{}}
+% \centering\includegraphics[width=\linewidth]{figures/hard_samples/hs_id05990} &
+% \footnotesize\raggedright
+% \textbf{ID 5990} (FP). \textbf{Gold:} 0. \textbf{Combo:} \((0,0,0)\). \textbf{Source:} Facebook.\\
+% \textbf{Text:} ``Tôi ở công ti cố gắng sinh tồn đến hết thứ 6:''.\\
+% \textbf{OCR:} ``stars''.\\
+% \textbf{Incorrect models (6/7):} CIRM, DT4MID, PhoBERT-base, Qwen3-VL-8B, XLM-R-base, mBERT.
+% \end{tabular}
+% \caption{s2 hard sample: a recurrent false positive across multiple scenarios (ID 5990).}
+% \end{figure}
+% \begin{figure}[H]
+% \centering
+% \begin{tabular}{@{}m{0.28\linewidth}@{\hspace{0.02\linewidth}}m{0.70\linewidth}@{}}
+% \centering\includegraphics[width=\linewidth]{figures/hard_samples/hs_id04170} &
+% \footnotesize\raggedright
+% \textbf{ID 4170} (FP). \textbf{Gold:} 0. \textbf{Combo:} \((0,0,0)\). \textbf{Source:} Threads.\\
+% \textbf{Text:} ``BTC không vội chứ em vội =)))))))))))''.\\
+% \textbf{OCR (abridged):} ``BTC FANCON ... gửi tới mọi người sớm ...''.\\
+% \textbf{Incorrect models (6/7):} CIRM, DT4MID, PhoBERT-base, Qwen3-VL-8B, XLM-R-base, mBERT.
+% \end{tabular}
+% \caption{s2 hard sample: heavy laughter markers and text-rich images can be misleading, but the gold label is non-sarcastic (ID 4170).}
+% \end{figure}
+% \subsection{s3 (preprocessed, emoji kept)}
+% Hard samples in s3 largely overlap with those in s2 on the \textit{test} set (IDs 5803, 5990, 4170) and exhibit the same dominant FP pattern on \((0,0,0)\). We therefore omit repeated figures here for brevity.
+% \subsection{s4 (preprocessed, emoji removed)}
+% \begin{figure}[H]
+% \centering
+% \begin{tabular}{@{}m{0.28\linewidth}@{\hspace{0.02\linewidth}}m{0.70\linewidth}@{}}
+% \centering\includegraphics[width=\linewidth]{figures/hard_samples/hs_id03587} &
+% \footnotesize\raggedright
+% \textbf{ID 3587} (FN). \textbf{Gold:} 1. \textbf{Combo:} \((1,1,1)\). \textbf{Source:} Threads.\\
+% \textbf{Text (abridged):} ``Mình là Dũng... chia tay vì sợ sau này bị ny tác động vật lí...''.\\
+% \textbf{OCR (abridged):} ``Chào mng ... chia tay ny vì ny tác động vật lý ...''.\\
+% \textbf{Incorrect models (7/7):} CIRM, DT4MID, LLaVA-1.6-7B, PhoBERT-base, Qwen3-VL-8B, XLM-R-base, mBERT.
+% \end{tabular}
+% \caption{s4 hard sample: requires contextual reasoning and text--image comparison to detect sarcasm (ID 3587).}
+% \end{figure}
+% \begin{figure}[H]
+% \centering
+% \begin{tabular}{@{}m{0.28\linewidth}@{\hspace{0.02\linewidth}}m{0.70\linewidth}@{}}
+% \centering\includegraphics[width=\linewidth]{figures/hard_samples/hs_id01602} &
+% \footnotesize\raggedright
+% \textbf{ID 1602} (FN). \textbf{Gold:} 1. \textbf{Combo:} \((1,0,1)\). \textbf{Source:} Threads.\\
+% \textbf{Text:} ``Hanni chỉ nói chuyện với staff bằng tiếng anh như 1 cách silent treatment ...''.\\
+% \textbf{OCR (abridged):} ``These few rumors ... allegedly Hanni only talks ...''.\\
+% \textbf{Incorrect models (7/7):} CIRM, DT4MID, LLaVA-1.6-7B, PhoBERT-base, Qwen3-VL-8B, XLM-R-base, mBERT.
+% \end{tabular}
+% \caption{s4 hard sample: sarcasm relies on community knowledge and evaluative stance, and is easily missed (ID 1602).}
+% \end{figure}
+% \begin{figure}[H]
+% \centering
+% \begin{tabular}{@{}m{0.28\linewidth}@{\hspace{0.02\linewidth}}m{0.70\linewidth}@{}}
+% \centering\includegraphics[width=\linewidth]{figures/hard_samples/hs_id01703} &
+% \footnotesize\raggedright
+% \textbf{ID 1703} (FN). \textbf{Gold:} 1. \textbf{Combo:} \((1,1,1)\). \textbf{Source:} Threads.\\
+% \textbf{Text:} ``- sao bây giờ nhiều người ghét thằng bray thế kh biết. - ừ t cũng ghét nó phải 7-8 năm nay rồi m''.\\
+% \textbf{OCR (abridged):} ``Bray trong quá khứ ... Bray hiện tại ...''.\\
+% \textbf{Incorrect models (7/7):} CIRM, DT4MID, LLaVA-1.6-7B, PhoBERT-base, Qwen3-VL-8B, XLM-R-base, mBERT.
+% \end{tabular}
+% \caption{s4 hard sample: sarcasm/criticism depends on event context and text-rich screenshots (ID 1703).}
+% \end{figure}
+% \clearpage
+% \section{Prompts used in the two annotation rounds}
+% \label{app:prompts}
+% \subsection{Round-1 prompt (binary label)}
+% \begin{Verbatim}[fontsize=\tiny,breaklines=true,breakanywhere=true,breakautoindent=true,breaksymbolleft={},breaksymbolright={}]
+% You are an annotator for multimodal sarcasm detection in Vietnamese social media posts.
+% Your task is to determine whether a given post is non-sarcastic (label 0) or sarcastic (label 1),
+% by analyzing three modalities: text, images, and emoji. Not every input contains emoji.
+% Reason through all checks in order; do not skip any, even if the answer seems obvious.
+% Return exactly one valid JSON object and nothing else — no explanation, no markdown, no text outside the JSON.
+% All reasoning fields must be written in Vietnamese.
+% All JSON keys and enum values must be in English exactly as shown in the output schema.
+% Input:
+% [TEXT]
+% {text}
+% [IMAGES]
+% {images}
+% [OCR_TEXT]
+% {ocr_text}
+% Note: OCR_TEXT is automatically extracted from the image via OCR and may contain recognition errors (misspellings, missing diacritics, incorrect tokenization). Use OCR_TEXT only as auxiliary context to understand in-image text — do NOT treat it as primary evidence.
+% ---
+% === LABEL DEFINITIONS ===
+% Label 0 = Non-sarcastic: text, image, and emoji are consistent and aligned; a literal reading matches the author's intent.
+% Label 1 = Sarcastic: the author says/shows one thing but intends a different stance — cues can be subtle or require cultural/context knowledge. Typically falls into one of 7 types:
+%   1.1 Verbal: the text says the opposite of the intended meaning.
+%   1.2 Image-Text Conflict: the text and image directly contradict each other.
+%   1.3 Emoji-Text Conflict: emoji expresses an opposing emotion and flips the meaning of the text.
+%   1.4 Contextual: the text appears normal but sarcasm is only apparent with real-world context or common cultural templates.
+%   1.5 Self-deprecating: self-mockery via inversion or exaggeration.
+%   1.6 Hyperbolic: extreme exaggeration used to criticize implicitly.
+%   1.7 Multimodal: requires combining text + image + emoji + context to recognize sarcasm.
+% Label "INVALID": use when sarcasm cannot be determined because the input is faulty or insufficient. INVALID cases include:
+%   - caption and image are completely unrelated (two different topics with no semantic relation);
+%   - empty caption, only special characters, or not a coherent sentence;
+%   - missing image, or the image is too blurry/corrupted to recognize content;
+%   - caption language cannot be identified;
+%   - content is censored to the point that essential information is missing;
+%   - confidence < 0.4 and the caption–image relation cannot be determined.
+%   NOTE: do NOT assign INVALID merely because the content is hard to interpret, requires long thinking, or is politically sensitive.
+%         a slightly blurry image is NOT INVALID if content is still recognizable.
+%         if you can hypothesize a caption–image relation (even vaguely), choose the closest label and note uncertainty in validity.
+% ---
+% === REQUIRED ANALYSIS PROCEDURE ===
+% --- FIRST CHECK: VALIDITY ---
+% Is the caption semantically related to the image? Is the image readable and is the caption a coherent sentence?
+% → If there is no semantic relation, or the input is faulty per INVALID cases above: stop, assign "INVALID", and clearly state the reason in validity.
+% → If valid: continue.
+% --- SECOND CHECK: DIVERGENT THINKING ---
+% Form BOTH arguments with equal weight before deciding:
+% Non-Sarcastic case — argue that the post is entirely literal: modalities are aligned, the situation is mundane, and there are no sarcasm cues from the list above.
+% Sarcastic case — argue that the post is sarcastic: there is conflict, exaggeration, inversion, or any cue from the list above.
+% --- THIRD CHECK: EMOJI & SARCASM TYPE ---
+% - Does the emoji reinforce or invert the meaning?
+% - If the post is Label 1, which type (1.1–1.7) is most plausible?
+% --- FINAL VERDICT ---
+% Compare the two arguments and apply the tiebreaker rules:
+%   → If the Sarcastic case is stronger or tied AND the post uses sarcasm cues/formats common in Vietnamese.
+%   → If the Non-Sarcastic case clearly dominates and no cues from the list are present: assign label 0.
+%   → Do NOT use "no additional context" as a reason to automatically assign label 0 — contextual sarcasm (1.4) is valid even with only shared cultural knowledge.
+% ---
+% === OUTPUT FORMAT ===
+% Return EXACTLY this JSON. No text before or after.
+% {
+%   "llm_label": <0 | 1 | "INVALID">,
+%   "reasoning": {
+%     "non_sacarstic_case": "<the strongest argument that the post is literal (SECOND CHECK)>",
+%     "sacartic_case": "<the strongest argument that the post is sarcastic; if yes, specify type 1.x and concrete cues (SECOND CHECK)>",
+%     "emoji_reasoning": "<if emoji is present, explain whether it reinforces or inverts meaning>",
+%     "sacarsm_type": "<sarcasm type if label=1 per guideline; NULL otherwise>",
+%     "verdict": "<final decision rationale; apply tiebreaker if needed; mention whether evidence is Text_Only / ImageSet_Only (FINAL VERDICT)>"
+%   },
+%   "has_emoji": <0 | 1>,
+%   "needs_human_check": <"0 if the LLM is confident in the verdict; 1 if human verification is needed">
+% }
+% \end{Verbatim}
+% \subsection{Round-2 prompt (T/I/M labels)}
+% \begin{Verbatim}[fontsize=\tiny,breaklines=true,breakanywhere=true,breakautoindent=true,breaksymbolleft={},breaksymbolright={}]
+% You are an annotator for Vietnamese multimodal sarcasm detection.
+% Your goal is to label the post carefully and conservatively.
+% Do not assume sarcasm unless there is clear evidence.
+% Return exactly one valid JSON object and nothing else.
+% Write reasoning values in Vietnamese. DO NOT write reasoning in English.
+% Important validity rule:
+% - Use "INVALID" only when the input is effectively unusable: the text is empty/meaningless or the image is missing/unreadable, so a reliable judgment is impossible.
+% - If there is enough usable evidence to judge, choose 0 or 1.
+% Input:
+% [TEXT]
+% {text}
+% [IMAGES]
+% {images}
+% [OCR_TEXT]
+% {ocr_text}
+% [ROUND1_BINARY_LABEL]
+% {label_round_1}
+% Use OCR only as supporting evidence because OCR may contain recognition errors.
+% Do not treat OCR as the main evidence if the image itself is readable.
+% The round-1 binary label is only prior context. You may disagree with it.
+% If your final verdict differs from the round-1 binary label, explain the reason more tightly and concretely in `reasoning.verdict`.
+% Important annotation convention
+% In this dataset, sarcasm is broader than strict "saying the opposite". It also includes common Vietnamese social-media mocking styles such as:
+% - cà khịa / đá xoáy / móc mỉa
+% - derisive rhetorical questions
+% - quoting others only to ridicule or dismiss them
+% - contemptuous or passive-aggressive dismissal
+% - mocking disbelief signaled by emoji or discourse markers like "ừ", "ha", "rồi đó" when clearly insincere
+% Do not assume direct criticism = non-sarcastic.
+% A post can still be sarcastic if the criticism is expressed as ridicule, sneering, mock imitation, rhetorical contempt, or social-media-style mockery, even without explicit literal reversal.
+% But do not overcall sarcasm.
+% Do NOT label sarcastic only because the post is funny, absurd, exaggerated, fandom-like, emotional, or emoji-heavy.
+% If the tone is merely playful, affectionate, surprised, or humorous without a clear mocking target or derisive stance, prefer 0.
+% Task
+% Evaluate the post in 3 steps:
+% Step 1 — Text-only (T)
+% Ignore the image. Read only TEXT.
+% Question: Would an ordinary Vietnamese reader detect sarcasm from the words alone?
+% Set T=1 only if there is clear textual sarcasm such as:
+% - verbal irony / saying the opposite of the intended meaning
+% - fake praise for an obviously bad situation
+% - strong hyperbole used critically
+% - mocking emoji that clearly flips the text meaning
+% - self-mocking contrast
+% Set T=0 if the text is literal, merely emotional, vague, or too ambiguous.
+% Step 2 — Image-only (I)
+% Ignore the text. Look only at the image.
+% Question: Would the image itself communicate sarcasm or irony without needing the caption?
+% Set I=1 only if the image alone provides clear evidence, for example:
+% - a known mocking meme / reaction template
+% - ironic text inside the image itself
+% - a visual contradiction inside the image itself
+% - an obviously failed situation framed as success inside the image
+% Set I=0 for ordinary images such as selfies, scenery, food, objects, luxury aesthetics, or serious photos without explicit irony.
+% Do not mark I=1 just because the image is funny, dramatic, weird, or aesthetically edited.
+% Step 3 — Multimodal final decision (MM)
+% Now consider the full post with BOTH text and image.
+% Question: When reading the whole post naturally, is the overall post sarcastic?
+% Set MM=1 when ANY of these is true:
+% - the text alone is already sarcastic and the image does not cancel that reading
+% - the image alone is already sarcastic and the text does not cancel that reading
+% - sarcasm mainly emerges from the relation between text and image
+% Typical MM=1 cases (can be more cases than the following list):
+% - praising text + clearly bad image
+% - humble/complaining text + obviously boastful image
+% - neutral text + clearly mocking meme image
+% - sarcastic text + neutral image
+% Set MM=0 if the whole post is best read literally, sincerely, or the evidence is too weak/speculative.
+% Important consistency rules:
+% - MM is a post-level decision, not only a contrast detector
+% - T=1 does NOT automatically force MM=1, but MM is usually 1 unless the image clearly changes/cancels the sarcastic reading
+% - I=1 does NOT automatically force MM=1, but MM can still be 1 even if T=0
+% Final label rule
+% - Output `final_label` using this exact rule:
+%   - final_label = 0 for (T,I,MM) in {(0,1,0), (1,0,0), (0,0,0)}
+%   - otherwise final_label = 1
+% - If the input is unusable under the strict validity rule above, output `final_label` = "INVALID"
+% Other fields
+% - has_emoji = 1 if TEXT contains emoji, else 0
+% Calibration examples
+% Use these examples to match the dataset convention:
+% Example 1 — sarcastic via derisive rhetorical question
+% - Text: "Chúng m ơi thật sự ảnh kỉ yếu nhất thiết chụp như thế à :))?"
+% - Image: awkward yearbook-style poses
+% - Why: This is not a sincere question. It is a mocking rhetorical question with a sneering tone.
+% - Output tendency: T=1, I=0, MM=1, final_label=1
+% Example 2 — sarcastic via contemptuous social-media mockery
+% - Text: a long rant attacking how fans keep defending a celebrity after repeated bad behavior, ending with a sneering smiley like ":)"
+% - Image: screenshot of fans expressing sympathy
+% - Why: Even though the criticism is direct, the tone is clearly cà khịa / contemptuous mockery, not just neutral criticism.
+% - Output tendency: T=1, I=0, MM=1, final_label=1
+% Example 3 — sarcastic via quoted ridicule / dismissive "ừ"
+% - Text: quote people defending someone ("xin lỗi cũng bị chửi...") and end with "ừ��‍♀️��‍♀️"
+% - Image: apology post screenshot
+% - Why: The quoted defense is being repeated to mock or dismiss it, not endorsed sincerely.
+% - Output tendency: T=1, I=0, MM=1, final_label=1
+% Example 4 — sarcastic via double-standard mock comparison
+% - Text: compare how men vs women are judged after saying something offensive
+% - Image: apology screenshot
+% - Why: The post frames a mocking, derisive comparison about social double standards rather than a neutral observation.
+% - Output tendency: T=1, I=0, MM=1, final_label=1
+% Example 5 — NOT sarcastic: playful / weird / absurd is not enough
+% - Text: "Có thể bạn chưa biết... 2 con mụ trong ảnh giờ đã cưới nhau��"
+% - Image: ordinary photo of two girls
+% - Why: The post is trollish / absurd / joking, but not clearly mocking a target with sarcastic stance.
+% - Output tendency: T=0, I=0, MM=0, final_label=0
+% Example 6 — NOT sarcastic: affectionate or excited tone with emoji
+% - Text: "gửi bé tiểu cường ở đây để thật điềm tĩnh khi xem, chứ các mom xịn thíaaaa ��"
+% - Image: cute bug/character image
+% - Why: Emoji, exaggeration, or cute/self-joking tone alone do not make it sarcastic.
+% - Output tendency: T=0, I=0, MM=0, final_label=0
+% Example 7 — NOT sarcastic: funny mismatch alone is not enough
+% - Text: excitedly talk about a weirdly named cute animal/pet
+% - Image: cute animal
+% - Why: The post is just playful and absurd, without a clear derisive stance or ridicule target.
+% - Output tendency: T=0, I=0, MM=0, final_label=0
+% Example 8 — NOT sarcastic: awkward situation does not always imply sarcasm
+% - Text: "Vl đ ổn rồi, giờ tắt live còn kịp không"
+% - Image: awkward/funny livestream scene
+% - Why: This may read as an immediate embarrassed reaction, not necessarily sarcastic mockery.
+% - Output tendency: T=0, I=0, MM=0, final_label=0
+% Return exactly this JSON schema:
+% {
+%   "labels": {
+%     "T": 0 or 1,
+%     "I": 0 or 1,
+%     "MM": 0 or 1
+%   },
+%   "final_label": 0 or 1 or "INVALID",
+%   "reasoning": {
+%     "text_only": "Short evidence for T", // Must be written in Vietnamese
+%     "image_only": "Short evidence for I", // Must be written in Vietnamese
+%     "multimodal": "Short evidence for MM", // Must be written in Vietnamese
+%     "verdict": "Short final explanation" // Must be written in Vietnamese
+%   },
+%   "has_emoji": 0 or 1
+% }
+% \end{Verbatim}
+\end{document}
