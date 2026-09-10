@@ -11,6 +11,19 @@ def _write_resolved_config(config: dict, run_dir: Path) -> None:
     save_yaml(run_dir / 'resolved_config.yaml', clean)
 
 
+def _set_global_seed(seed: int) -> None:
+    import random
+
+    import numpy as np
+    import torch
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
 def _scenario_output_dir(run_dir: Path, model_name: str, scenario: str) -> Path:
     return ensure_dir(run_dir / model_name / scenario)
 
@@ -57,6 +70,11 @@ def _save_summary(run_dir: Path, model_name: str, rows: list[dict]) -> None:
 
 
 def run_pipeline(config: dict, stage: str = 'all') -> None:
+    seed = config.get('experiment', {}).get('seed')
+    if seed is not None:
+        _set_global_seed(int(seed))
+        print(f'[run] global seed set to {seed}')
+
     run_dir = build_run_dir(config)
     _write_resolved_config(config, run_dir)
     print(f'[run] output dir: {run_dir}')
