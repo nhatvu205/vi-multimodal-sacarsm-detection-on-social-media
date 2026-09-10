@@ -1,0 +1,15 @@
+extends: ../base.yaml
+experiment:
+  name: clip_vitl14_mm_seed42
+  seed: 42
+run:
+  scenarios: [s1]
+model:
+  key: clip-vitl14
+  family: image_classifier
+  pretrained_name: openai/clip-vit-large-patch14
+  vision_backbone: clip
+# Bảng kết quả yêu cầu "LR cố định; warmup 0" cho model này.
+# base.yaml có warmup_ratio: 0.1 mặc định -> override về 0 ở đây.
+training:
+  warmup_ratio: 0.0
