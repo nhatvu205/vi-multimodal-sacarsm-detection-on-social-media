@@ -308,7 +308,7 @@ class Qwen3VLGenerativeAdapter(ModelAdapter):
         self.model = Qwen3VLForConditionalGeneration.from_pretrained(
             self.config['model']['pretrained_name'],
             **model_kwargs,
-        )
+        ).eval()
         self.model = _maybe_load_adapter(self.model, self.config)
         self.pad_token_id = _set_pad_token(processor=self.processor, model=self.model)
 
@@ -356,7 +356,12 @@ class Qwen3VLGenerativeAdapter(ModelAdapter):
                     do_sample=False,
                     pad_token_id=self.pad_token_id,
                 )
-                decoded = self.processor.batch_decode(generated, skip_special_tokens=True)[0]
+                # model.generate() returns the full sequence (prompt + new
+                # tokens). Slice off the input length so we only decode the
+                # newly generated tokens, not the echoed prompt.
+                input_len = inputs['input_ids'].shape[1]
+                new_tokens = generated[:, input_len:]
+                decoded = self.processor.batch_decode(new_tokens, skip_special_tokens=True)[0]
                 combo, raw_output = parse_combo_prediction(decoded)
                 results.append({
                     'id': record['id'],
@@ -368,7 +373,7 @@ class Qwen3VLGenerativeAdapter(ModelAdapter):
                 })
                 if progress_callback is not None:
                     progress_callback(results, idx, total, split)
-                del inputs, generated, decoded, image, text, messages
+                del inputs, generated, new_tokens, decoded, image, text, messages
                 _cleanup_cuda(torch)
         return results
 
