@@ -37,13 +37,20 @@ class _SarcasmDetectionBaseAdapter(ModelAdapter):
             return 3
         return 1
 
+    @staticmethod
+    def _collapse_mm(combo_label: int) -> int:
+        """Collapse the internal 4-way modality-attribution label (0/1/2/3)
+        back to the binary mm_label the paper reports metrics on: 0 = not
+        sarcastic, 1 = sarcastic (regardless of which modality drives it)."""
+        return 1 if int(combo_label) != 0 else 0
+
     def _checkpoint_path(self, scenario: str, name: str = 'checkpoint.pt') -> Path:
         return self.run_dir / self.model_name / scenario / name
 
     def _f1_score(self, labels: list[int], preds: list[int]) -> float:
         from sklearn.metrics import f1_score
 
-        return float(f1_score(labels, preds, average='weighted', zero_division=0))
+        return float(f1_score(labels, preds, average='macro', zero_division=0))
 
     def _encode_texts(self, batch: list[dict]):
         cfg = self.config['training']
@@ -232,15 +239,20 @@ class SarcasmDetectionMultimodalFusionAdapter(_SarcasmDetectionBaseAdapter):
                 pixel_values = self._encode_images(batch, scenario)
                 logits = self.model(inputs['input_ids'], inputs['attention_mask'], pixel_values)
                 probs = self.torch.softmax(logits, dim=-1)
-                confs, preds = probs.max(dim=-1)
-                for item, pred, conf in zip(batch, preds.detach().cpu().tolist(), confs.detach().cpu().tolist()):
+                # P(mm_label=1) = 1 - P(class 0 == "not sarcastic"), summing the
+                # three sarcastic combo classes (1,2,3).
+                mm_probs = (1.0 - probs[:, 0]).detach().cpu().tolist()
+                preds = probs.argmax(dim=-1).detach().cpu().tolist()
+                for item, pred, mm_prob in zip(batch, preds, mm_probs):
                     processed += 1
+                    combo_label = self._label_from_record(item)
                     results.append({
                         'id': item['id'],
-                        'label': self._label_from_record(item),
-                        'prediction': int(pred),
-                        'probability': float(conf),
+                        'label': self._collapse_mm(combo_label),
+                        'prediction': self._collapse_mm(pred),
+                        'probability': float(mm_prob),
                         'raw_output': str(int(pred)),
+                        'predicted_combo': int(pred),
                     })
                     if progress_callback is not None:
                         progress_callback(results, processed, total, split)
@@ -744,12 +756,14 @@ class _Model2ThreeWay:
     def train(self):
         self.text_proj.train()
         self.image_proj.train()
+        self.pos_enc.dropout.train()
         self.cross_attn.train()
         self.fcn.train()
 
     def eval(self):
         self.text_proj.eval()
         self.image_proj.eval()
+        self.pos_enc.dropout.eval()
         self.cross_attn.eval()
         self.fcn.eval()
 
@@ -1020,18 +1034,20 @@ class SarcasmDetectionHierarchicalCrossAttentionAdapter(_SarcasmDetectionBaseAda
                 _, _, logits1, logits2, final_preds = self.hierarchical_model.predict(inputs['input_ids'], inputs['attention_mask'], pixel_values)
                 probs1 = self.torch.softmax(logits1, dim=-1)
                 probs2 = self.torch.softmax(logits2, dim=-1)
+                # P(mm_label=1) = P(model1 says consensus-sarcasm)
+                #               + P(model1 says not) * P(model2 says text-only or image-only)
+                mm_probs = (probs1[:, 1] + probs1[:, 0] * (1.0 - probs2[:, 0])).detach().cpu().tolist()
                 for idx, item in enumerate(batch):
                     processed += 1
-                    if final_preds[idx] == 1:
-                        confidence = float(probs1[idx].max().detach().cpu().item())
-                    else:
-                        confidence = float(probs2[idx].max().detach().cpu().item())
+                    combo_pred = int(final_preds[idx])
+                    combo_label = self._label_from_record(item)
                     results.append({
                         'id': item['id'],
-                        'label': self._label_from_record(item),
-                        'prediction': int(final_preds[idx]),
-                        'probability': confidence,
-                        'raw_output': str(int(final_preds[idx])),
+                        'label': self._collapse_mm(combo_label),
+                        'prediction': self._collapse_mm(combo_pred),
+                        'probability': float(mm_probs[idx]),
+                        'raw_output': str(combo_pred),
+                        'predicted_combo': combo_pred,
                     })
                     if progress_callback is not None:
                         progress_callback(results, processed, total, split)
