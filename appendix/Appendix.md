@@ -1,6 +1,6 @@
 # Appendix
 
-This appendix provides camera-ready supplementary material for ViMMSarc-Fine: detailed benchmark settings, dataset comparisons, split and subset counts, qualitative cases, uncertainty notes, anonymisation scope, and the two annotation prompts. The main paper is the primary source for reported conclusions.
+This appendix provides supplementary material for ViMMSarc-Fine: detailed benchmark settings, dataset comparisons, split and subset counts, qualitative cases, uncertainty notes, anonymisation scope, and the two annotation prompts. The main paper is the primary source for reported conclusions.
 
 > Five manually reviewed test images are embedded only where they are needed to interpret the qualitative cases. No readable social-media account names or handles are visible; ID 308 retains two small avatar thumbnails, and ID 5835 contains the artwork's signature because that text is the OCR failure being analysed. The remaining examples use opaque internal IDs and paraphrased descriptions.
 
