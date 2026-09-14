@@ -2,7 +2,7 @@
 
 This appendix provides camera-ready supplementary material for ViMMSarc-Fine: detailed benchmark settings, dataset comparisons, split and subset counts, qualitative cases, uncertainty notes, anonymisation scope, and the two annotation prompts. The main paper is the primary source for reported conclusions.
 
-> Five manually reviewed test images are embedded only where they are needed to interpret the qualitative cases. No readable names or handles are visible; ID 308 retains two small avatar thumbnails. The remaining examples use opaque internal IDs and paraphrased descriptions.
+> Five manually reviewed test images are embedded only where they are needed to interpret the qualitative cases. No readable social-media account names or handles are visible; ID 308 retains two small avatar thumbnails, and ID 5835 contains the artwork's signature because that text is the OCR failure being analysed. The remaining examples use opaque internal IDs and paraphrased descriptions.
 
 ## Camera-ready benchmark details
 
@@ -177,7 +177,7 @@ On the 736-sample adjudicated evaluation split, LLM--human $\kappa$ is 0.7600 fo
 
 ## Anonymisation and controlled access
 
-The full raw corpus is not redistributed. This appendix contains only the five manually reviewed test images above, selected because they show the qualitative evidence without readable names or handles; ID 308 still contains two small avatar thumbnails. The controlled-access package is otherwise limited to approved derived material: modality labels, anonymised OCR strings, statistics, and fixed splits keyed by opaque identifiers. Text and OCR replace direct identifiers with typed placeholders; other images used internally cover avatars, private faces, display names, and precise timestamps with opaque masks. Access and removal requests are reviewed case by case, and approved removal requests withdraw the associated derived records.
+The full raw corpus is not redistributed. This appendix contains only the five manually reviewed test images above, selected because they show the qualitative evidence without readable social-media account names or handles; ID 308 retains two small avatar thumbnails, and ID 5835 retains the artwork's signature because it is analytically relevant. The controlled-access package is otherwise limited to approved derived material: modality labels, anonymised OCR strings, statistics, and fixed splits keyed by opaque identifiers. Text and OCR replace direct identifiers with typed placeholders; other images used internally cover avatars, private faces, display names, and precise timestamps with opaque masks. Access and removal requests are reviewed case by case, and approved removal requests withdraw the associated derived records.
 
 ## Hard samples by scenario
 
