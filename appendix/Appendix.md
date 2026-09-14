@@ -1,81 +1,189 @@
 # Appendix
 
-This appendix provides supplementary material for the paper, including experimental settings, full results, hard-sample analyses, and the annotation prompts used in the two-round labeling process.
+This appendix provides camera-ready supplementary material for ViMMSarc-Fine: detailed benchmark settings, dataset comparisons, split and subset counts, qualitative cases, uncertainty notes, anonymisation scope, and the two annotation prompts. The main paper is the primary source for reported conclusions.
 
-> Note: Hard-sample entries are listed by sample ID only; images are not embedded in this Markdown appendix.
+> Five manually reviewed test images are embedded only where they are needed to interpret the qualitative cases. No readable names or handles are visible; ID 308 retains two small avatar thumbnails. The remaining examples use opaque internal IDs and paraphrased descriptions.
 
-## Full results table
+## Camera-ready benchmark details
+
+All trained models below predict the same binary `mm_label` and report mean ± sample SD over seeds 42, 123, and 2026. Qwen3-VL-8B is zero-shot and reports one deterministic score. Earlier single-run Accuracy/AUC values are not mixed with these camera-ready aggregations.
 
 ### Text-only
 
 | Model | s1 | s2 | s3 | s4 |
-|---|---|---|---|---|
-| RoBERTa-base | 0.6685 / 0.6627 / 0.7125 | 0.6712 / 0.6680 / 0.7160 | 0.6726 / 0.6660 / 0.7165 | 0.6726 / 0.6638 / 0.7130 |
-| PhoBERT-base | **0.6848 / 0.6838 / 0.7518** | **0.6848 / 0.6838 / 0.7518** | 0.6821 / 0.6798 / 0.7301 | 0.6793 / 0.6776 / 0.7340 |
-| mBERT | 0.6671 / 0.6650 / 0.7168 | 0.6386 / 0.6385 / 0.6970 | 0.6576 / 0.6353 / 0.7112 | 0.6399 / 0.6368 / 0.7015 |
+|---|---:|---:|---:|---:|
+| RoBERTa-base | 0.6726 ± 0.0178 | 0.6476 ± 0.0015 | **0.6751 ± 0.0106** | 0.6537 ± 0.0032 |
+| PhoBERT-base | 0.6747 ± 0.0094 | 0.6586 ± 0.0028 | 0.6633 ± 0.0090 | 0.6591 ± 0.0111 |
+| mBERT | 0.6684 ± 0.0097 | 0.6539 ± 0.0041 | 0.6514 ± 0.0179 | 0.6530 ± 0.0164 |
+| XLM-RoBERTa-base | **0.6818 ± 0.0086** | **0.6644 ± 0.0077** | 0.6712 ± 0.0017 | **0.6683 ± 0.0108** |
+| ViCLSR | 0.6336 ± 0.0132 | 0.6322 ± 0.0136 | 0.6440 ± 0.0074 | 0.6358 ± 0.0114 |
 
 ### Image-only
 
 | Model | s1 | s2 | s3 | s4 |
-|---|---|---|---|---|
-| ViT-B/32 | 0.5666 / 0.5666 / 0.5983 | -- | -- | -- |
-| CLIP ViT-L/14 | **0.6603 / 0.6456 / 0.7101** | -- | -- | -- |
+|---|---:|---:|---:|---:|
+| ViT-B/32 | 0.6222 ± 0.0446 | -- | -- | -- |
 
 ### Multimodal
 
 | Model | s1 | s2 | s3 | s4 |
-|---|---|---|---|---|
-| DT4MID | 0.6929 / 0.6864 / 0.7449 | 0.6848 / 0.6841 / 0.7621 | 0.6807 / 0.6730 / 0.7476 | **0.6943 / 0.6884 / 0.7529** |
-| CIRM | 0.6318 / 0.6292 / 0.6629 | 0.4375 / 0.3043 / 0.5336 | 0.4375 / 0.3043 / 0.5280 | 0.6128 / 0.5943 / 0.5772 |
-| LLaVA-1.6-7B | 0.5639 / 0.3634 / -- | 0.5639 / 0.3634 / -- | 0.5639 / 0.3634 / -- | 0.5639 / 0.3634 / -- |
-| Qwen3-VL-8B | 0.5734 / 0.5734 / -- | 0.5910 / 0.5908 / -- | 0.5734 / 0.5734 / -- | 0.5910 / 0.5908 / -- |
-| ViMMSD [1] (staged gating) | 0.5815 / 0.3019 | 0.5761 / 0.2731 | 0.5666 / 0.2850 | 0.5829 / 0.3131 |
-| ViMMSD [2] (hier. cross-attn.) | 0.6155 / 0.3043 | 0.6087 / 0.3053 | 0.6155 / 0.3020 | 0.6073 / 0.2881 |
-| ViMMSD [3] (multimodal fusion) | 0.5095 / 0.3459 | 0.6182 / 0.4038 | 0.6087 / 0.4780 | 0.5883 / 0.4163 |
+|---|---:|---:|---:|---:|
+| DT4MID | 0.6430 ± 0.0301 | **0.6730 ± 0.0103** | **0.6739 ± 0.0103** | **0.6777 ± 0.0051** |
+| CIRM | 0.6584 ± 0.0054 | 0.6522 ± 0.0267 | 0.6538 ± 0.0236 | 0.6402 ± 0.0346 |
+| Qwen3-VL-8B | 0.5734 | 0.5908 | 0.5734 | 0.5908 |
+| ViMMSD-B (cross-attention) | 0.4933 ± 0.1179 | 0.5457 ± 0.0174 | 0.5625 ± 0.0555 | 0.5289 ± 0.0132 |
+| ViMMSD-C (fusion) | **0.6766 ± 0.0085** | 0.6518 ± 0.0146 | 0.6578 ± 0.0079 | 0.6718 ± 0.0125 |
 
-*Table: Full results on the* `test` *set (Accuracy / F1-macro / AUC).*
-
-## Detailed multimodal results
-
-| Model | Scenario | F1-macro | Accuracy | Precision | Recall | AUC |
-|---|---|---:|---:|---:|---:|---:|
-| DT4MID | s1 | 0.6864 | 0.6929 | 0.6917 | 0.6929 | 0.7449 |
-| DT4MID | s2 | 0.6841 | 0.6848 | 0.6956 | 0.6848 | 0.7621 |
-| DT4MID | s3 | 0.6730 | 0.6807 | 0.6790 | 0.6807 | 0.7476 |
-| DT4MID | s4 | **0.6884** | **0.6943** | 0.6935 | **0.6943** | 0.7529 |
-| ViMMSD [1] (staged gating) | s1 | 0.3019 | 0.5815 | 0.3784 | 0.5815 | -- |
-| ViMMSD [1] (staged gating) | s2 | 0.2731 | 0.5761 | 0.3794 | 0.5761 | -- |
-| ViMMSD [1] (staged gating) | s3 | 0.2850 | 0.5666 | 0.3624 | 0.5666 | -- |
-| ViMMSD [1] (staged gating) | s4 | 0.3131 | 0.5829 | 0.3758 | 0.5829 | -- |
-| ViMMSD [2] (hier. cross-attn.) | s1 | 0.3043 | 0.6155 | 0.4884 | 0.6155 | -- |
-| ViMMSD [2] (hier. cross-attn.) | s2 | 0.3053 | 0.6087 | 0.4793 | 0.6087 | -- |
-| ViMMSD [2] (hier. cross-attn.) | s3 | 0.3020 | 0.6155 | 0.4960 | 0.6155 | -- |
-| ViMMSD [2] (hier. cross-attn.) | s4 | 0.2881 | 0.6073 | 0.4887 | 0.6073 | -- |
-| ViMMSD [3] (multimodal fusion) | s1 | 0.3459 | 0.5095 | 0.4478 | 0.5095 | -- |
-| ViMMSD [3] (multimodal fusion) | s2 | 0.4038 | 0.6182 | 0.5310 | 0.6182 | -- |
-| ViMMSD [3] (multimodal fusion) | s3 | 0.4780 | 0.6087 | 0.5845 | 0.6087 | -- |
-| ViMMSD [3] (multimodal fusion) | s4 | 0.4163 | 0.5883 | 0.5288 | 0.5883 | -- |
-
-*Table: Detailed multimodal results on the test set for DT4MID and the three ViMMSD architectures across four scenarios.*
+*Table: Test F1-macro by preprocessing scenario. Bold marks the best verified mean per group and scenario.*
 
 ## Experimental hyperparameters
 
 | Item | Setting |
 |---|---|
-| Data split | Train/Dev/Test = 80/10/10 (fixed) |
-| Target label | `mm_label` |
-| Max epochs | 10 |
-| Early stopping | By *weighted F1* on Dev; patience = 2 |
-| Learning rate | $2\times10^{-5}$ |
-| Max length (text) | 256 |
-| Batch size (train/eval) | 4 / 8 (default for trained models) |
-| LLM inference | `temperature` = 0.0 |
+| Data split | Train/Dev/Test = 5,884/735/736, fixed for the benchmark |
+| Target and selection | `mm_label`; checkpoint selected by Dev F1-macro |
+| Seeds | 42, 123, 2026 |
+| Optimisation | AdamW; learning rate $2\times10^{-5}$; weight decay 0.01 |
+| Training | At most 10 epochs; early-stopping patience 2 |
+| Text encoders | train/eval batch 16/32; 256 tokens |
+| ViCLSR | train/eval batch 2/8; 256 tokens |
+| CIRM | train/eval batch 4/8; 256 tokens |
+| DT4MID and ViMMSD | train/eval batch 8/16; 128 tokens in the scenario benchmark |
+| Image models | train/eval batch 16/32 |
+| Controlled OCR batch | s1; 256-token text limit, including DT4MID |
 
-*Table: Summary of experimental hyperparameters (condensed from the run configuration).*
+The scenario benchmark and controlled OCR/platform experiments are separate batches. Their absolute scores should not be interchanged; OCR effects are interpreted only through matched comparisons within the controlled batch.
+
+## Cross-dataset comparison
+
+| Dataset | Language / source | N | Label space | OCR | Quality control / validation |
+|---|---|---:|---|---|---|
+| MMSD2.0 | English / Twitter | 24,635 | One binary post label | No | Data cleaning and debiasing |
+| SarcNet | English and Chinese | 3,335 | Independent text, image, and multimodal labels | No | Two independent annotators and third-person adjudication; per-label $\kappa$ |
+| ViMMSD | Vietnamese | 13,722 | One four-way exclusive label | Yes | Not reported in the same per-label form |
+| ViMMSarc-Fine | Vietnamese / Facebook and Threads | 7,355 | Text, image, and multimodal labels | Auxiliary OCR | Two-person adjudicated test split; LLM-labelled train/dev |
+
+The main distinction is the label space, not an absolute performance ranking. ViMMSD reports F1-micro on a private four-class test set, whereas our reimplementations are scored by F1-macro after projection to binary $M$. Absolute scores across the two datasets are therefore not directly comparable.
+
+## Split and subset counts
+
+| Split | Source | N | $M=0$ | $M=1$ |
+|---|---|---:|---:|---:|
+| train | all | 5,884 | 3,305 | 2,579 |
+| train | Facebook | 2,322 | 763 | 1,559 |
+| train | Threads | 3,562 | 2,542 | 1,020 |
+| dev | all | 735 | 413 | 322 |
+| dev | Facebook | 286 | 94 | 192 |
+| dev | Threads | 449 | 319 | 130 |
+| test | all | 736 | 414 | 322 |
+| test | Facebook | 291 | 98 | 193 |
+| test | Threads | 445 | 316 | 129 |
+
+| Test subset | N | $M=0$ | $M=1$ |
+|---|---:|---:|---:|
+| OCR present | 486 | 271 | 215 |
+| OCR absent | 250 | 143 | 107 |
+
+The platform transfer comparison changes source training size, class prevalence, and target-test composition simultaneously. Its gaps measure transfer under the stated protocol, not the causal effect of a single platform property. OCR-present means only that `ocr_text` is non-empty after trimming; it does not imply that OCR is correct or informative.
+
+## Controlled-experiment uncertainty
+
+The tables report sample SD over three seeds. Full-test confidence intervals use 10,000 bootstrap resamples of test IDs. For OCR deltas, the same resampled IDs and seeds are shared by the control and OCR-enhanced arms. These intervals quantify test-sampling uncertainty conditional on the trained models and do not include label uncertainty or the full training population.
+
+| Input | Full F1 mean ± SD | Full 95% CI | OCR present | OCR absent |
+|---|---:|---:|---:|---:|
+| PhoBERT caption | 68.19 ± 0.77 | [65.17, 71.10] | 64.75 ± 1.25 | 74.88 ± 0.76 |
+| PhoBERT OCR | 56.55 ± 0.49 | [53.18, 59.87] | 59.62 ± 0.76 | 36.39 ± 0.00 |
+| PhoBERT caption+OCR | 70.05 ± 1.25 | [67.06, 72.94] | 66.61 ± 1.63 | 76.31 ± 1.37 |
+| DT4MID image+caption | 67.24 ± 1.39 | [64.20, 70.16] | 64.75 ± 1.72 | 71.84 ± 1.25 |
+| DT4MID image+caption+OCR | 67.17 ± 0.83 | [64.35, 69.88] | 63.73 ± 2.09 | 73.45 ± 1.33 |
+
+| Matched comparison | Subset | $\Delta$ F1 (points) | Paired 95% CI |
+|---|---|---:|---:|
+| PhoBERT: +OCR | full | 1.86 | [-0.64, 4.33] |
+| PhoBERT: +OCR | OCR present | 1.86 | [-1.42, 5.17] |
+| PhoBERT: +OCR | OCR absent | 1.43 | [-2.08, 4.83] |
+| DT4MID: +OCR | full | -0.07 | [-2.28, 2.05] |
+| DT4MID: +OCR | OCR present | -1.01 | [-4.02, 1.98] |
+| DT4MID: +OCR | OCR absent | 1.61 | [-1.11, 4.34] |
+
+Caption+OCR can differ from caption-only even on OCR-absent test items because the two models were trained on different inputs over the full training set. Such changes should not be attributed to OCR appearing in those particular test items. The scenario benchmark has no paired confidence intervals or tests, so its cross-family and ablation comparisons remain descriptive.
+
+## Qualitative error cases
+
+The cases below were selected to illustrate distinct observed behaviours, not sampled to estimate their prevalence. Descriptions omit names, handles, avatars, and identifying details. Gold is ordered as $(T,I,M)$. P = PhoBERT caption, P+O = PhoBERT caption+OCR, D = DT4MID image+caption, and D+O = DT4MID image+caption+OCR. Prediction vectors follow seeds 42/123/2026.
+
+| ID | Source | Gold | P | P+O | D | D+O | Paraphrased interpretation |
+|---:|---|---|---|---|---|---|---|
+| 6564 | Facebook | 001 | 0/1/1 | 0/0/0 | 1/0/0 | 0/0/0 | The caption says a phone was just purchased, while the image places it in a run-down room. The contrast is missed by D+O; no OCR is present. |
+| 308 | Threads | 001 | 0/0/0 | 1/1/1 | 1/0/0 | 0/1/1 | A screenshot contains a hyperbolic comparison and reply absent from the caption. OCR supplies that dialogue; this association does not prove a causal mechanism. |
+| 5835 | Facebook | 001 | 1/1/1 | 0/0/0 | 1/0/1 | 1/1/0 | A skeleton-in-costume image accompanies a short temporal caption. OCR contains only an artist signature and is associated with worse PhoBERT predictions. |
+| 1964 | Facebook | 000 | 1/1/0 | 1/1/1 | 1/0/0 | 1/1/1 | A neutral agreement with simple advice is over-read as sarcastic; OCR also contains recognition errors. |
+| 6000 | Facebook | 001 | 1/1/1 | 1/1/1 | 1/1/1 | 1/1/1 | A mock parental compliment is reversed by a school-fee screenshot. All settings classify it correctly, so the case does not establish that the image is necessary for the models. |
+
+The test set contains 160 `(0,0,1)` items. With OCR, DT4MID's mean false-negative rate on this subset changes from 39.17% to 33.75%, while its full-test false-positive rate changes from 27.13% to 33.74%. PhoBERT changes from 28.75% to 31.67% false negatives on `(0,0,1)`. These trade-offs prevent treating aggregate F1 as evidence that cross-modal cases are solved.
+
+### Visual evidence for the five cases
+
+The images below are local copies from the held-out test set. Each is placed next to the caption/OCR evidence needed to understand the corresponding prediction pattern; the descriptions should not be read as additional quantitative results.
+
+#### ID 6564 — contextual contrast missed
+
+<p align="center">
+  <img src="images/case-6564.jpg" alt="Case 6564: a new phone photographed in a visibly run-down room" width="520">
+</p>
+
+*Caption:* “M-mua duoc roi” (“I-I managed to buy it”). *OCR:* absent. The sarcastic reading depends on the contrast between the claimed purchase and the surrounding room, which is why the case is labelled `(0,0,1)`.
+
+#### ID 308 — useful text inside the image
+
+<p align="center">
+  <img src="images/case-0308.jpg" alt="Case 308: a chat screenshot containing a hyperbolic comparison and reply" width="620">
+</p>
+
+*Caption:* “❌ Sao em ăn khoẻ thế. ✅”. *Image text/OCR:* “Ăn như núi lở … ăn cho tốt hệ tiêu hóa …”. The dialogue is absent from the caption, so OCR exposes evidence that a caption-only model cannot observe. This example illustrates an association in the recorded predictions, not a causal proof that OCR is generally beneficial.
+
+#### ID 5835 — OCR noise from an artist signature
+
+<p align="center">
+  <img src="images/case-5835.jpg" alt="Case 5835: a running skeleton wearing costume wings and a skirt" width="420">
+</p>
+
+*Caption:* “Đây là t sau 4 tiếng nữa” (“This will be me in four hours”). *OCR:* “Kiszkiloszki”, an artist signature rather than semantic post content. The OCR-enhanced PhoBERT predictions are worse on this item, illustrating why any detected text should not automatically be treated as useful evidence.
+
+#### ID 1964 — OCR recognition error on a neutral item
+
+<p align="center">
+  <img src="images/case-1964.jpg" alt="Case 1964: grass background with the Vietnamese phrase met thi nghi" width="620">
+</p>
+
+*Caption:* “Đồng ý” (“Agreed”). The visible phrase is “mệt thì nghỉ” (“rest if tired”), whereas OCR returns a corrupted fragment. The gold label is `(0,0,0)`, but most runs over-read the item as sarcastic.
+
+#### ID 6000 — cross-modal sarcasm correctly detected
+
+<p align="center">
+  <img src="images/case-6000.jpg" alt="Case 6000: a chat screenshot joking that a teacher should charge more because the family is rich" width="560">
+</p>
+
+*Caption:* “Mẹ: Ừm m giỏi” (“Mother: Yes, well done”). The screenshot reverses that apparent praise through a joke about a teacher extending lessons and charging more. All evaluated settings predict the positive class, so this is a successful comparison case rather than evidence that any one modality is necessary.
+
+## Annotation scope and agreement
+
+The Round-2 request contains text, image, and OCR together. The prompt instructs the model to assess text-only, image-only, and complete-post evidence sequentially, but this instruction does not physically withhold modalities and cannot guarantee isolation. The labels should therefore be described as prompt-instructed modality-specific judgements, with possible cross-modal influence on $T$ and $I$.
+
+The label semantics permit $M$ to differ from $T\vee I$. For example, `(0,0,1)` represents a pair credited as sarcastic only under joint interpretation, whereas `(1,0,1)` represents a caption already labelled sarcastic with an image that preserves the post-level reading. The main paper gives short paraphrased examples; these combinations describe annotation outcomes rather than necessary model behaviour.
+
+On the 736-sample adjudicated evaluation split, LLM--human $\kappa$ is 0.7600 for $T$, 0.7436 for $I$, and 0.7987 for $M$. On the separate 50-item prompt-development set, the corresponding diagnostics range from 0.62 to 0.82 across models. These values do not measure independent human--human agreement or establish train/dev label quality. Per-annotator labels were not retained after adjudication. Apart from the 50 human-labelled prompt-development items drawn from the training pool, train/dev were not systematically human-validated.
+
+## Anonymisation and controlled access
+
+The full raw corpus is not redistributed. This appendix contains only the five manually reviewed test images above, selected because they show the qualitative evidence without readable names or handles; ID 308 still contains two small avatar thumbnails. The controlled-access package is otherwise limited to approved derived material: modality labels, anonymised OCR strings, statistics, and fixed splits keyed by opaque identifiers. Text and OCR replace direct identifiers with typed placeholders; other images used internally cover avatars, private faces, display names, and precise timestamps with opaque masks. Access and removal requests are reviewed case by case, and approved removal requests withdraw the associated derived records.
 
 ## Hard samples by scenario
 
 This appendix lists *hard samples* (instances misclassified by many models simultaneously) for each *ablation* scenario. For each sample, we report the sample ID and a short description of the dominant error pattern.
+
+Their source images are not embedded because several contain readable account names, handles, faces, or timestamps. The opaque IDs retain traceability for authorised reviewers without expanding public disclosure.
 
 ### s1 (no preprocessing, emoji kept)
 
@@ -370,5 +478,3 @@ Return exactly this JSON schema:
 }
 
 ```
-
-\end{document}
