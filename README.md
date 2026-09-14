@@ -208,5 +208,3 @@ The annotation flow is separated into two independent pipelines:
 - Goal: determine sarcasm sources across modalities (e.g., **T/I/MM**).
 - Location: `round-2-annotation/`
 - Prompt: `round-2-annotation/prompts/prompt.txt`
-
-Operational details, environment variables, and key scripts are documented in `AGENT.md`.
