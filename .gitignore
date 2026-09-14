@@ -40,12 +40,13 @@ pyvenv.cfg
 .cursor/
 data_collection/
 images/
+!appendix/images/
+!appendix/images/*.jpg
 50_samples_images/
 annotator-agreement/
 AGENT.md
 50-images/
 human_annotation/
 report/*
-!report/main.tex
 prediction_test/
 error_analysis_output/
